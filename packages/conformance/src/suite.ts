@@ -1,3 +1,4 @@
+import type { Cassette } from '@baasconn/adapter-kit/testing';
 import { FACET_FOR_CAPABILITY, supportedKeys, type ProviderAdapter } from '@baasconn/provider-spi';
 import { CAPABILITY_KEYS, SupportLevel, type CapabilityKey } from '@baasconn/taxonomy';
 import { describe, expect, it } from 'vitest';
@@ -33,11 +34,22 @@ export function runConformanceSuite(config: ConformanceConfig): void {
   const accountRef = config.accountRef ?? DEFAULT_ACCOUNT_REF;
   const allCassettes = [...fixtures.happyPath, ...fixtures.errors];
 
-  const withHarness = async (fn: (h: Harness) => Promise<void>): Promise<void> => {
+  /**
+   * Sobe o harness com um conjunto de fitas.
+   *
+   * O grupo da matriz de erros passa APENAS as fitas de erro. Servir os dois
+   * conjuntos juntos faria a interacao de caminho feliz casar primeiro em toda
+   * rota que os dois cobrem — e a fixture de erro nunca seria alcancada, com o
+   * teste passando por nao ter exercitado nada.
+   */
+  const withHarness = async (
+    fn: (h: Harness) => Promise<void>,
+    cassettes: readonly Cassette[] = allCassettes,
+  ): Promise<void> => {
     const harness = await createHarness({
       factory,
       credentials: config.credentials,
-      cassettes: allCassettes,
+      cassettes,
       buildContext: config.buildContext,
     });
     try {
@@ -224,6 +236,12 @@ export function runConformanceSuite(config: ConformanceConfig): void {
         const unmapped: string[] = [];
 
         for (const cassette of fixtures.errors) {
+          if (!cassette.interactions.some((i) => i.response.status >= 400)) continue;
+
+          // So esta fita de erro, mais as que servem autenticacao: qualquer
+          // outra poderia responder 200 na mesma rota e mascarar o cenario.
+          const isolated = [...fixtures.errors.filter(isAuthCassette), cassette];
+
           await withHarness(async ({ adapter }) => {
             for (const interaction of cassette.interactions) {
               if (interaction.response.status < 400) continue;
@@ -234,7 +252,7 @@ export function runConformanceSuite(config: ConformanceConfig): void {
                 unmapped.push(...checkErrorMapped(error, cassette.scenario).map((f) => f.message));
               }
             }
-          });
+          }, isolated);
         }
 
         expect(unmapped, `Fixtures de erro sem mapeamento:\n  ${unmapped.join('\n  ')}`).toEqual(
@@ -386,6 +404,16 @@ export function runConformanceSuite(config: ConformanceConfig): void {
       });
     });
   });
+}
+
+/**
+ * Fita que existe so para autenticar.
+ *
+ * Sem ela, isolar um cenario de erro deixaria o adapter sem token e o teste
+ * mediria a falha de autenticacao em vez do erro que quer exercitar.
+ */
+function isAuthCassette(cassette: Cassette): boolean {
+  return cassette.interactions.every((interaction) => interaction.response.status < 400);
 }
 
 /** Dispara a chamada correspondente a uma capacidade, com argumentos de teste. */

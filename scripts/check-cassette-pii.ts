@@ -96,7 +96,10 @@ function walk(dir: string, out: string[] = []): string[] {
     if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) walk(full, out);
-    else if (/\.(json|yaml|yml)$/.test(entry)) out.push(full);
+    // `.ts` tambem: o scaffolder gera as fixtures em TypeScript, entao um
+    // gate que so olhasse JSON nao protegeria nenhum adapter. Varrer o `src`
+    // junto e de proposito — um documento cravado num mapper vaza igual.
+    else if (/\.(json|yaml|yml|ts)$/.test(entry)) out.push(full);
   }
   return out;
 }

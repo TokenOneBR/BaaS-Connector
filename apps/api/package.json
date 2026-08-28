@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@baasconn/adapter-kit": "workspace:*",
+    "@baasconn/adapter-mock-bank": "workspace:*",
     "@baasconn/contracts": "workspace:*",
     "@baasconn/crypto": "workspace:*",
     "@baasconn/db": "workspace:*",

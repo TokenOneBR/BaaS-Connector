@@ -23,6 +23,8 @@ export const ERROR_MESSAGES_PT_BR: Readonly<Partial<Record<BaasErrorCode, string
     [BaasErrorCode.CHARGE_NOT_FOUND]: 'Cobranca nao encontrada.',
     [BaasErrorCode.CONNECTION_NOT_FOUND]: 'Conexao de provedor nao encontrada.',
     [BaasErrorCode.PROVIDER_NOT_FOUND]: 'Provedor nao encontrado.',
+    [BaasErrorCode.PROVIDER_INTERNAL_ERROR]:
+      'O provedor respondeu com erro interno. A operacao pode nao ter sido concluida.',
     [BaasErrorCode.PROVIDER_CONTRACT_VIOLATION]:
       'A resposta do provedor nao esta no formato esperado.',
     [BaasErrorCode.PROVIDER_CREDENTIALS_INVALID]:

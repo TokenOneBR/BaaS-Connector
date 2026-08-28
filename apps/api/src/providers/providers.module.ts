@@ -1,3 +1,4 @@
+import { mockbankFactory } from '@baasconn/adapter-mock-bank';
 import type { ProviderAdapterFactory } from '@baasconn/provider-spi';
 import { Module } from '@nestjs/common';
 
@@ -13,11 +14,11 @@ import { ProviderResolver } from './provider.resolver.js';
  * capacidade que nao implementa. Quem precisa de um adapter privado publica
  * `@sua-org/baas-provider-x` e acrescenta uma linha aqui.
  *
- * Vazia enquanto os adapters nao existem: o registry aceita e `/v1/providers`
- * responde lista vazia, em vez de o boot falhar num deploy recem-criado que
- * ainda nao tem credencial de BaaS nenhuma.
+ * Uma lista vazia continua sendo valida: um deploy recem-criado sobe sem
+ * credencial de BaaS nenhuma, e `/v1/providers` responde lista vazia em vez de
+ * o boot falhar.
  */
-export const PROVIDER_ADAPTERS: ProviderAdapterFactory[] = [];
+export const PROVIDER_ADAPTERS: ProviderAdapterFactory[] = [mockbankFactory];
 
 @Module({
   providers: [

@@ -89,7 +89,21 @@ export enum BaasErrorCode {
   PROVIDER_UNAVAILABLE = 'PROVIDER_UNAVAILABLE',
   PROVIDER_TIMEOUT = 'PROVIDER_TIMEOUT',
   PROVIDER_RATE_LIMITED = 'PROVIDER_RATE_LIMITED',
+  /**
+   * O provedor recusou a operacao. E TAMBEM o fallback da tabela de
+   * mapeamento de cada adapter — por isso a suite de conformidade reprova uma
+   * fixture de erro que caia aqui: significa que o codigo do provedor nao foi
+   * mapeado.
+   */
   PROVIDER_REJECTED = 'PROVIDER_REJECTED',
+  /**
+   * O servidor do provedor falhou (5xx que nao e indisponibilidade).
+   *
+   * Distinto de PROVIDER_REJECTED: ali houve decisao, aqui houve defeito.
+   * `safeToRetry: false` porque um 500 numa escrita pode ter acontecido DEPOIS
+   * de o efeito ser aplicado do lado deles.
+   */
+  PROVIDER_INTERNAL_ERROR = 'PROVIDER_INTERNAL_ERROR',
   /** A resposta do provedor nao passou no nosso schema. */
   PROVIDER_CONTRACT_VIOLATION = 'PROVIDER_CONTRACT_VIOLATION',
   PROVIDER_CREDENTIALS_INVALID = 'PROVIDER_CREDENTIALS_INVALID',
@@ -184,6 +198,7 @@ export const ERROR_CODE_META: Readonly<Record<BaasErrorCode, CodeMeta>> = Object
   [BaasErrorCode.DOCUMENT_REQUIRED]: meta(V.COMPLIANCE, 422),
 
   [BaasErrorCode.PROVIDER_UNAVAILABLE]: meta(V.PROVIDER, 503, true, true),
+  [BaasErrorCode.PROVIDER_INTERNAL_ERROR]: meta(V.PROVIDER, 502, false, false),
   [BaasErrorCode.PROVIDER_TIMEOUT]: meta(V.PROVIDER, 504, true, false),
   [BaasErrorCode.PROVIDER_RATE_LIMITED]: meta(V.PROVIDER, 503, true, true),
   [BaasErrorCode.PROVIDER_REJECTED]: meta(V.PROVIDER, 502),

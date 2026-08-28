@@ -47,10 +47,21 @@ describe('grafo de injecao da API', () => {
     expect(moduleRef.get(Metrics)).toBeInstanceOf(Metrics);
   });
 
-  it('sobe sem nenhum adapter registrado', () => {
-    // O deploy inicial nao tem provedor configurado. Falhar o boot aqui
-    // obrigaria a ter credencial de BaaS antes de conseguir subir a API.
-    expect(moduleRef.get(ProviderRegistry).list()).toEqual([]);
+  it('valida o manifesto de cada adapter no boot', () => {
+    // O `onModuleInit` do registry constroi um adapter de sonda e roda
+    // `assertManifestValid`. Se o manifesto prometesse pix.out.send sem a
+    // faceta pixTransfers, o boot teria falhado antes deste ponto — o erro
+    // apareceria aqui, e nao na primeira transferencia de producao.
+    const registered = moduleRef.get(ProviderRegistry).list();
+    expect(registered.map((factory) => factory.slug)).toEqual(['MOCK_BANK']);
+  });
+
+  it('o registro expoe capacidade por conexao sem tocar a rede', () => {
+    const registry = moduleRef.get(ProviderRegistry);
+    expect(registry.supports('MOCK_BANK', 'pix.out.send')).toBe(true);
+    // Declarada UNSUPPORTED no manifesto: o guard devolve 501 com a nota
+    // ANTES de qualquer round-trip ao provedor.
+    expect(registry.supports('MOCK_BANK', 'pix.out.scheduled')).toBe(false);
   });
 
   it('/healthz responde sem tocar em Postgres nem Redis', async () => {

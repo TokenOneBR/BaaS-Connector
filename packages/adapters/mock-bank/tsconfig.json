@@ -1,0 +1,6 @@
+{
+  "extends": "@baasconn/tsconfig/node22.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}
