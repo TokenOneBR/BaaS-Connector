@@ -78,6 +78,46 @@ Documentos sintéticos com dígito verificador válido, gerados para este reposi
 
 CNPJ que aprova: `11222333000181`.
 
+### Enviando documentos
+
+O cenário `01` se resolve pela API pública, não só pelo painel de controle:
+
+```
+POST /api/v1/contas/:id/onboarding/documentos?codigo=SELFIE_LIVENESS
+Content-Type: application/octet-stream
+X-Conteudo-Sha256: <hex opcional>
+
+<bytes do arquivo>
+```
+
+Os bytes vão crus, não em base64 dentro de JSON: um RG fotografado passa fácil
+de 10 MB, e base64 o infla em um terço antes de o parser sequer decidir se
+aceita. Teto de 20 MiB, aplicado durante o stream.
+
+Se `X-Conteudo-Sha256` vier, o Mock Bank confere e recusa divergência com
+`MB-DOC-422`. Um upload truncado por rede instável é indistinguível de um
+arquivo legítimo sem essa checagem, e o resultado seria uma pendência
+"cumprida" com metade de um documento.
+
+Resposta:
+
+```json
+{
+  "documento_id": "doc_01J...",
+  "codigo": "SELFIE_LIVENESS",
+  "situacao": "ACEITO",
+  "sha256": "9f2c...",
+  "tamanho_bytes": 21,
+  "onboarding": { "situacao": "PENDING_REQUIREMENTS", "pendencias": [...] }
+}
+```
+
+Cumprir a última pendência aprova o caso e abre a conta, emitindo
+`onboarding.status_changed` e `account.status_changed`. O conteúdo **não é
+guardado** — um banco de mentira não precisa reter PDF de KYC, e guardá-lo em
+memória transformaria a suíte e2e num consumidor de heap. Fica só o que o
+conector precisa conferir: tamanho e digest.
+
 ### PIX out — dois últimos dígitos dos centavos
 
 | Centavos | Comportamento |

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { Test, type TestingModule } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import {
@@ -77,6 +79,16 @@ describe('Mock Bank', () => {
     return response.body;
   }
 
+  async function sendDocument(accountId: string, codigo: string) {
+    return authed()
+      .post(`/api/v1/contas/${accountId}/onboarding/documentos`)
+      .query({ codigo })
+      .set(bearer())
+      .set('Content-Type', 'application/octet-stream')
+      .send(Buffer.from(`conteudo-${codigo}`))
+      .expect(201);
+  }
+
   async function fund(accountId: string, amount: string) {
     await authed()
       .post('/_control/pix/inbound')
@@ -150,6 +162,128 @@ describe('Mock Bank', () => {
 
       const detail = await authed().get(`/api/v1/contas/${account.id}`).set(bearer()).expect(200);
       expect(detail.body.situacao).toBe('EM_ANALISE');
+    });
+
+    it('envia documento e cumpre a pendencia', async () => {
+      const account = await createAccount(CPF_PENDENCIAS, 'PF');
+      const bytes = Buffer.from('selfie-falsa-de-teste');
+
+      const response = await authed()
+        .post(`/api/v1/contas/${account.id}/onboarding/documentos`)
+        .query({ codigo: 'SELFIE_LIVENESS' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .send(bytes)
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        codigo: 'SELFIE_LIVENESS',
+        situacao: 'ACEITO',
+        tamanho_bytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      });
+
+      // Uma pendencia cumprida, a outra continua aberta e o caso NAO aprova.
+      expect(response.body.onboarding.pendencias.map((p: { codigo: string }) => p.codigo)).toEqual([
+        'PROOF_OF_ADDRESS',
+      ]);
+      expect(response.body.onboarding.situacao).toBe(OnboardingStatus.PENDING_REQUIREMENTS);
+    });
+
+    it('cumprir a ultima pendencia aprova e abre a conta', async () => {
+      const account = await createAccount(CPF_PENDENCIAS, 'PF');
+
+      await sendDocument(account.id, 'SELFIE_LIVENESS');
+      const last = await sendDocument(account.id, 'PROOF_OF_ADDRESS');
+
+      expect(last.body.onboarding.situacao).toBe(OnboardingStatus.APPROVED);
+
+      const detail = await authed().get(`/api/v1/contas/${account.id}`).set(bearer()).expect(200);
+      expect(detail.body.situacao).toBe('ATIVA');
+    });
+
+    it('recusa sha256 divergente', async () => {
+      const account = await createAccount(CPF_PENDENCIAS, 'PF');
+
+      // Um upload truncado por rede instavel e indistinguivel de um arquivo
+      // legitimo sem esta checagem: a pendencia ficaria "cumprida" com metade
+      // de um documento.
+      const response = await authed()
+        .post(`/api/v1/contas/${account.id}/onboarding/documentos`)
+        .query({ codigo: 'SELFIE_LIVENESS' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .set('x-conteudo-sha256', 'f'.repeat(64))
+        .send(Buffer.from('conteudo-real'))
+        .expect(422);
+
+      expect(response.body.error.code).toBe('MB-DOC-422');
+    });
+
+    it('recusa documento vazio', async () => {
+      const account = await createAccount(CPF_PENDENCIAS, 'PF');
+      const response = await authed()
+        .post(`/api/v1/contas/${account.id}/onboarding/documentos`)
+        .query({ codigo: 'SELFIE_LIVENESS' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .send(Buffer.alloc(0))
+        .expect(422);
+      expect(response.body.error.code).toBe('MB-DOC-422');
+    });
+
+    it('recusa codigo fora das pendencias do caso', async () => {
+      const account = await createAccount(CPF_PENDENCIAS, 'PF');
+      const response = await authed()
+        .post(`/api/v1/contas/${account.id}/onboarding/documentos`)
+        .query({ codigo: 'UBO_DECLARATION' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .send(Buffer.from('x'))
+        .expect(422);
+      expect(response.body.error.code).toBe('MB-ONB-422');
+    });
+
+    it('recusa a mesma pendencia duas vezes', async () => {
+      const account = await createAccount(CPF_PENDENCIAS, 'PF');
+      await sendDocument(account.id, 'SELFIE_LIVENESS');
+
+      const again = await authed()
+        .post(`/api/v1/contas/${account.id}/onboarding/documentos`)
+        .query({ codigo: 'SELFIE_LIVENESS' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .send(Buffer.from('outra-selfie'))
+        .expect(422);
+      expect(again.body.error.code).toBe('MB-ONB-422');
+    });
+
+    it('recusa envio em caso que nao aguarda documento', async () => {
+      // Conta do caminho feliz ja aprovou: aceitar documento aqui seria
+      // aceitar prova para uma decisao ja tomada.
+      const account = await createAccount(CPF_APROVA, 'PF');
+      const response = await authed()
+        .post(`/api/v1/contas/${account.id}/onboarding/documentos`)
+        .query({ codigo: 'SELFIE_LIVENESS' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .send(Buffer.from('x'))
+        .expect(422);
+      expect(response.body.error.code).toBe('MB-ONB-422');
+    });
+
+    it('recusa envio para conta inexistente', async () => {
+      // A conta e resolvida antes do caso, entao o 404 e da CONTA e nao do
+      // onboarding — dizer "onboarding nao encontrado" para um id de conta que
+      // nunca existiu mandaria o suporte procurar no lugar errado.
+      const response = await authed()
+        .post('/api/v1/contas/acc_01ARZ3NDEKTSV4RRFFQ69G5FAV/onboarding/documentos')
+        .query({ codigo: 'SELFIE_LIVENESS' })
+        .set(bearer())
+        .set('Content-Type', 'application/octet-stream')
+        .send(Buffer.from('x'))
+        .expect(404);
+      expect(response.body.error.code).toBe('MB-CONTA-404');
     });
 
     it('CPF terminado em 00 recusa por divergencia com a Receita', async () => {

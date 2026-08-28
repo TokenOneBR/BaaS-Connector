@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { HolderType, newId, OnboardingStatus, RequirementCode } from '@baasconn/taxonomy';
 import { Injectable } from '@nestjs/common';
 
@@ -9,7 +11,7 @@ import {
   OnboardingScenario,
   onboardingScenarioFor,
 } from '../common/magic-values.js';
-import { MockBankStore, MockOnboarding } from '../common/store.js';
+import { MockBankStore, MockDocument, MockOnboarding } from '../common/store.js';
 import { MockBankConfig } from '../config/config.service.js';
 import { WebhookService } from '../webhooks/webhook.service.js';
 
@@ -81,9 +83,29 @@ export class OnboardingService {
     return account.onboardingId ? this.get(account.onboardingId) : undefined;
   }
 
-  /** Envia um documento e, se foi o ultimo pendente, aprova. */
-  submitDocument(onboardingId: string, code: RequirementCode): MockOnboarding {
+  /**
+   * Recebe um documento e, se foi o ultimo pendente, aprova.
+   *
+   * O conteudo NAO e guardado: um banco de mentira nao precisa reter PDF de
+   * KYC, e guardar documento em memoria transformaria a suite e2e num
+   * consumidor de heap. O que fica e o que o conector precisa conferir —
+   * tamanho e digest.
+   */
+  submitDocument(
+    onboardingId: string,
+    code: RequirementCode,
+    content: { bytes: Buffer; contentType: string; declaredSha256?: string },
+  ): { onboarding: MockOnboarding; document: MockDocument } {
     const onboarding = this.get(onboardingId);
+
+    if (onboarding.status !== OnboardingStatus.PENDING_REQUIREMENTS) {
+      throw new MockBankError(
+        'MB-ONB-422',
+        `Caso ${onboardingId} nao esta aguardando documentos (situacao ${onboarding.status}).`,
+        422 as never,
+      );
+    }
+
     const requirement = onboarding.requirements.find((r) => r.code === code);
     if (!requirement) {
       throw new MockBankError(
@@ -92,16 +114,45 @@ export class OnboardingService {
         422 as never,
       );
     }
+    if (requirement.status === 'ACCEPTED') {
+      throw new MockBankError('MB-ONB-422', `Pendencia ${code} ja foi cumprida.`, 422 as never);
+    }
+    if (content.bytes.length === 0) {
+      throw new MockBankError('MB-DOC-422', 'Documento vazio.', 422 as never);
+    }
+
+    const sha256 = createHash('sha256').update(content.bytes).digest('hex');
+    if (content.declaredSha256 && content.declaredSha256.toLowerCase() !== sha256) {
+      // Confere o digest que o cliente declarou. Um upload truncado por rede
+      // instavel e indistinguivel de um arquivo legitimo sem esta checagem, e
+      // o resultado seria uma pendencia "cumprida" com metade de um documento.
+      throw new MockBankError(
+        'MB-DOC-422',
+        'O sha256 declarado nao corresponde ao conteudo recebido.',
+        422 as never,
+      );
+    }
+
+    const document: MockDocument = {
+      id: newId('document'),
+      onboardingId,
+      code,
+      contentType: content.contentType,
+      sizeBytes: content.bytes.length,
+      sha256,
+      uploadedAt: this.clock.now(),
+    };
+    this.store.documents.set(document.id, document);
 
     requirement.status = 'ACCEPTED';
-    requirement.documentId = newId('document');
+    requirement.documentId = document.id;
     onboarding.updatedAt = this.clock.now();
 
     const allDone = onboarding.requirements.every((r) => r.status === 'ACCEPTED');
     if (allDone) void this.approve(onboarding, false);
     else void this.emitStatus(onboarding);
 
-    return onboarding;
+    return { onboarding, document };
   }
 
   /** Forca uma decisao. Usado pelo painel de controle e pelos testes. */

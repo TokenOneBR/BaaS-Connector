@@ -39,6 +39,16 @@ export interface MockRequirement {
   documentId?: string;
 }
 
+export interface MockDocument {
+  id: string;
+  onboardingId: string;
+  code: RequirementCode;
+  contentType: string;
+  sizeBytes: number;
+  sha256: string;
+  uploadedAt: Date;
+}
+
 export interface MockOnboarding {
   id: string;
   accountId: string;
@@ -142,6 +152,7 @@ export class MockBankStore {
   readonly accountsByTaxId = new Map<string, string>();
   readonly accountsByExternalId = new Map<string, string>();
   readonly onboardings = new Map<string, MockOnboarding>();
+  readonly documents = new Map<string, MockDocument>();
   readonly pixKeys = new Map<string, MockPixKey>();
   readonly pixKeysByValue = new Map<string, string>();
   readonly charges = new Map<string, MockCharge>();
@@ -157,6 +168,7 @@ export class MockBankStore {
     this.accountsByTaxId.clear();
     this.accountsByExternalId.clear();
     this.onboardings.clear();
+    this.documents.clear();
     this.pixKeys.clear();
     this.pixKeysByValue.clear();
     this.charges.clear();

@@ -1,9 +1,10 @@
-import { AccountStatus, HolderType, Money } from '@baasconn/taxonomy';
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { AccountStatus, HolderType, Money, RequirementCode } from '@baasconn/taxonomy';
+import { Body, Controller, Get, Headers, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 
 import { BearerAuthGuard } from '../common/auth.guard.js';
 import { MockClock } from '../common/clock.provider.js';
+import { MockBankError } from '../common/errors.js';
 import type { MockAccount } from '../common/store.js';
 import { OnboardingService } from '../onboarding/onboarding.service.js';
 import { PaymentsService } from '../pix/payments.service.js';
@@ -169,6 +170,89 @@ export class AccountsController {
     if (!onboarding) return { dados: null };
     return { dados: serializeOnboarding(onboarding) };
   }
+
+  /**
+   * Envio de documento de onboarding.
+   *
+   * Corpo sao os BYTES CRUS (`application/octet-stream`), nao base64 dentro de
+   * JSON: um RG fotografado passa facil de 10 MB, e base64 o infla em um
+   * terco antes de o parser sequer decidir se aceita. Os metadados vao na
+   * query e nos cabecalhos, que e o que a maioria dos BaaS brasileiros faz
+   * para upload de documento.
+   */
+  @Post(':id/onboarding/documentos')
+  async submitDocument(
+    @Param('id') id: string,
+    @Query('codigo') codigo: string,
+    @Headers('content-type') contentType: string | undefined,
+    @Headers('x-conteudo-sha256') declaredSha256: string | undefined,
+    @Req() request: AuthedRequest,
+  ) {
+    const onboarding = this.onboarding.byAccount(id);
+    if (!onboarding) {
+      throw new MockBankError(
+        'MB-ONB-404',
+        `A conta ${id} nao possui caso de onboarding.`,
+        404 as never,
+      );
+    }
+
+    if (!codigo || !(codigo in RequirementCode)) {
+      throw new MockBankError(
+        'MB-ONB-422',
+        `Informe ?codigo= com uma pendencia valida. Recebido: ${codigo ?? '(vazio)'}.`,
+        422 as never,
+      );
+    }
+
+    const bytes = await readBody(request);
+    const result = this.onboarding.submitDocument(
+      onboarding.id,
+      RequirementCode[codigo as keyof typeof RequirementCode],
+      {
+        bytes,
+        contentType: contentType ?? 'application/octet-stream',
+        declaredSha256,
+      },
+    );
+
+    return {
+      documento_id: result.document.id,
+      codigo: result.document.code,
+      situacao: 'ACEITO',
+      sha256: result.document.sha256,
+      tamanho_bytes: result.document.sizeBytes,
+      onboarding: serializeOnboarding(result.onboarding),
+    };
+  }
+}
+
+/** Limite de um documento de KYC. Acima disso e engano ou ataque. */
+const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Le o corpo em stream, com teto.
+ *
+ * Acumular sem limite deixaria qualquer cliente derrubar o processo com um
+ * upload longo — e um banco de mentira que cai leva a suite e2e junto.
+ */
+function readBody(request: AuthedRequest): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+
+    request.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_DOCUMENT_BYTES) {
+        request.destroy();
+        reject(new MockBankError('MB-DOC-413', 'Documento acima de 20 MiB.', 413 as never));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('end', () => resolve(Buffer.concat(chunks)));
+    request.on('error', reject);
+  });
 }
 
 export function serializeOnboarding(onboarding: {
