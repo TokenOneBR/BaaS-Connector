@@ -48,7 +48,19 @@ function isRealCnpj(value: string): boolean {
  * Sao validos no modulo 11 (por isso passam nos schemas) mas nao pertencem a
  * ninguem: foram gerados para este repositorio.
  */
-const ALLOWED_SYNTHETIC = new Set(['52998224725', '11222333000181', '11144477735']);
+const ALLOWED_SYNTHETIC = new Set([
+  '52998224725',
+  '11222333000181',
+  '11144477735',
+  // Documentos por sufixo de valor magico do Mock Bank.
+  '10433218100',
+  '58692322601',
+  '95134332002',
+  '08412411803',
+  '04499727804',
+  '62704828105',
+  '16934060806',
+]);
 
 const PATTERNS: Array<{ rule: string; regex: RegExp; validate?: (m: string) => boolean }> = [
   {
