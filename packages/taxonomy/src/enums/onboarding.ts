@@ -1,0 +1,126 @@
+export enum OnboardingType {
+  KYC = 'KYC',
+  KYB = 'KYB',
+}
+
+export enum OnboardingStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  PENDING_REQUIREMENTS = 'PENDING_REQUIREMENTS',
+  IN_ANALYSIS = 'IN_ANALYSIS',
+  MANUAL_REVIEW = 'MANUAL_REVIEW',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum OnboardingDecision {
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+  REVIEW = 'REVIEW',
+}
+
+/**
+ * Motivos canonicos de recusa. Codigos de provedor mapeiam para estes, e o
+ * codigo bruto e sempre preservado em `providerRejectionCode` para escalacao.
+ */
+export enum OnboardingRejectionCode {
+  DOCUMENT_ILLEGIBLE = 'DOCUMENT_ILLEGIBLE',
+  DOCUMENT_EXPIRED = 'DOCUMENT_EXPIRED',
+  DOCUMENT_TAMPERED = 'DOCUMENT_TAMPERED',
+  FACE_MATCH_FAILED = 'FACE_MATCH_FAILED',
+  LIVENESS_FAILED = 'LIVENESS_FAILED',
+  /** Dados divergem da Receita Federal. */
+  DATA_MISMATCH = 'DATA_MISMATCH',
+  /** CPF suspenso/cancelado, CNPJ baixado. */
+  TAX_ID_IRREGULAR = 'TAX_ID_IRREGULAR',
+  UNDERAGE = 'UNDERAGE',
+  SANCTIONS_MATCH = 'SANCTIONS_MATCH',
+  PEP_RESTRICTED = 'PEP_RESTRICTED',
+  ADVERSE_MEDIA = 'ADVERSE_MEDIA',
+  /** CNAE vedado pela politica do provedor. */
+  PROHIBITED_ACTIVITY = 'PROHIBITED_ACTIVITY',
+  FRAUD_SUSPICION = 'FRAUD_SUSPICION',
+  DUPLICATE_HOLDER = 'DUPLICATE_HOLDER',
+  UBO_NOT_IDENTIFIED = 'UBO_NOT_IDENTIFIED',
+  RISK_APPETITE = 'RISK_APPETITE',
+  /** Catch-all: exige `providerRejectionCode` preenchido. */
+  PROVIDER_POLICY = 'PROVIDER_POLICY',
+}
+
+export enum RequirementCode {
+  // Pessoa fisica
+  SELFIE_LIVENESS = 'SELFIE_LIVENESS',
+  IDENTITY_FRONT = 'IDENTITY_FRONT',
+  IDENTITY_BACK = 'IDENTITY_BACK',
+  PROOF_OF_ADDRESS = 'PROOF_OF_ADDRESS',
+  PROOF_OF_INCOME = 'PROOF_OF_INCOME',
+  TAX_ID_DOCUMENT = 'TAX_ID_DOCUMENT',
+  // Pessoa juridica
+  ARTICLES_OF_INCORPORATION = 'ARTICLES_OF_INCORPORATION',
+  LATEST_AMENDMENT = 'LATEST_AMENDMENT',
+  BOARD_ELECTION_MINUTES = 'BOARD_ELECTION_MINUTES',
+  CNPJ_REGISTRATION_CARD = 'CNPJ_REGISTRATION_CARD',
+  OWNERSHIP_CHART = 'OWNERSHIP_CHART',
+  UBO_DECLARATION = 'UBO_DECLARATION',
+  FINANCIAL_STATEMENTS = 'FINANCIAL_STATEMENTS',
+  POWER_OF_ATTORNEY = 'POWER_OF_ATTORNEY',
+  /** KYC de um representante especifico; carrega `subjectRepresentativeId`. */
+  REPRESENTATIVE_KYC = 'REPRESENTATIVE_KYC',
+  // Comuns
+  ADDITIONAL_INFORMATION = 'ADDITIONAL_INFORMATION',
+  PHONE_VERIFICATION = 'PHONE_VERIFICATION',
+  EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
+  TERMS_ACCEPTANCE = 'TERMS_ACCEPTANCE',
+}
+
+export enum RequirementStatus {
+  PENDING = 'PENDING',
+  SUBMITTED = 'SUBMITTED',
+  IN_ANALYSIS = 'IN_ANALYSIS',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+  /** Dispensada pelo provedor. */
+  WAIVED = 'WAIVED',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum DocumentSide {
+  FRONT = 'FRONT',
+  BACK = 'BACK',
+  SINGLE = 'SINGLE',
+}
+
+export enum DocumentStatus {
+  UPLOADED = 'UPLOADED',
+  SENT_TO_PROVIDER = 'SENT_TO_PROVIDER',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+}
+
+/**
+ * PLD/AML. Circular BCB 3.978/2020 exige monitoramento continuo, nao apenas
+ * na abertura, por isso screening e entidade propria com `nextDueAt`.
+ */
+export enum ScreeningType {
+  PEP = 'PEP',
+  /** OFAC, ONU, UE, HMT. */
+  SANCTIONS = 'SANCTIONS',
+  /** CEIS, CNEP, CEPIM, Lista Suja do trabalho escravo. */
+  DOMESTIC_RESTRICTIVE = 'DOMESTIC_RESTRICTIVE',
+  ADVERSE_MEDIA = 'ADVERSE_MEDIA',
+  INTERNAL_DENYLIST = 'INTERNAL_DENYLIST',
+  /** Situacao cadastral na Receita Federal. */
+  TAX_ID_STATUS = 'TAX_ID_STATUS',
+  CREDIT_BUREAU = 'CREDIT_BUREAU',
+  DEVICE_FRAUD = 'DEVICE_FRAUD',
+}
+
+export enum ScreeningResult {
+  CLEAR = 'CLEAR',
+  POTENTIAL_MATCH = 'POTENTIAL_MATCH',
+  MATCH = 'MATCH',
+  INCONCLUSIVE = 'INCONCLUSIVE',
+  ERROR = 'ERROR',
+}

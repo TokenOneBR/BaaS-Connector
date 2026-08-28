@@ -1,0 +1,39 @@
+name: Mudanca de taxonomia ou do modelo canonico
+description: Alterar taxonomy, contracts ou provider-spi
+labels: [taxonomy, needs-adr]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Mudanca aqui afeta **todo** consumidor. O caminho e:
+        issue -> discussao -> PR de ADR -> PR de implementacao.
+        Ver [GOVERNANCE.md](../../GOVERNANCE.md).
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Tipo de mudanca
+      options:
+        - Adicionar valor de enum (aditivo)
+        - Adicionar campo opcional a um DTO (aditivo)
+        - Adicionar chave de capacidade (aditivo)
+        - Renomear ou remover (quebra a API)
+        - Mudar semantica de campo existente (quebra a API)
+    validations: { required: true }
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Qual provedor ou caso de uso motiva isso
+      description: |
+        Prefira citar um provedor real que nao cabe no modelo atual. O maior
+        risco da taxonomia e crescer por hipotese.
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      render: typescript
+    validations: { required: true }
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impacto nos adapters existentes

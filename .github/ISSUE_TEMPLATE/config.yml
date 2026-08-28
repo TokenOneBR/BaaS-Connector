@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Pergunta ou discussao
+    url: https://github.com/TokenOneBR/BaaS-Connector/discussions
+    about: Duvidas de uso, ideias e discussao de arquitetura.
+  - name: Vulnerabilidade de seguranca
+    url: https://github.com/TokenOneBR/BaaS-Connector/security/advisories/new
+    about: NUNCA reporte vulnerabilidade em issue publica. Use o relato privado.

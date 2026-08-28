@@ -1,0 +1,15 @@
+{
+  "name": "@baasconn/vitest-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./node": "./node.ts",
+    "./integration": "./integration.ts",
+    "./react": "./react.ts"
+  },
+  "devDependencies": {
+    "unplugin-swc": "^1.5.1",
+    "vitest": "^2.1.8"
+  }
+}

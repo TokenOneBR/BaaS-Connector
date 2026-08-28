@@ -1,0 +1,17 @@
+BaaS Connector
+Copyright 2026 TokenOne LTDA e contribuidores do projeto
+
+Este produto inclui software desenvolvido pela TokenOne LTDA
+(https://tokenone.com.br) e pelos contribuidores do projeto BaaS Connector.
+
+Licenciado sob a Apache License, Version 2.0 (ver LICENSE).
+
+O uso dos nomes e marcas "TokenOne" e "BaaS Connector" e regido por
+TRADEMARKS.md e nao e concedido pela licenca de software.
+
+Marcas de terceiros
+-------------------
+Celcoin, QI Tech, Dock, Asaas e Woovi sao marcas de seus respectivos
+titulares. Este projeto nao e afiliado a, nem endossado por, nenhuma delas.
+Os adapters existem apenas para interoperabilidade, escritos a partir de
+documentacao publica.

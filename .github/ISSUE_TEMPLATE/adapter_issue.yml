@@ -1,0 +1,43 @@
+name: Problema em adapter de provedor
+description: Um adapter especifico se comporta de forma incorreta
+labels: [adapter, needs-triage]
+body:
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provedor
+      options: [Celcoin, QI Tech, Dock, Asaas, Woovi, Mock Bank]
+    validations: { required: true }
+  - type: input
+    id: capability
+    attributes:
+      label: Capacidade
+      description: Chave do CapabilityDescriptor envolvida.
+      placeholder: pix.out.send
+    validations: { required: true }
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Natureza do problema
+      options:
+        - Mapeamento canonico errado
+        - Codigo de erro nao mapeado (cai em PROVIDER_REJECTED)
+        - Capacidade declarada mas nao funciona
+        - Capacidade suportada pelo provedor mas nao declarada
+        - Assinatura de webhook nao verifica
+        - Precisao monetaria
+        - Paginacao
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes:
+      label: Payload do provedor e resultado canonico esperado
+      description: |
+        **Redija todo dado pessoal.** Se puder, anexe uma fixture no formato
+        de `test/cassettes/`.
+      render: json
+    validations: { required: true }
+  - type: input
+    id: docs
+    attributes:
+      label: Link da documentacao do provedor

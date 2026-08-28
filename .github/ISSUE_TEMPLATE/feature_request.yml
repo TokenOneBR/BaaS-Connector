@@ -1,0 +1,19 @@
+name: Funcionalidade
+description: Propor uma capacidade nova no conector
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Que problema isto resolve
+      description: Descreva a situacao real, nao a solucao.
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Como voce imagina
+    validations: { required: true }
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: O que voce ja tentou ou considerou

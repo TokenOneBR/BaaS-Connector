@@ -1,0 +1,54 @@
+{
+  "name": "baas-connector",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Conector padrao open source para Banking as a Service brasileiro",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.11 <23",
+    "pnpm": ">=10.33"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:conformance": "turbo run test:conformance",
+    "test:integration": "turbo run test:integration",
+    "e2e": "pnpm --filter @baasconn/e2e test",
+    "db:generate": "pnpm --filter @baasconn/db db:generate",
+    "db:migrate": "pnpm --filter @baasconn/db migrate:dev",
+    "up": "docker compose up -d --wait",
+    "down": "docker compose down -v",
+    "new:adapter": "tsx scripts/new-adapter.ts",
+    "gen:capability-matrix": "tsx scripts/gen-capability-matrix.ts",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build --filter='./packages/*' && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "@types/node": "^22.10.2",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "@swc/core",
+      "@tailwindcss/oxide",
+      "esbuild",
+      "prisma",
+      "sharp",
+      "unrs-resolver"
+    ]
+  }
+}

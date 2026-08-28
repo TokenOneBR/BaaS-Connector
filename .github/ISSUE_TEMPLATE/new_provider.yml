@@ -1,0 +1,53 @@
+name: Novo adapter de provedor
+description: Propor ou assumir a implementacao de um novo BaaS
+labels: [adapter, new-provider]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Leia [o guia de adapters](../../docs/guides/writing-a-provider-adapter.md)
+        antes. O primeiro passo nao e codigo, e declarar honestamente o
+        `CapabilityDescriptor`.
+  - type: input
+    id: provider
+    attributes:
+      label: Provedor
+    validations: { required: true }
+  - type: input
+    id: docs
+    attributes:
+      label: Documentacao publica da API
+    validations: { required: true }
+  - type: dropdown
+    id: sandbox
+    attributes:
+      label: Ha sandbox publico?
+      description: |
+        Sem sandbox, as fixtures serao escritas a mao a partir da doc e
+        marcadas como `handcrafted-from-docs`. Isso e aceito, mas fica visivel
+        no relatorio de conformidade.
+      options: [Sim, com auto-cadastro, Sim, mediante contrato, Nao]
+    validations: { required: true }
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: Capacidades que o provedor oferece
+      options:
+        - label: Criacao de subconta PF
+        - label: Criacao de subconta PJ
+        - label: Onboarding / KYC
+        - label: Onboarding / KYB
+        - label: Consulta de saldo
+        - label: Chaves Pix
+        - label: Cobranca Pix estatica
+        - label: Cobranca Pix dinamica
+        - label: Pix out
+        - label: Devolucao Pix
+        - label: Extrato
+        - label: Webhooks com assinatura
+  - type: checkboxes
+    id: commitment
+    attributes:
+      label: Manutencao
+      options:
+        - label: Pretendo manter este adapter depois do merge

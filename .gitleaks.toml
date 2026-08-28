@@ -1,0 +1,40 @@
+title = "BaaS Connector secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "br-cpf"
+description = "Possivel CPF em codigo ou fixture"
+regex = '''\b\d{3}\.\d{3}\.\d{3}-\d{2}\b'''
+tags = ["pii", "lgpd"]
+
+[[rules]]
+id = "br-cnpj"
+description = "Possivel CNPJ em codigo ou fixture"
+regex = '''\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b'''
+tags = ["pii", "lgpd"]
+
+[[rules]]
+id = "pix-evp-key"
+description = "Possivel chave PIX aleatoria (EVP)"
+regex = '''(?i)"(pix_?key|chave_?pix|key)"\s*:\s*"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"'''
+tags = ["pii"]
+
+[[rules]]
+id = "pem-private-key"
+description = "Bloco PEM de chave privada"
+regex = '''-----BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----'''
+tags = ["secret"]
+
+[allowlist]
+description = "Fixtures com documentos falsos deterministicos e docs"
+paths = [
+  '''docs/.*\.md$''',
+  '''.*\.test\.ts$''',
+  '''packages/taxonomy/src/br/.*fixtures.*''',
+]
+regexes = [
+  '''00000000000''',
+  '''11111111111111''',
+]

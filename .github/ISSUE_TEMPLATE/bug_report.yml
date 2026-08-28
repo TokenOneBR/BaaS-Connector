@@ -1,0 +1,54 @@
+name: Bug
+description: Algo nao funciona como documentado
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Nao cole documento (CPF/CNPJ), credencial de provedor, chave Pix ou
+        EndToEndId real.** Use documentos sinteticos ou descreva o formato.
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu
+      description: Comportamento observado e comportamento esperado.
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes:
+      label: Como reproduzir
+      description: |
+        De preferencia contra o Mock Bank, que e deterministico:
+        `pnpm up` e depois os passos.
+      placeholder: |
+        1. pnpm up
+        2. POST /v1/accounts com CNPJ terminado em 01
+        3. ...
+    validations: { required: true }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - API canonica (/v1)
+        - Admin API / console
+        - Adapter de provedor
+        - Mock Bank
+        - Ledger
+        - Conciliacao
+        - Webhooks
+        - Deploy (Docker / Helm)
+        - Outra
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Versao
+      placeholder: '0.1.0 ou o SHA do commit'
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Cole a saida relevante. Ela ja vem redigida.
+      render: shell

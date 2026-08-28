@@ -1,0 +1,38 @@
+{
+  "name": "@baasconn/taxonomy",
+  "version": "0.1.0",
+  "description": "Vocabulario canonico do BaaS Connector: enums, dinheiro, identificadores, maquinas de estado, erros e utilitarios brasileiros",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "@baasconn/tsconfig": "workspace:*",
+    "@baasconn/vitest-config": "workspace:*",
+    "fast-check": "^3.23.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

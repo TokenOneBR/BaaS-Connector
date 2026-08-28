@@ -1,0 +1,46 @@
+# CODEOWNERS em camadas por raio de impacto.
+#
+# E o mecanismo que torna "governanca centralizada com contribuicao aberta"
+# real: um mantenedor externo pode ser dono do adapter da QI Tech de ponta a
+# ponta e ainda assim nao conseguir alterar o modelo canonico, o codigo de
+# autenticacao, o pipeline de release ou o adapter de outro provedor.
+
+*                                   @tokenone/baas-maintainers
+
+# Contrato central: duas aprovacoes, apenas TokenOne.
+# Mudanca aqui quebra todo consumidor.
+/packages/taxonomy/**               @tokenone/baas-core
+/packages/contracts/**              @tokenone/baas-core
+/packages/provider-spi/**           @tokenone/baas-core
+/packages/ledger/**                 @tokenone/baas-core
+/packages/conformance/**            @tokenone/baas-core
+/packages/db/prisma/**              @tokenone/baas-core
+
+# Sensivel a seguranca.
+/packages/crypto/**                 @tokenone/baas-security
+/apps/api/src/auth/**               @tokenone/baas-security
+/apps/api/src/admin/**              @tokenone/baas-security
+/apps/web/src/server/**             @tokenone/baas-security
+SECURITY.md                         @tokenone/baas-security
+
+# Cadeia de suprimento.
+/.github/workflows/**               @tokenone/baas-core @tokenone/baas-security
+/.github/actions/**                 @tokenone/baas-core @tokenone/baas-security
+/docker/**                          @tokenone/baas-infra
+/deploy/**                          @tokenone/baas-infra
+
+# Adapters: mantenedores externos podem ser donos do proprio adapter e de
+# nada mais.
+/packages/adapters/mock-bank/**     @tokenone/baas-core
+/packages/adapters/celcoin/**       @tokenone/baas-maintainers
+/packages/adapters/qitech/**        @tokenone/baas-maintainers
+/packages/adapters/dock/**          @tokenone/baas-maintainers
+/packages/adapters/asaas/**         @tokenone/baas-maintainers
+/packages/adapters/woovi/**         @tokenone/baas-maintainers
+
+# Governanca.
+/LICENSE                            @tokenone/baas-admins
+/NOTICE                             @tokenone/baas-admins
+/TRADEMARKS.md                      @tokenone/baas-admins
+/GOVERNANCE.md                      @tokenone/baas-admins
+/.github/CODEOWNERS                 @tokenone/baas-admins
