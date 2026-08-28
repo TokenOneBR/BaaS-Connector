@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@baasconn/tsconfig/nest.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    // Os apps sao consumidos por subcaminho de `exports` (`@baasconn/api/testing`),
+    // que a resolucao `Node` classica nao entende. Aqui e so typecheck, entao
+    // trocar por `Bundler` nao afeta emissao nenhuma.
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["api/**/*", "support/**/*"],
+  "exclude": ["node_modules"]
+}

@@ -1,14 +1,21 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, type Provider } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
+import {
+  ACCOUNT_REPOSITORY,
+  HOLDER_REPOSITORY,
+  ONBOARDING_REPOSITORY,
+} from '../accounts/accounts.types.js';
 import { CONSOLE_SESSION_REPOSITORY, CONSOLE_USER_REPOSITORY } from '../admin/admin.types.js';
 import { API_KEY_REPOSITORY, NONCE_STORE } from '../auth/api-key.service.js';
 import { CLOCK, type Clock } from '../common/clock.js';
 import { ApiConfig } from '../config/config.service.js';
+import { AUDIT_REPOSITORY, OUTBOX_REPOSITORY } from '../events/outbox.types.js';
 import { IDEMPOTENCY_REPOSITORY } from '../idempotency/idempotency.types.js';
 import { CONNECTION_REPOSITORY } from '../providers/credential.resolver.js';
 import { CONNECTION_LOOKUP } from '../providers/provider.registry.js';
 import { PROVIDER_CALL_SINK } from '../providers/provider.resolver.js';
+import { INBOUND_EVENT_REPOSITORY } from '../webhooks/webhooks.types.js';
 
 import { PrismaApiKeyRepository } from './api-key.repository.js';
 import { PrismaConnectionRepository } from './connection.repository.js';
@@ -16,7 +23,24 @@ import {
   PrismaConsoleSessionRepository,
   PrismaConsoleUserRepository,
 } from './console.repository.js';
+import {
+  PrismaAccountRepository,
+  PrismaAuditRepository,
+  PrismaHolderRepository,
+  PrismaInboundEventRepository,
+  PrismaOnboardingRepository,
+  PrismaOutboxRepository,
+} from './domain.repositories.js';
 import { PrismaIdempotencyRepository } from './idempotency.repository.js';
+import {
+  MemoryAccountRepository,
+  MemoryAuditRepository,
+  MemoryHolderRepository,
+  MemoryInboundEventRepository,
+  MemoryOnboardingRepository,
+  MemoryOutboxRepository,
+} from './memory/domain.repositories.js';
+import { MemoryIdempotencyRepository } from './memory/idempotency.repository.js';
 import { InMemoryNonceStore, RedisNonceStore } from './nonce.store.js';
 import { PrismaService } from './prisma.service.js';
 import { NoopProviderCallSink, ProviderCallRecorder } from './provider-call.sink.js';
@@ -40,13 +64,44 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PrismaIdempotencyRepository,
     PrismaConsoleUserRepository,
     PrismaConsoleSessionRepository,
+    PrismaHolderRepository,
+    PrismaAccountRepository,
+    PrismaOnboardingRepository,
+    PrismaOutboxRepository,
+    PrismaAuditRepository,
+    PrismaInboundEventRepository,
     ProviderCallRecorder,
     { provide: API_KEY_REPOSITORY, useExisting: PrismaApiKeyRepository },
-    { provide: IDEMPOTENCY_REPOSITORY, useExisting: PrismaIdempotencyRepository },
+    {
+      provide: IDEMPOTENCY_REPOSITORY,
+      inject: [ApiConfig, PrismaIdempotencyRepository, CLOCK],
+      useFactory: (
+        config: ApiConfig,
+        prismaImplementation: PrismaIdempotencyRepository,
+        clock: Clock,
+      ) => (config.isTest ? new MemoryIdempotencyRepository(clock) : prismaImplementation),
+    },
     { provide: CONNECTION_REPOSITORY, useExisting: PrismaConnectionRepository },
     { provide: CONNECTION_LOOKUP, useExisting: PrismaConnectionRepository },
     { provide: CONSOLE_USER_REPOSITORY, useExisting: PrismaConsoleUserRepository },
     { provide: CONSOLE_SESSION_REPOSITORY, useExisting: PrismaConsoleSessionRepository },
+
+    // Repositorios de dominio: Prisma em producao, memoria em teste.
+    //
+    // A troca e por implementacao, nao por flag espalhada pelo codigo: os
+    // servicos conhecem so as interfaces, entao a suite de ponta a ponta
+    // exercita o caminho completo — controller, guard, adapter, mapeamento,
+    // guard monotonico, outbox, auditoria — sem Postgres.
+    domainProvider(HOLDER_REPOSITORY, PrismaHolderRepository, MemoryHolderRepository),
+    domainProvider(ACCOUNT_REPOSITORY, PrismaAccountRepository, MemoryAccountRepository),
+    domainProvider(ONBOARDING_REPOSITORY, PrismaOnboardingRepository, MemoryOnboardingRepository),
+    domainProvider(OUTBOX_REPOSITORY, PrismaOutboxRepository, MemoryOutboxRepository),
+    domainProvider(AUDIT_REPOSITORY, PrismaAuditRepository, MemoryAuditRepository),
+    domainProvider(
+      INBOUND_EVENT_REPOSITORY,
+      PrismaInboundEventRepository,
+      MemoryInboundEventRepository,
+    ),
     {
       provide: PROVIDER_CALL_SINK,
       inject: [ApiConfig, ProviderCallRecorder],
@@ -72,8 +127,33 @@ import { REDIS, redisProvider } from './redis.provider.js';
     CONNECTION_LOOKUP,
     CONSOLE_USER_REPOSITORY,
     CONSOLE_SESSION_REPOSITORY,
+    HOLDER_REPOSITORY,
+    ACCOUNT_REPOSITORY,
+    ONBOARDING_REPOSITORY,
+    OUTBOX_REPOSITORY,
+    AUDIT_REPOSITORY,
+    INBOUND_EVENT_REPOSITORY,
     PROVIDER_CALL_SINK,
     NONCE_STORE,
   ],
 })
 export class PersistenceModule {}
+
+/**
+ * Liga um token de repositorio a implementacao do ambiente.
+ *
+ * Em teste, a versao em memoria; caso contrario, a de Prisma. A decisao e
+ * tomada UMA vez, aqui, e nenhum servico precisa saber qual esta ligada.
+ */
+function domainProvider(
+  token: symbol,
+  prismaClass: new (...args: never[]) => unknown,
+  memoryClass: new () => unknown,
+): Provider {
+  return {
+    provide: token,
+    inject: [ApiConfig, prismaClass as never],
+    useFactory: (config: ApiConfig, prismaImplementation: unknown) =>
+      config.isTest ? new memoryClass() : prismaImplementation,
+  };
+}

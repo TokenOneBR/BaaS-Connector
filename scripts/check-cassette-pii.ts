@@ -10,7 +10,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
-const SEARCH_DIRS = ['packages/adapters', 'e2e/fixtures', 'apps/mock-bank/test'];
+const SEARCH_DIRS = ['packages/adapters', 'e2e', 'apps/mock-bank/test'];
 
 interface Finding {
   file: string;
@@ -60,6 +60,11 @@ const ALLOWED_SYNTHETIC = new Set([
   '04499727804',
   '62704828105',
   '16934060806',
+  // CNPJs sinteticos do e2e: o sufixo do valor magico E o digito verificador,
+  // entao precisam ser validos para o contrato aceita-los.
+  '10000008000101',
+  '10000015000103',
+  '10000017000100',
 ]);
 
 const PATTERNS: Array<{ rule: string; regex: RegExp; validate?: (m: string) => boolean }> = [

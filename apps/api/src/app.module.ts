@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
+import { AccountsModule } from './accounts/accounts.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { ApiKeyGuard } from './auth/api-key.guard.js';
 import { ApiKeyService } from './auth/api-key.service.js';
@@ -21,6 +22,7 @@ import { PersistenceModule } from './persistence/persistence.module.js';
 import { PrismaService } from './persistence/prisma.service.js';
 import { REDIS } from './persistence/redis.provider.js';
 import { ProvidersModule } from './providers/providers.module.js';
+import { WebhooksModule } from './webhooks/webhooks.module.js';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ProvidersModule } from './providers/providers.module.js';
     PersistenceModule,
     ProvidersModule,
     AdminModule,
+    AccountsModule,
+    WebhooksModule,
   ],
   controllers: [HealthController],
   providers: [
