@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { BlindIndex } from './blind-index.js';
@@ -11,6 +13,7 @@ import {
   secretLookup,
   verifySecret,
 } from './secrets.js';
+import { decodeBase32, encodeBase32, totpCode, verifyTotp } from './totp.js';
 
 const MASTER = 'chave-mestra-local-de-teste-com-tamanho';
 const PEPPER = 'pepper-de-teste-com-mais-de-trinta-e-dois-caracteres';
@@ -227,5 +230,55 @@ describe('segredos de API key', () => {
   it('parseApiKey recusa formato invalido', () => {
     expect(parseApiKey('nao-e-uma-chave')).toBeUndefined();
     expect(parseApiKey('bck_xxx_key_abc')).toBeUndefined();
+  });
+});
+
+describe('TOTP', () => {
+  // Vetores normativos do Apendice B da RFC 6238. O segredo e a string ASCII
+  // "12345678901234567890"; testar contra eles e o que separa uma
+  // implementacao correta de uma que so concorda consigo mesma.
+  const SECRET = Buffer.from('12345678901234567890', 'ascii');
+
+  it.each([
+    [59, '287082'],
+    [1_111_111_109, '081804'],
+    [1_111_111_111, '050471'],
+    [1_234_567_890, '005924'],
+    [2_000_000_000, '279037'],
+  ])('reproduz o vetor da RFC 6238 em t=%i', (epochSeconds, expected) => {
+    expect(totpCode(SECRET, new Date(epochSeconds * 1000))).toBe(expected);
+  });
+
+  it('aceita um passo de deriva para cada lado', () => {
+    const at = new Date(1_111_111_109 * 1000);
+    const code = totpCode(SECRET, at);
+
+    // Relogio de celular desalinhado em meio minuto e comum; sem a janela, o
+    // usuario legitimo fica trancado para fora com o codigo certo na mao.
+    expect(verifyTotp(SECRET, code, new Date(at.getTime() + 30_000))).toBe(true);
+    expect(verifyTotp(SECRET, code, new Date(at.getTime() - 30_000))).toBe(true);
+  });
+
+  it('recusa codigo fora da janela', () => {
+    const at = new Date(1_111_111_109 * 1000);
+    const code = totpCode(SECRET, at);
+    expect(verifyTotp(SECRET, code, new Date(at.getTime() + 120_000))).toBe(false);
+  });
+
+  it('recusa codigo de tamanho diferente sem lancar', () => {
+    // `timingSafeEqual` lanca com buffers de tamanhos diferentes: um codigo
+    // truncado nao pode virar 500 em vez de 401.
+    expect(verifyTotp(SECRET, '123', new Date())).toBe(false);
+    expect(verifyTotp(SECRET, '', new Date())).toBe(false);
+  });
+
+  it('faz round-trip de base32', () => {
+    const secret = randomBytes(20);
+    expect(decodeBase32(encodeBase32(secret)).equals(secret)).toBe(true);
+  });
+
+  it('decodifica o segredo em base32 dos autenticadores', () => {
+    // "12345678901234567890" em base32, como um app de autenticacao receberia.
+    expect(decodeBase32('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ').equals(SECRET)).toBe(true);
   });
 });

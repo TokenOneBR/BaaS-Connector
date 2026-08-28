@@ -21,5 +21,6 @@ de implementacao. Ver [GOVERNANCE.md](../../GOVERNANCE.md).
 | [0010](0010-idempotency-and-outbox.md) | Idempotencia em duas camadas e outbox |
 | [0011](0011-apache-2-0-and-dco.md) | Apache-2.0 com DCO |
 | [0012](0012-changesets-for-release.md) | Changesets para release |
+| [0013](0013-console-session-model.md) | Sessao do console: JWT assimetrico e refresh rotativo |
 
 Novo ADR: copie [0000-template.md](0000-template.md).

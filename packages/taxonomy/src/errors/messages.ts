@@ -35,6 +35,8 @@ export const ERROR_MESSAGES_PT_BR: Readonly<Partial<Record<BaasErrorCode, string
     [BaasErrorCode.SIGNATURE_INVALID]: 'A assinatura da requisicao nao confere.',
     [BaasErrorCode.SIGNATURE_EXPIRED]: 'A assinatura da requisicao expirou.',
     [BaasErrorCode.NONCE_REPLAYED]: 'Este nonce ja foi utilizado.',
+    [BaasErrorCode.SESSION_EXPIRED]: 'Sua sessao expirou. Entre novamente.',
+    [BaasErrorCode.MFA_REQUIRED]: 'Informe o codigo de verificacao em duas etapas.',
     [BaasErrorCode.AUTHORIZATION_DENIED]: 'Acesso negado para este recurso.',
     [BaasErrorCode.INSUFFICIENT_SCOPE]: 'A chave de API nao possui o escopo necessario.',
     [BaasErrorCode.ENVIRONMENT_MISMATCH]:

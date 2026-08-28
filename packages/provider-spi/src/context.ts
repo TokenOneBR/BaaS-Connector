@@ -1,4 +1,4 @@
-import type { Clock, Environment, ProviderSlug } from '@baasconn/taxonomy';
+import type { CapabilityKey, Clock, Environment, ProviderSlug } from '@baasconn/taxonomy';
 
 /**
  * Blob de credenciais, opaco para o core.
@@ -62,6 +62,14 @@ export interface ProviderCallRecord {
   /** Apenas o caminho; a query e redigida. */
   path: string;
   endpointClass: EndpointClass;
+  /**
+   * Capacidade canonica que originou a chamada.
+   *
+   * E a dimensao que a metrica de SLI usa: agrupar por caminho HTTP do
+   * provedor tornaria o painel incomparavel entre provedores, que e
+   * justamente a comparacao que um conector precisa fazer.
+   */
+  capability?: CapabilityKey;
   requestHeaders: Record<string, string>;
   requestBody?: unknown;
   status?: number;

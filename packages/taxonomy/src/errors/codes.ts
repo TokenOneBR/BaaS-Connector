@@ -31,6 +31,16 @@ export enum BaasErrorCode {
   SIGNATURE_INVALID = 'SIGNATURE_INVALID',
   SIGNATURE_EXPIRED = 'SIGNATURE_EXPIRED',
   NONCE_REPLAYED = 'NONCE_REPLAYED',
+  /** Sessao do console expirada ou revogada. Distinta de credencial errada. */
+  SESSION_EXPIRED = 'SESSION_EXPIRED',
+  /**
+   * Senha correta, segundo fator ausente.
+   *
+   * Separado de AUTHENTICATION_FAILED de proposito: a acao do cliente e
+   * pedir o codigo TOTP, nao pedir a senha de novo. Fundir os dois obrigaria
+   * o console a casar a mensagem por string.
+   */
+  MFA_REQUIRED = 'MFA_REQUIRED',
   AUTHORIZATION_DENIED = 'AUTHORIZATION_DENIED',
   INSUFFICIENT_SCOPE = 'INSUFFICIENT_SCOPE',
   /** A API key pertence a outro ambiente que o recurso alvo. */
@@ -133,6 +143,8 @@ export const ERROR_CODE_META: Readonly<Record<BaasErrorCode, CodeMeta>> = Object
   [BaasErrorCode.SIGNATURE_INVALID]: meta(V.AUTHENTICATION, 401),
   [BaasErrorCode.SIGNATURE_EXPIRED]: meta(V.AUTHENTICATION, 401),
   [BaasErrorCode.NONCE_REPLAYED]: meta(V.AUTHENTICATION, 401),
+  [BaasErrorCode.SESSION_EXPIRED]: meta(V.AUTHENTICATION, 401),
+  [BaasErrorCode.MFA_REQUIRED]: meta(V.AUTHENTICATION, 401),
   [BaasErrorCode.AUTHORIZATION_DENIED]: meta(V.AUTHORIZATION, 403),
   [BaasErrorCode.INSUFFICIENT_SCOPE]: meta(V.AUTHORIZATION, 403),
   [BaasErrorCode.ENVIRONMENT_MISMATCH]: meta(V.AUTHORIZATION, 403),
