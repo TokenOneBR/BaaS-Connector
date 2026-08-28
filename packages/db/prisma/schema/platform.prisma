@@ -1,0 +1,172 @@
+enum ConnectionStatus {
+  PENDING_VALIDATION
+  ACTIVE
+  DEGRADED
+  DISABLED
+  INVALID_CREDENTIALS
+}
+
+/// Conexao com um provedor, por ambiente.
+///
+/// As credenciais ficam cifradas em envelope AQUI, e nao em Secret do
+/// Kubernetes: e o que permite o console gravar credencial sem redeploy e o
+/// mesmo chart rodar em EKS, GKE e AKS mudando so uma anotacao de
+/// ServiceAccount. Ver ADR 0009.
+model ProviderConnection {
+  id          String       @id @db.VarChar(40)
+  environment Environment
+  provider    ProviderSlug
+  label       String       @default("default") @db.VarChar(64)
+  status      ConnectionStatus @default(PENDING_VALIDATION)
+  baseUrl     String?      @map("base_url") @db.VarChar(255)
+
+  /// Envelope: DEK aleatoria por registro, envolvida pelo KMS.
+  credentialsCiphertext Bytes  @map("credentials_ciphertext")
+  credentialsIv         Bytes  @map("credentials_iv")
+  credentialsTag        Bytes  @map("credentials_tag")
+  credentialsWrappedKey Bytes  @map("credentials_wrapped_key")
+  credentialsKeyId      String @map("credentials_key_id") @db.VarChar(255)
+  /// Incrementa a cada rotacao. Invalida o cache de DEK por construcao.
+  credentialsVersion    Int    @default(1) @map("credentials_version")
+  /// Provam que ha credencial gravada sem revelar nada dela.
+  credentialsFingerprint String? @map("credentials_fingerprint") @db.VarChar(80)
+  credentialsLast4       String? @map("credentials_last4") @db.VarChar(8)
+  credentialsUpdatedAt   DateTime? @map("credentials_updated_at") @db.Timestamptz(6)
+  credentialsUpdatedBy   String?   @map("credentials_updated_by") @db.VarChar(128)
+
+  webhookSecretCiphertext Bytes? @map("webhook_secret_ciphertext")
+  webhookSecretIv         Bytes? @map("webhook_secret_iv")
+  webhookSecretTag        Bytes? @map("webhook_secret_tag")
+  webhookSecretWrappedKey Bytes? @map("webhook_secret_wrapped_key")
+  webhookSecretKeyId      String? @map("webhook_secret_key_id") @db.VarChar(255)
+
+  /// Configuracao NAO secreta: ISPB, conta principal, identificadores.
+  config Json @default("{}")
+  /// Snapshot do CapabilityDescriptor, para a interface nao depender do boot.
+  capabilities Json @default("{}")
+
+  lastHealthCheckAt DateTime? @map("last_health_check_at") @db.Timestamptz(6)
+  lastHealthStatus  String?   @map("last_health_status") @db.VarChar(32)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  rotatedAt DateTime? @map("rotated_at") @db.Timestamptz(6)
+
+  accounts  Account[]
+  apiKeys   ApiKey[]
+  pollCursors PollCursor[]
+
+  @@unique([environment, provider, label])
+  @@index([environment, status])
+  @@map("provider_connection")
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+/// API key.
+///
+/// O AMBIENTE E PROPRIEDADE DA CHAVE, nao um header. Um header de ambiente
+/// esta a um typo de uma transferencia PIX real; amarrar a credencial torna o
+/// erro catastrofico estruturalmente impossivel. O prefixo carrega o ambiente
+/// (`bck_hml_` / `bck_prd_`) para ficar visivel em log e em ticket.
+model ApiKey {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  name        String      @db.VarChar(128)
+  /// Exibivel na interface, ex.: bck_hml_key_01JB.
+  prefix      String      @unique @db.VarChar(64)
+  last4       String      @db.VarChar(8)
+
+  /// Argon2id. Caro de proposito.
+  secretHash   String @map("secret_hash") @db.VarChar(255)
+  /// sha256 indexado: acha a linha em UMA leitura, e so entao roda o Argon2.
+  secretLookup Bytes  @map("secret_lookup")
+
+  scopes String[] @default([])
+
+  /// Assinatura HMAC obrigatoria. Forcada em chave de producao com pix:write.
+  signingRequired         Boolean @default(false) @map("signing_required")
+  signingSecretCiphertext Bytes?  @map("signing_secret_ciphertext")
+  signingSecretIv         Bytes?  @map("signing_secret_iv")
+  signingSecretTag        Bytes?  @map("signing_secret_tag")
+  signingSecretWrappedKey Bytes?  @map("signing_secret_wrapped_key")
+  signingSecretKeyId      String? @map("signing_secret_key_id") @db.VarChar(255)
+
+  ipAllowlist String[] @default([]) @map("ip_allowlist")
+  rateLimitTier String @default("standard") @map("rate_limit_tier") @db.VarChar(32)
+
+  defaultConnectionId String? @map("default_connection_id") @db.VarChar(40)
+  defaultConnection   ProviderConnection? @relation(fields: [defaultConnectionId], references: [id])
+
+  status     ApiKeyStatus @default(ACTIVE)
+  lastUsedAt DateTime?    @map("last_used_at") @db.Timestamptz(6)
+  expiresAt  DateTime?    @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime?    @map("revoked_at") @db.Timestamptz(6)
+  revokedBy  String?      @map("revoked_by") @db.VarChar(128)
+  createdBy  String       @map("created_by") @db.VarChar(128)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([secretLookup])
+  @@index([environment, status])
+  @@map("api_key")
+}
+
+enum ConsoleRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  VIEWER
+  COMPLIANCE
+}
+
+/// Usuario do console.
+///
+/// Distinto de API key de proposito: uma API key NUNCA pode cunhar outra chave
+/// nem gravar credencial de provedor. Sem essa separacao, uma chave vazada
+/// escala privilegio.
+model ConsoleUser {
+  id           String      @id @db.VarChar(40)
+  email        String      @unique @db.VarChar(255)
+  name         String      @db.VarChar(255)
+  passwordHash String?     @map("password_hash") @db.VarChar(255)
+  role         ConsoleRole @default(VIEWER)
+
+  /// TOTP obrigatorio para OWNER e ADMIN.
+  totpSecretCiphertext Bytes?  @map("totp_secret_ciphertext")
+  totpSecretIv         Bytes?  @map("totp_secret_iv")
+  totpSecretTag        Bytes?  @map("totp_secret_tag")
+  totpSecretWrappedKey Bytes?  @map("totp_secret_wrapped_key")
+  totpSecretKeyId      String? @map("totp_secret_key_id") @db.VarChar(255)
+  mfaEnabled           Boolean @default(false) @map("mfa_enabled")
+
+  status      String    @default("ACTIVE") @db.VarChar(24)
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sessions ConsoleSession[]
+
+  @@map("console_user")
+}
+
+model ConsoleSession {
+  id               String   @id @db.VarChar(40)
+  userId           String   @map("user_id") @db.VarChar(40)
+  /// Rotativo, guardado como hash.
+  refreshTokenHash String   @map("refresh_token_hash") @db.VarChar(255)
+  userAgent        String?  @map("user_agent") @db.VarChar(512)
+  ipAddress        String?  @map("ip_address") @db.Inet
+  expiresAt        DateTime @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user ConsoleUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([refreshTokenHash])
+  @@map("console_session")
+}

@@ -1,0 +1,134 @@
+// Schema do conector.
+//
+// SINGLE-TENANT: um deploy serve uma organizacao. Nao ha coluna tenantId nem
+// RLS. A dimensao de particionamento e `environment` (HOMOLOGACAO/PRODUCAO),
+// que aparece em toda tabela de negocio e em toda API key.
+//
+// Toda chave composta lidera com `environment` de proposito: nenhuma consulta
+// cruza ambiente, e o indice torna isso barato.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, pg_trgm]
+}
+
+enum Environment {
+  HOMOLOGACAO
+  PRODUCAO
+}
+
+enum ProviderSlug {
+  CELCOIN
+  QITECH
+  DOCK
+  ASAAS
+  WOOVI
+  MOCK_BANK
+}
+
+enum HolderType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum TaxIdType {
+  CPF
+  CNPJ
+}
+
+enum RiskRating {
+  LOW
+  MEDIUM
+  HIGH
+  PROHIBITED
+}
+
+enum BrazilianState {
+  AC
+  AL
+  AP
+  AM
+  BA
+  CE
+  DF
+  ES
+  GO
+  MA
+  MT
+  MS
+  MG
+  PA
+  PB
+  PR
+  PE
+  PI
+  RJ
+  RN
+  RS
+  RO
+  RR
+  SC
+  SP
+  SE
+  TO
+}
+
+enum AddressType {
+  RESIDENTIAL
+  COMMERCIAL
+  MAILING
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  STABLE_UNION
+}
+
+enum IdentityDocumentKind {
+  RG
+  CNH
+  RNE
+  PASSPORT
+  CTPS
+}
+
+enum CompanySize {
+  MEI
+  ME
+  EPP
+  MEDIUM
+  LARGE
+}
+
+enum RepresentativeRole {
+  PARTNER
+  ADMINISTRATOR
+  DIRECTOR
+  ATTORNEY
+  LEGAL_GUARDIAN
+}
+
+enum ChangeSource {
+  API
+  PROVIDER_WEBHOOK
+  POLLING
+  RECONCILIATION
+  MANUAL
+  SYSTEM
+}
+
+enum ActorType {
+  API_KEY
+  USER
+  SYSTEM
+  PROVIDER
+}

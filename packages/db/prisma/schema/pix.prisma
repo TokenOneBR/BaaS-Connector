@@ -1,0 +1,129 @@
+enum PixKeyType {
+  CPF
+  CNPJ
+  EMAIL
+  PHONE
+  EVP
+}
+
+enum PixKeyStatus {
+  PENDING_REGISTRATION
+  PENDING_OWNERSHIP_CONFIRMATION
+  ACTIVE
+  PENDING_PORTABILITY_IN
+  PENDING_PORTABILITY_OUT
+  PENDING_CLAIM_IN
+  PENDING_CLAIM_OUT
+  REMOVED
+  REJECTED
+}
+
+enum PixClaimType {
+  PORTABILITY
+  OWNERSHIP
+}
+
+enum PixChargeKind {
+  STATIC
+  DYNAMIC_IMMEDIATE
+  DYNAMIC_DUE
+}
+
+enum PixChargeStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  REMOVED_BY_PSP
+  REMOVED_BY_USER
+}
+
+model PixKey {
+  id            String      @id @db.VarChar(40)
+  environment   Environment
+  accountId     String      @map("account_id") @db.VarChar(40)
+  type          PixKeyType
+  /// Normalizada: documento so digitos, telefone em E.164, email minusculo.
+  value         String      @db.VarChar(77)
+  /// Para busca sem expor a chave em indice legivel.
+  valueBlindIndex String    @map("value_blind_index") @db.VarChar(64)
+  status        PixKeyStatus @default(PENDING_REGISTRATION)
+  providerKeyId String?     @map("provider_key_id") @db.VarChar(128)
+
+  claimType            PixClaimType? @map("claim_type")
+  claimStatus          String?       @map("claim_status") @db.VarChar(32)
+  claimResolutionDueAt DateTime?     @map("claim_resolution_due_at") @db.Timestamptz(6)
+  claimantIspb         String?       @map("claimant_ispb") @db.VarChar(8)
+
+  requestedAt DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  activatedAt DateTime? @map("activated_at") @db.Timestamptz(6)
+  removedAt   DateTime? @map("removed_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  charges PixCharge[]
+
+  // Migration crua adiciona indice unico PARCIAL: so uma chave ATIVA por valor.
+  // CREATE UNIQUE INDEX pix_key_active_uq ON pix_key (environment, type, value)
+  //   WHERE status = 'ACTIVE';
+  @@index([accountId, status])
+  @@index([environment, valueBlindIndex])
+  @@map("pix_key")
+}
+
+model PixCharge {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  accountId   String      @map("account_id") @db.VarChar(40)
+  pixKeyId    String      @map("pix_key_id") @db.VarChar(40)
+
+  kind     PixChargeKind
+  txid     String        @db.VarChar(35)
+  status   PixChargeStatus @default(ACTIVE)
+  /// `revisao` do BACEN: incrementa a cada alteracao.
+  revision Int             @default(0)
+
+  amountCents        BigInt?  @map("amount_cents")
+  amountIsChangeable Boolean  @default(false) @map("amount_is_changeable")
+  currency           String   @default("BRL") @db.VarChar(3)
+
+  expiresInSeconds  Int?      @map("expires_in_seconds")
+  expiresAt         DateTime? @map("expires_at") @db.Timestamptz(6)
+  dueDate           DateTime? @map("due_date") @db.Date
+  validAfterDueDays Int?      @map("valid_after_due_days")
+  fine              Json?
+  interest          Json?
+  discounts         Json?
+
+  payerTaxIdLast4 String? @map("payer_tax_id_last4") @db.VarChar(4)
+  payerName       String? @map("payer_name") @db.VarChar(255)
+  payerRequest    String? @map("payer_request") @db.VarChar(140)
+  additionalInfo  Json    @default("[]") @map("additional_info")
+
+  /// Copia e cola (BR Code / EMV MPM).
+  emvPayload     String  @map("emv_payload") @db.Text
+  qrCodeImageUrl String? @map("qr_code_image_url") @db.VarChar(1024)
+  locationUrl    String? @map("location_url") @db.VarChar(1024)
+
+  provider         ProviderSlug
+  providerChargeId String?      @map("provider_charge_id") @db.VarChar(128)
+  externalId       String?      @map("external_id") @db.VarChar(128)
+
+  paidAmountCents BigInt    @default(0) @map("paid_amount_cents")
+  paidAt          DateTime? @map("paid_at") @db.Timestamptz(6)
+  lastEventAt     DateTime? @map("last_event_at") @db.Timestamptz(6)
+
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  pixKey       PixKey        @relation(fields: [pixKeyId], references: [id])
+  transactions Transaction[]
+
+  @@unique([environment, txid])
+  @@unique([environment, provider, providerChargeId])
+  @@unique([environment, externalId])
+  @@index([environment, accountId, status])
+  @@index([environment, expiresAt])
+  @@map("pix_charge")
+}

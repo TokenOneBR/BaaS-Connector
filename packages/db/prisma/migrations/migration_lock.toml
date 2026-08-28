@@ -1,0 +1,2 @@
+# Não edite. Registra o provedor usado para gerar as migrations.
+provider = "postgresql"

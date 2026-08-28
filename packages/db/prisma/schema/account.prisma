@@ -1,0 +1,123 @@
+enum AccountStatus {
+  DRAFT
+  PENDING_ONBOARDING
+  PENDING_DOCUMENTS
+  UNDER_REVIEW
+  ACTIVE
+  BLOCKED
+  SUSPENDED
+  REJECTED
+  CLOSING
+  CLOSED
+}
+
+enum AccountKind {
+  PAYMENT
+  CHECKING
+  SAVINGS
+  ESCROW
+}
+
+model Account {
+  id                   String       @id @db.VarChar(40)
+  environment          Environment
+  holderId             String       @map("holder_id") @db.VarChar(40)
+  provider             ProviderSlug
+  providerConnectionId String       @map("provider_connection_id") @db.VarChar(40)
+  providerAccountId    String?      @map("provider_account_id") @db.VarChar(128)
+  externalId           String?      @map("external_id") @db.VarChar(128)
+
+  status              AccountStatus @default(DRAFT)
+  statusReasonCode    String?       @map("status_reason_code") @db.VarChar(64)
+  statusReasonMessage String?       @map("status_reason_message") @db.VarChar(512)
+  statusChangedAt     DateTime?     @map("status_changed_at") @db.Timestamptz(6)
+  /// Instante do ultimo evento aplicado. Alimenta o guard monotonico.
+  lastEventAt         DateTime?     @map("last_event_at") @db.Timestamptz(6)
+
+  kind     AccountKind @default(PAYMENT)
+  currency String      @default("BRL") @db.VarChar(3)
+
+  ispb             String? @db.VarChar(8)
+  bankCode         String? @map("bank_code") @db.VarChar(3)
+  branch           String? @db.VarChar(4)
+  branchCheckDigit String? @map("branch_check_digit") @db.VarChar(1)
+  number           String? @db.VarChar(20)
+  checkDigit       String? @map("check_digit") @db.VarChar(2)
+
+  /// Conta do razao sombra. O conector nunca custodia recurso: o provedor e o
+  /// sistema de registro, e este ledger existe para conciliar e auditar.
+  ledgerAvailableAccountId String? @map("ledger_available_account_id") @db.VarChar(40)
+  ledgerBlockedAccountId   String? @map("ledger_blocked_account_id") @db.VarChar(40)
+
+  openedAt DateTime? @map("opened_at") @db.Timestamptz(6)
+  closedAt DateTime? @map("closed_at") @db.Timestamptz(6)
+  metadata Json      @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  holder        AccountHolder      @relation(fields: [holderId], references: [id])
+  connection    ProviderConnection @relation(fields: [providerConnectionId], references: [id])
+  balance       AccountBalance?
+  pixKeys       PixKey[]
+  charges       PixCharge[]
+  transactions  Transaction[]
+  onboardingCases OnboardingCase[]
+  statusHistory AccountStatusChange[]
+
+  @@unique([environment, provider, providerAccountId])
+  @@unique([environment, externalId])
+  @@index([environment, status])
+  @@index([environment, holderId])
+  @@index([environment, createdAt(sort: Desc)])
+  @@map("account")
+}
+
+model AccountStatusChange {
+  id              String         @id @db.VarChar(40)
+  accountId       String         @map("account_id") @db.VarChar(40)
+  fromStatus      AccountStatus? @map("from_status")
+  toStatus        AccountStatus  @map("to_status")
+  reasonCode      String?        @map("reason_code") @db.VarChar(64)
+  reasonMessage   String?        @map("reason_message") @db.VarChar(512)
+  source          ChangeSource
+  providerEventId String?        @map("provider_event_id") @db.VarChar(40)
+  occurredAt      DateTime       @map("occurred_at") @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, occurredAt(sort: Desc)])
+  @@map("account_status_change")
+}
+
+/// Cache de saldo.
+///
+/// Consultivo por padrao. `staleAfter` e `providerAsOf` sao o que permite ao
+/// cliente saber a idade do numero, e a regra de bypass do cache vive no
+/// servico, nao aqui.
+model AccountBalance {
+  accountId   String      @id @map("account_id") @db.VarChar(40)
+  environment Environment
+  currency    String      @default("BRL") @db.VarChar(3)
+
+  availableCents    BigInt @default(0) @map("available_cents")
+  blockedCents      BigInt @default(0) @map("blocked_cents")
+  pendingCents      BigInt @default(0) @map("pending_cents")
+  scheduledOutCents BigInt @default(0) @map("scheduled_out_cents")
+
+  providerAsOf DateTime? @map("provider_as_of") @db.Timestamptz(6)
+  fetchedAt    DateTime  @map("fetched_at") @db.Timestamptz(6)
+  staleAfter   DateTime  @map("stale_after") @db.Timestamptz(6)
+  /// Ultimo movimento conhecido. Se for mais novo que `fetchedAt`, o cache
+  /// esta desatualizado mesmo dentro do TTL.
+  lastKnownMovementAt DateTime? @map("last_known_movement_at") @db.Timestamptz(6)
+
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([environment, staleAfter])
+  @@map("account_balance")
+}

@@ -1,0 +1,180 @@
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum NormalBalance {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerOwnerType {
+  BANK
+  CUSTOMER
+  CLEARING
+  INTERNAL
+  EXTERNAL
+}
+
+enum LedgerAccountStatus {
+  OPEN
+  FROZEN
+  CLOSED
+}
+
+enum EntryDirection {
+  DEBIT
+  CREDIT
+}
+
+enum EntryPhase {
+  PENDING
+  POSTED
+  VOID
+}
+
+enum LedgerTransactionStatus {
+  PENDING
+  POSTED
+  VOIDED
+}
+
+/// Conta do razao sombra do conector.
+///
+/// O conector NUNCA custodia recurso: o provedor e o sistema de registro. Este
+/// ledger existe para conciliar em tres vias (provedor x nossos registros x
+/// ledger) e pegar a classe de bug que custa dinheiro: transacao registrada
+/// com lancamento errado.
+///
+/// Os quatro contadores sao materializados. Migrations cruas adicionam:
+///   - CHECK de saldo nao negativo (um CHECK nao pode agregar outra tabela,
+///     e por isso os contadores existem)
+///   - REVOKE UPDATE das colunas de contador para o papel da aplicacao
+///   - stored procedure ledger.post_transaction com SELECT ... FOR UPDATE em
+///     ordem deterministica
+model LedgerAccount {
+  id            String      @id @db.VarChar(40)
+  environment   Environment
+  code          String      @db.VarChar(80)
+  name          String      @db.VarChar(255)
+  type          LedgerAccountType
+  normalBalance NormalBalance @map("normal_balance")
+  currency      String      @default("BRL") @db.VarChar(3)
+  ownerType     LedgerOwnerType @map("owner_type")
+  ownerId       String?     @map("owner_id") @db.VarChar(40)
+  status        LedgerAccountStatus @default(OPEN)
+  allowsNegative Boolean    @default(false) @map("allows_negative")
+
+  debitsPosted   BigInt @default(0) @map("debits_posted")
+  creditsPosted  BigInt @default(0) @map("credits_posted")
+  debitsPending  BigInt @default(0) @map("debits_pending")
+  creditsPending BigInt @default(0) @map("credits_pending")
+  entryCount     BigInt @default(0) @map("entry_count")
+  lastEntryId    String? @map("last_entry_id") @db.VarChar(40)
+  version        BigInt @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  entries   LedgerEntry[]
+  snapshots LedgerBalanceSnapshot[]
+
+  @@unique([environment, code])
+  @@index([environment, ownerType, ownerId])
+  @@map("ledger_account")
+}
+
+model LedgerTransaction {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  type        String      @db.VarChar(48)
+  status      LedgerTransactionStatus
+  currency    String      @default("BRL") @db.VarChar(3)
+  /// Total de um lado. Debitos e creditos sao iguais por construcao.
+  amountCents BigInt      @map("amount_cents")
+
+  idempotencyKey String  @map("idempotency_key") @db.VarChar(255)
+  externalRef    String? @map("external_ref") @db.VarChar(128)
+  description    String? @db.VarChar(512)
+  /// Em POST e VOID: a transacao PENDING sendo resolvida.
+  pendingTransactionId String? @map("pending_transaction_id") @db.VarChar(40)
+
+  effectiveAt DateTime  @map("effective_at") @db.Timestamptz(6)
+  postedAt    DateTime? @map("posted_at") @db.Timestamptz(6)
+  voidedAt    DateTime? @map("voided_at") @db.Timestamptz(6)
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  entries     LedgerEntry[]
+  pendingTx   LedgerTransaction?  @relation("PendingResolution", fields: [pendingTransactionId], references: [id])
+  resolutions LedgerTransaction[] @relation("PendingResolution")
+
+  // Migration crua: UNIQUE (pending_transaction_id) WHERE NOT NULL, para uma
+  // transacao pendente ser resolvida no maximo uma vez.
+  @@unique([environment, idempotencyKey])
+  @@index([environment, externalRef])
+  @@index([environment, status, effectiveAt])
+  @@map("ledger_transaction")
+}
+
+/// Lancamento. IMUTAVEL: sem UPDATE, sem DELETE.
+///
+/// Correcao e sempre lancamento novo. Migrations cruas adicionam
+/// REVOKE UPDATE, DELETE e um trigger DEFERRABLE que afirma
+/// soma(debitos) = soma(creditos) por transacao no commit.
+model LedgerEntry {
+  id              String      @id @db.VarChar(40)
+  environment     Environment
+  transactionId   String      @map("transaction_id") @db.VarChar(40)
+  ledgerAccountId String      @map("ledger_account_id") @db.VarChar(40)
+
+  direction EntryDirection
+  /// Sempre > 0. O sinal vive em `direction`.
+  amountCents BigInt @map("amount_cents")
+  phase       EntryPhase
+  currency    String @default("BRL") @db.VarChar(3)
+  sequence    Int
+  /// Snapshot do saldo postado da conta imediatamente apos este lancamento.
+  resultingPostedCents BigInt @map("resulting_posted_cents")
+
+  effectiveAt DateTime @map("effective_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id])
+  ledgerAccount LedgerAccount     @relation(fields: [ledgerAccountId], references: [id])
+
+  @@unique([transactionId, sequence])
+  @@index([ledgerAccountId, effectiveAt(sort: Desc), id(sort: Desc)])
+  @@index([ledgerAccountId, phase])
+  @@map("ledger_entry")
+}
+
+/// Checkpoint diario imutavel, encadeado por hash.
+///
+/// Um dos tres mitigadores do unico risco de materializar saldo: drift entre
+/// contador e lancamentos. Os outros dois sao a procedure exclusiva e o job de
+/// verificacao.
+model LedgerBalanceSnapshot {
+  id              String      @id @db.VarChar(40)
+  environment     Environment
+  ledgerAccountId String      @map("ledger_account_id") @db.VarChar(40)
+  asOfDate        DateTime    @map("as_of_date") @db.Date
+
+  debitsPosted  BigInt  @map("debits_posted")
+  creditsPosted BigInt  @map("credits_posted")
+  entryCount    BigInt  @map("entry_count")
+  lastEntryId   String? @map("last_entry_id") @db.VarChar(40)
+
+  chainHash     String  @map("chain_hash") @db.VarChar(64)
+  prevChainHash String? @map("prev_chain_hash") @db.VarChar(64)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ledgerAccount LedgerAccount @relation(fields: [ledgerAccountId], references: [id])
+
+  @@unique([ledgerAccountId, asOfDate])
+  @@index([environment, asOfDate])
+  @@map("ledger_balance_snapshot")
+}

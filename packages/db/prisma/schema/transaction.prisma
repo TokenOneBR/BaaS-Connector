@@ -1,0 +1,197 @@
+enum TransactionType {
+  PIX_IN
+  PIX_OUT
+  PIX_REFUND_IN
+  PIX_REFUND_OUT
+  INTERNAL_TRANSFER_IN
+  INTERNAL_TRANSFER_OUT
+  FEE
+  FEE_REVERSAL
+  ADJUSTMENT_CREDIT
+  ADJUSTMENT_DEBIT
+  BLOCK
+  UNBLOCK
+}
+
+enum TransactionDirection {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  SETTLED
+  FAILED
+  CANCELLED
+  REVERSED
+  PARTIALLY_REVERSED
+  /// Timeout numa escrita: nao sabemos se o dinheiro se moveu. Nao e terminal;
+  /// a conciliacao resolve consultando o provedor. Nunca reenviamos.
+  UNKNOWN
+}
+
+enum PixInitiationMethod {
+  MANUAL
+  KEY
+  STATIC_QRCODE
+  DYNAMIC_QRCODE
+  COPY_PASTE
+  PAYMENT_INITIATOR
+}
+
+enum PixPurpose {
+  TRANSFER
+  PURCHASE
+  WITHDRAWAL
+  CHANGE
+}
+
+enum PixAccountType {
+  CHECKING
+  SAVINGS
+  PAYMENT
+  SALARY
+}
+
+enum PixRefundReasonCode {
+  FRAUD
+  OPERATIONAL_ERROR
+  REQUESTED_BY_PAYER
+  MERCHANT_REFUND
+  SETTLEMENT_FAILURE
+  ACCOUNT_CLOSED
+}
+
+model Transaction {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  accountId   String      @map("account_id") @db.VarChar(40)
+  chargeId    String?     @map("charge_id") @db.VarChar(40)
+  parentTransactionId String? @map("parent_transaction_id") @db.VarChar(40)
+
+  type      TransactionType
+  direction TransactionDirection
+  status    TransactionStatus @default(CREATED)
+  /// Alimenta o guard monotonico de ingestao de webhook.
+  lastEventAt DateTime? @map("last_event_at") @db.Timestamptz(6)
+
+  /// Bruto, sempre positivo. O sinal vive em `direction`.
+  amountCents         BigInt @map("amount_cents")
+  feeCents            BigInt @default(0) @map("fee_cents")
+  /// DEBIT: amount + fee sai. CREDIT: amount - fee entra.
+  netAmountCents      BigInt @map("net_amount_cents")
+  refundedAmountCents BigInt @default(0) @map("refunded_amount_cents")
+  currency            String @default("BRL") @db.VarChar(3)
+
+  description String? @db.VarChar(512)
+
+  provider             ProviderSlug
+  providerConnectionId String       @map("provider_connection_id") @db.VarChar(40)
+  providerTransactionId String?     @map("provider_transaction_id") @db.VarChar(128)
+  externalId           String?      @map("external_id") @db.VarChar(128)
+  idempotencyKey       String?      @map("idempotency_key") @db.VarChar(255)
+  operationId          String?      @map("operation_id") @db.VarChar(40)
+
+  failureCode         String? @map("failure_code") @db.VarChar(64)
+  providerFailureCode String? @map("provider_failure_code") @db.VarChar(64)
+  failureMessage      String? @map("failure_message") @db.VarChar(1024)
+
+  /// Dia bancario brasileiro, nao UTC.
+  effectiveDate DateTime  @map("effective_date") @db.Date
+  requestedAt   DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  processingAt  DateTime? @map("processing_at") @db.Timestamptz(6)
+  settledAt     DateTime? @map("settled_at") @db.Timestamptz(6)
+  failedAt      DateTime? @map("failed_at") @db.Timestamptz(6)
+  reversedAt    DateTime? @map("reversed_at") @db.Timestamptz(6)
+  /// Ultima vez que a conciliacao verificou esta transacao.
+  lastCheckedAt DateTime? @map("last_checked_at") @db.Timestamptz(6)
+
+  /// Transacao correspondente no ledger sombra.
+  ledgerPendingTransactionId String? @map("ledger_pending_transaction_id") @db.VarChar(40)
+  ledgerPostedTransactionId  String? @map("ledger_posted_transaction_id") @db.VarChar(40)
+
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account       Account      @relation(fields: [accountId], references: [id])
+  charge        PixCharge?   @relation(fields: [chargeId], references: [id])
+  parent        Transaction? @relation("TxTree", fields: [parentTransactionId], references: [id])
+  children      Transaction[] @relation("TxTree")
+  pix           PixDetail?
+  statusHistory TransactionStatusChange[]
+
+  @@unique([environment, provider, providerTransactionId])
+  @@unique([environment, idempotencyKey])
+  @@unique([environment, externalId])
+  @@index([environment, accountId, createdAt(sort: Desc)])
+  @@index([environment, status, lastCheckedAt])
+  @@index([environment, effectiveDate, type])
+  /// Paginacao por cursor no extrato: keyset sobre (data, id).
+  @@index([accountId, effectiveDate(sort: Desc), id(sort: Desc)])
+  @@map("transaction")
+}
+
+model PixDetail {
+  transactionId String      @id @map("transaction_id") @db.VarChar(40)
+  environment   Environment
+
+  /// Nulo ate PROCESSING, muitas vezes ate SETTLED: e gerado pelo PSP do
+  /// PAGADOR. Assumir que existe na criacao e a pegadinha classica.
+  endToEndId         String? @map("end_to_end_id") @db.VarChar(32)
+  returnId           String? @map("return_id") @db.VarChar(32)
+  originalEndToEndId String? @map("original_end_to_end_id") @db.VarChar(32)
+  txid               String? @db.VarChar(35)
+  conciliationId     String? @map("conciliation_id") @db.VarChar(35)
+
+  initiationMethod PixInitiationMethod @map("initiation_method")
+  purpose          PixPurpose          @default(TRANSFER)
+  keyType          PixKeyType?         @map("key_type")
+  keyValue         String?             @map("key_value") @db.VarChar(77)
+
+  counterpartyName        String?         @map("counterparty_name") @db.VarChar(255)
+  /// Blind index: permite conciliar por contraparte sem guardar o documento.
+  counterpartyTaxIdIndex  String?         @map("counterparty_tax_id_index") @db.VarChar(64)
+  counterpartyTaxIdLast4  String?         @map("counterparty_tax_id_last4") @db.VarChar(4)
+  counterpartyTaxIdType   TaxIdType?      @map("counterparty_tax_id_type")
+  counterpartyIspb        String?         @map("counterparty_ispb") @db.VarChar(8)
+  counterpartyBankName    String?         @map("counterparty_bank_name") @db.VarChar(128)
+  counterpartyBranch      String?         @map("counterparty_branch") @db.VarChar(8)
+  counterpartyAccount     String?         @map("counterparty_account") @db.VarChar(20)
+  counterpartyAccountType PixAccountType? @map("counterparty_account_type")
+
+  remittanceInfo   String?              @map("remittance_info") @db.VarChar(140)
+  refundReasonCode PixRefundReasonCode? @map("refund_reason_code")
+  settlementAt     DateTime?            @map("settlement_at") @db.Timestamptz(6)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // Migrations cruas adicionam indices unicos PARCIAIS (NULLs excluidos):
+  //   UNIQUE (environment, end_to_end_id) WHERE end_to_end_id IS NOT NULL
+  //   UNIQUE (environment, return_id)     WHERE return_id     IS NOT NULL
+  // O E2EID e a nossa chave de idempotencia de ultimo recurso para webhooks.
+  @@index([environment, txid])
+  @@index([environment, originalEndToEndId])
+  @@index([environment, counterpartyTaxIdIndex])
+  @@map("pix_detail")
+}
+
+model TransactionStatusChange {
+  id              String             @id @db.VarChar(40)
+  transactionId   String             @map("transaction_id") @db.VarChar(40)
+  fromStatus      TransactionStatus? @map("from_status")
+  toStatus        TransactionStatus  @map("to_status")
+  reasonCode      String?            @map("reason_code") @db.VarChar(64)
+  reasonMessage   String?            @map("reason_message") @db.VarChar(512)
+  source          ChangeSource
+  providerEventId String?            @map("provider_event_id") @db.VarChar(40)
+  occurredAt      DateTime           @map("occurred_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId, occurredAt(sort: Desc)])
+  @@map("transaction_status_change")
+}

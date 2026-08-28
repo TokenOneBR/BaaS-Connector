@@ -1,0 +1,147 @@
+/// Titular da conta, PF ou PJ.
+///
+/// `legalName` e um campo so para os dois de proposito: todo provedor tem um
+/// "nome principal", e bifurcar o modelo dobraria cada mapper sem ganho.
+model AccountHolder {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  type        HolderType
+
+  taxIdType TaxIdType @map("tax_id_type")
+  /// Cifrado em nivel de aplicacao. Ver `taxIdBlindIndex` para busca.
+  taxIdCiphertext Bytes  @map("tax_id_ciphertext")
+  taxIdIv         Bytes  @map("tax_id_iv")
+  taxIdTag        Bytes  @map("tax_id_tag")
+  taxIdWrappedKey Bytes  @map("tax_id_wrapped_key")
+  taxIdKeyId      String @map("tax_id_key_id") @db.VarChar(255)
+  /// HMAC com pepper que vive no KMS. E o que torna possivel achar a conta de
+  /// um CPF sem descriptografar a tabela inteira, e o que faz um vazamento so
+  /// do banco nao entregar nem o documento nem um hash atacavel.
+  taxIdBlindIndex String @map("tax_id_blind_index") @db.VarChar(64)
+  /// Ultimos 4 digitos, para exibicao e suporte.
+  taxIdLast4 String @map("tax_id_last4") @db.VarChar(4)
+
+  legalName     String  @map("legal_name") @db.VarChar(255)
+  tradeName     String? @map("trade_name") @db.VarChar(255)
+  preferredName String? @map("preferred_name") @db.VarChar(255)
+  email         String  @db.VarChar(255)
+  emailBlindIndex String @map("email_blind_index") @db.VarChar(64)
+  phoneCountryCode String @default("55") @map("phone_country_code") @db.VarChar(3)
+  phoneAreaCode    String @map("phone_area_code") @db.VarChar(3)
+  phoneNumber      String @map("phone_number") @db.VarChar(11)
+
+  // Pessoa fisica
+  birthDate          DateTime? @map("birth_date") @db.Date
+  motherName         String?   @map("mother_name") @db.VarChar(255)
+  nationality        String?   @db.VarChar(3)
+  maritalStatus      MaritalStatus? @map("marital_status")
+  occupationCode     String?   @map("occupation_code") @db.VarChar(10)
+  identityKind       IdentityDocumentKind? @map("identity_kind")
+  identityNumber     String?   @map("identity_number") @db.VarChar(32)
+  identityIssuer     String?   @map("identity_issuer") @db.VarChar(32)
+  identityIssuedAt   DateTime? @map("identity_issued_at") @db.Date
+  monthlyIncomeCents BigInt?   @map("monthly_income_cents")
+
+  // Pessoa juridica
+  incorporationDate   DateTime? @map("incorporation_date") @db.Date
+  legalNatureCode     String?   @map("legal_nature_code") @db.VarChar(8)
+  mainCnae            String?   @map("main_cnae") @db.VarChar(9)
+  secondaryCnaes      String[]  @default([]) @map("secondary_cnaes")
+  companySize         CompanySize? @map("company_size")
+  monthlyRevenueCents BigInt?   @map("monthly_revenue_cents")
+  shareCapitalCents   BigInt?   @map("share_capital_cents")
+
+  isPoliticallyExposed Boolean     @default(false) @map("is_politically_exposed")
+  riskRating           RiskRating?
+  externalId           String?     @map("external_id") @db.VarChar(128)
+  metadata             Json        @default("{}")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Pseudonimizacao por LGPD Art. 18, quando ha retencao legal (Art. 16, I).
+  anonymizedAt DateTime? @map("anonymized_at") @db.Timestamptz(6)
+
+  addresses       Address[]
+  representatives LegalRepresentative[]
+  accounts        Account[]
+  onboardingCases OnboardingCase[]
+  documents       KycDocument[]
+  screenings      ComplianceScreening[]
+
+  @@unique([environment, taxIdBlindIndex])
+  @@unique([environment, externalId])
+  @@index([environment, createdAt(sort: Desc)])
+  @@index([environment, legalName])
+  @@map("account_holder")
+}
+
+model Address {
+  id               String      @id @db.VarChar(40)
+  environment      Environment
+  holderId         String?     @map("holder_id") @db.VarChar(40)
+  representativeId String?     @map("representative_id") @db.VarChar(40)
+  type             AddressType @default(RESIDENTIAL)
+  postalCode       String      @map("postal_code") @db.VarChar(8)
+  street           String      @db.VarChar(255)
+  number           String      @db.VarChar(16)
+  complement       String?     @db.VarChar(128)
+  district         String      @db.VarChar(128)
+  city             String      @db.VarChar(128)
+  state            BrazilianState
+  country          String      @default("BR") @db.VarChar(2)
+  ibgeCityCode     String?     @map("ibge_city_code") @db.VarChar(7)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  holder         AccountHolder?       @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  representative LegalRepresentative? @relation(fields: [representativeId], references: [id], onDelete: Cascade)
+
+  @@index([holderId])
+  @@index([representativeId])
+  @@map("address")
+}
+
+/// Representante legal de uma PJ.
+///
+/// Modelado como arvore explicita, e nao achatado: o onboarding de PJ
+/// brasileira genuinamente e uma arvore de socios e beneficiarios finais, e
+/// provedores que escondem isso ainda exigem que rastreemos para a nossa
+/// propria trilha de auditoria.
+model LegalRepresentative {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  holderId    String      @map("holder_id") @db.VarChar(40)
+  role        RepresentativeRole
+
+  taxIdCiphertext Bytes  @map("tax_id_ciphertext")
+  taxIdIv         Bytes  @map("tax_id_iv")
+  taxIdTag        Bytes  @map("tax_id_tag")
+  taxIdWrappedKey Bytes  @map("tax_id_wrapped_key")
+  taxIdKeyId      String @map("tax_id_key_id") @db.VarChar(255)
+  taxIdBlindIndex String @map("tax_id_blind_index") @db.VarChar(64)
+  taxIdLast4      String @map("tax_id_last4") @db.VarChar(4)
+
+  fullName   String    @map("full_name") @db.VarChar(255)
+  birthDate  DateTime  @map("birth_date") @db.Date
+  motherName String?   @map("mother_name") @db.VarChar(255)
+  email      String?   @db.VarChar(255)
+  phoneAreaCode String? @map("phone_area_code") @db.VarChar(3)
+  phoneNumber   String? @map("phone_number") @db.VarChar(11)
+
+  /// Decimal exato, nunca float: participacao entra em calculo de UBO.
+  ownershipPercentage       Decimal? @map("ownership_percentage") @db.Decimal(9, 6)
+  /// >= 25% conforme Circular BCB 3.978.
+  isUltimateBeneficialOwner Boolean  @default(false) @map("is_ultimate_beneficial_owner")
+  isSigner                  Boolean  @default(false) @map("is_signer")
+  isPoliticallyExposed      Boolean  @default(false) @map("is_politically_exposed")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  holder       AccountHolder           @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  addresses    Address[]
+  requirements OnboardingRequirement[]
+
+  @@unique([holderId, taxIdBlindIndex, role])
+  @@index([environment, taxIdBlindIndex])
+  @@map("legal_representative")
+}

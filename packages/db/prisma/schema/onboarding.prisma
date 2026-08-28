@@ -1,0 +1,266 @@
+enum OnboardingType {
+  KYC
+  KYB
+}
+
+enum OnboardingStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_REQUIREMENTS
+  IN_ANALYSIS
+  MANUAL_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum OnboardingDecision {
+  APPROVE
+  REJECT
+  REVIEW
+}
+
+enum OnboardingRejectionCode {
+  DOCUMENT_ILLEGIBLE
+  DOCUMENT_EXPIRED
+  DOCUMENT_TAMPERED
+  FACE_MATCH_FAILED
+  LIVENESS_FAILED
+  DATA_MISMATCH
+  TAX_ID_IRREGULAR
+  UNDERAGE
+  SANCTIONS_MATCH
+  PEP_RESTRICTED
+  ADVERSE_MEDIA
+  PROHIBITED_ACTIVITY
+  FRAUD_SUSPICION
+  DUPLICATE_HOLDER
+  UBO_NOT_IDENTIFIED
+  RISK_APPETITE
+  PROVIDER_POLICY
+}
+
+enum RequirementCode {
+  SELFIE_LIVENESS
+  IDENTITY_FRONT
+  IDENTITY_BACK
+  PROOF_OF_ADDRESS
+  PROOF_OF_INCOME
+  TAX_ID_DOCUMENT
+  ARTICLES_OF_INCORPORATION
+  LATEST_AMENDMENT
+  BOARD_ELECTION_MINUTES
+  CNPJ_REGISTRATION_CARD
+  OWNERSHIP_CHART
+  UBO_DECLARATION
+  FINANCIAL_STATEMENTS
+  POWER_OF_ATTORNEY
+  REPRESENTATIVE_KYC
+  ADDITIONAL_INFORMATION
+  PHONE_VERIFICATION
+  EMAIL_VERIFICATION
+  TERMS_ACCEPTANCE
+}
+
+enum RequirementStatus {
+  PENDING
+  SUBMITTED
+  IN_ANALYSIS
+  ACCEPTED
+  REJECTED
+  WAIVED
+  EXPIRED
+}
+
+enum DocumentSide {
+  FRONT
+  BACK
+  SINGLE
+}
+
+enum DocumentStatus {
+  UPLOADED
+  SENT_TO_PROVIDER
+  ACCEPTED
+  REJECTED
+}
+
+enum ScreeningType {
+  PEP
+  SANCTIONS
+  DOMESTIC_RESTRICTIVE
+  ADVERSE_MEDIA
+  INTERNAL_DENYLIST
+  TAX_ID_STATUS
+  CREDIT_BUREAU
+  DEVICE_FRAUD
+}
+
+enum ScreeningResult {
+  CLEAR
+  POTENTIAL_MATCH
+  MATCH
+  INCONCLUSIVE
+  ERROR
+}
+
+model OnboardingCase {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  holderId    String      @map("holder_id") @db.VarChar(40)
+  accountId   String?     @map("account_id") @db.VarChar(40)
+  /// KYB gera casos KYC filhos para cada representante obrigatorio. O pai nao
+  /// aprova enquanto houver filho pendente.
+  parentCaseId String?    @map("parent_case_id") @db.VarChar(40)
+
+  provider       ProviderSlug
+  providerCaseId String?      @map("provider_case_id") @db.VarChar(128)
+  type           OnboardingType
+  status         OnboardingStatus @default(DRAFT)
+  lastEventAt    DateTime?        @map("last_event_at") @db.Timestamptz(6)
+
+  decision              OnboardingDecision?
+  rejectionCode         OnboardingRejectionCode? @map("rejection_code")
+  rejectionMessage      String?                  @map("rejection_message") @db.VarChar(1024)
+  /// Codigo bruto do provedor, preservado para escalacao ao suporte.
+  providerRejectionCode String?                  @map("provider_rejection_code") @db.VarChar(64)
+
+  riskRating RiskRating? @map("risk_rating")
+  riskScore  Decimal?    @map("risk_score") @db.Decimal(9, 6)
+
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(6)
+  decidedAt   DateTime? @map("decided_at") @db.Timestamptz(6)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(6)
+  slaDueAt    DateTime? @map("sla_due_at") @db.Timestamptz(6)
+
+  reviewedBy String? @map("reviewed_by") @db.VarChar(128)
+  reviewNote String? @map("review_note") @db.Text
+  metadata   Json    @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  holder       AccountHolder    @relation(fields: [holderId], references: [id])
+  account      Account?         @relation(fields: [accountId], references: [id])
+  parentCase   OnboardingCase?  @relation("CaseTree", fields: [parentCaseId], references: [id])
+  childCases   OnboardingCase[] @relation("CaseTree")
+  requirements OnboardingRequirement[]
+  screenings   ComplianceScreening[]
+  documents    KycDocument[]
+
+  @@unique([environment, provider, providerCaseId])
+  @@index([environment, status, slaDueAt])
+  @@index([environment, holderId])
+  @@map("onboarding_case")
+}
+
+/// Pendencia de onboarding.
+///
+/// A lista e declarativa e reconciliada de forma idempotente: a cada evento do
+/// provedor o adapter emite o conjunto COMPLETO e o core faz diff. Sem isso, a
+/// lista vira append-only e nunca limpa, que e a falha classica de integracao
+/// de KYC.
+model OnboardingRequirement {
+  id     String @id @db.VarChar(40)
+  caseId String @map("case_id") @db.VarChar(40)
+  code   RequirementCode
+  /// Em KYB: de qual representante a pendencia trata.
+  subjectRepresentativeId String? @map("subject_representative_id") @db.VarChar(40)
+
+  status      RequirementStatus @default(PENDING)
+  label       String            @db.VarChar(255)
+  description String?           @db.VarChar(1024)
+  documentId  String?           @map("document_id") @db.VarChar(40)
+
+  rejectionCode    OnboardingRejectionCode? @map("rejection_code")
+  rejectionMessage String?                  @map("rejection_message") @db.VarChar(512)
+  attempts         Int                      @default(0)
+  dueAt            DateTime?                @map("due_at") @db.Timestamptz(6)
+  providerRequirementId String?             @map("provider_requirement_id") @db.VarChar(128)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  case           OnboardingCase       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  representative LegalRepresentative? @relation(fields: [subjectRepresentativeId], references: [id])
+  document       KycDocument?         @relation(fields: [documentId], references: [id])
+
+  // O Prisma nao expressa NULLS NOT DISTINCT; uma migration crua cria
+  // UNIQUE (case_id, code, COALESCE(subject_representative_id, '')).
+  @@index([caseId, status])
+  @@map("onboarding_requirement")
+}
+
+/// Documento de KYC.
+///
+/// O arquivo vai para object storage com SSE-KMS; o banco guarda apenas a
+/// referencia e o digest. Documento em Postgres e backup, replica e dump com
+/// dado pessoal em toda parte.
+model KycDocument {
+  id          String      @id @db.VarChar(40)
+  environment Environment
+  holderId    String      @map("holder_id") @db.VarChar(40)
+  caseId      String?     @map("case_id") @db.VarChar(40)
+  kind        RequirementCode
+  side        DocumentSide?
+
+  storageBucket String @map("storage_bucket") @db.VarChar(128)
+  storageKey    String @map("storage_key") @db.VarChar(512)
+  contentType   String @map("content_type") @db.VarChar(128)
+  sizeBytes     Int    @map("size_bytes")
+  sha256        String @db.VarChar(64)
+
+  status             DocumentStatus @default(UPLOADED)
+  providerDocumentId String?        @map("provider_document_id") @db.VarChar(128)
+  encryptionKeyId    String?        @map("encryption_key_id") @db.VarChar(255)
+  /// 10 anos apos o fim da relacao (Lei 9.613/1998 + Circular BCB 3.978/2020).
+  retentionUntil     DateTime?      @map("retention_until") @db.Date
+
+  uploadedAt DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+
+  holder       AccountHolder   @relation(fields: [holderId], references: [id])
+  case         OnboardingCase? @relation(fields: [caseId], references: [id])
+  requirements OnboardingRequirement[]
+
+  @@unique([environment, holderId, sha256])
+  @@index([environment, holderId, kind])
+  @@map("kyc_document")
+}
+
+/// Triagem PLD/AML.
+///
+/// Entidade propria porque a Circular BCB 3.978/2020 exige monitoramento
+/// continuo, nao apenas na abertura: `nextDueAt` alimenta o re-screening.
+model ComplianceScreening {
+  id               String      @id @db.VarChar(40)
+  environment      Environment
+  holderId         String      @map("holder_id") @db.VarChar(40)
+  representativeId String?     @map("representative_id") @db.VarChar(40)
+  caseId           String?     @map("case_id") @db.VarChar(40)
+
+  type   ScreeningType
+  source String        @db.VarChar(64)
+  result ScreeningResult
+  score  Decimal?      @db.Decimal(9, 6)
+  matches Json         @default("[]")
+  /// Resposta crua do bureau. Contem PII: cifrada em nivel de aplicacao.
+  rawCiphertext Bytes?  @map("raw_ciphertext")
+  rawIv         Bytes?  @map("raw_iv")
+  rawTag        Bytes?  @map("raw_tag")
+  rawWrappedKey Bytes?  @map("raw_wrapped_key")
+  rawKeyId      String? @map("raw_key_id") @db.VarChar(255)
+
+  screenedAt DateTime  @map("screened_at") @db.Timestamptz(6)
+  nextDueAt  DateTime? @map("next_due_at") @db.Timestamptz(6)
+  reviewedBy String?   @map("reviewed_by") @db.VarChar(128)
+  reviewNote String?   @map("review_note") @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  holder AccountHolder   @relation(fields: [holderId], references: [id])
+  case   OnboardingCase? @relation(fields: [caseId], references: [id])
+
+  @@index([environment, holderId, type, screenedAt(sort: Desc)])
+  @@index([environment, nextDueAt])
+  @@map("compliance_screening")
+}

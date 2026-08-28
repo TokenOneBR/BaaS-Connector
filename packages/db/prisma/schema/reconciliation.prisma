@@ -1,0 +1,181 @@
+enum ReconciliationScope {
+  DAILY
+  INTRADAY
+  BACKFILL
+  MANUAL
+}
+
+enum ReconciliationRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_BREAKS
+  FAILED
+}
+
+enum ReconciliationSide {
+  PROVIDER
+  LOCAL
+  LEDGER
+}
+
+enum BreakType {
+  MISSING_ON_LOCAL
+  MISSING_ON_PROVIDER
+  MISSING_ON_LEDGER
+  AMOUNT_MISMATCH
+  STATUS_MISMATCH
+  DUPLICATE_LOCAL
+  DUPLICATE_PROVIDER
+  DATE_MISMATCH
+  BALANCE_MISMATCH
+  UNMATCHED_FEE
+  ORPHAN_REFUND
+}
+
+enum BreakSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BreakStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  WRITTEN_OFF
+  AUTO_RESOLVED
+}
+
+enum ResolutionAction {
+  IMPORT_FROM_PROVIDER
+  MARK_PROVIDER_AUTHORITATIVE
+  CREATE_LEDGER_ADJUSTMENT
+  CANCEL_LOCAL_RECORD
+  MERGE_DUPLICATE
+  IGNORE_TIMING_DIFFERENCE
+  WRITE_OFF
+  ESCALATE_TO_PROVIDER
+}
+
+enum MatchConfidence {
+  EXACT
+  HIGH
+  LOW
+}
+
+model ReconciliationRun {
+  id           String      @id @db.VarChar(40)
+  environment  Environment
+  connectionId String      @map("connection_id") @db.VarChar(40)
+  accountId    String?     @map("account_id") @db.VarChar(40)
+  scope        ReconciliationScope
+  windowStart  DateTime    @map("window_start") @db.Timestamptz(6)
+  windowEnd    DateTime    @map("window_end") @db.Timestamptz(6)
+  status       ReconciliationRunStatus @default(QUEUED)
+
+  providerItemCount Int @default(0) @map("provider_item_count")
+  localItemCount    Int @default(0) @map("local_item_count")
+  ledgerItemCount   Int @default(0) @map("ledger_item_count")
+  matchedCount      Int @default(0) @map("matched_count")
+  breakCount        Int @default(0) @map("break_count")
+
+  providerOpeningBalanceCents BigInt? @map("provider_opening_balance_cents")
+  providerClosingBalanceCents BigInt? @map("provider_closing_balance_cents")
+  ledgerClosingBalanceCents   BigInt? @map("ledger_closing_balance_cents")
+  /// Numero de manchete do dashboard.
+  balanceDeltaCents           BigInt? @map("balance_delta_cents")
+
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt  DateTime? @map("finished_at") @db.Timestamptz(6)
+  error       Json?
+  triggeredBy String    @map("triggered_by") @db.VarChar(128)
+
+  items  ReconciliationItem[]
+  breaks ReconciliationBreak[]
+
+  /// Execucao idempotente: a mesma janela nao roda duas vezes.
+  @@unique([connectionId, accountId, scope, windowStart, windowEnd])
+  @@index([environment, connectionId, windowStart])
+  @@map("reconciliation_run")
+}
+
+model ReconciliationItem {
+  id     String @id @db.VarChar(40)
+  runId  String @map("run_id") @db.VarChar(40)
+  side   ReconciliationSide
+
+  externalId String?  @map("external_id") @db.VarChar(128)
+  endToEndId String?  @map("end_to_end_id") @db.VarChar(32)
+  postedAt   DateTime @map("posted_at") @db.Timestamptz(6)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  direction  String   @db.VarChar(8)
+  amountCents BigInt  @map("amount_cents")
+  type       String   @db.VarChar(32)
+  /// Blind index: concilia por contraparte sem guardar o documento.
+  counterpartyTaxIdIndex String? @map("counterparty_tax_id_index") @db.VarChar(64)
+
+  /// endToEndId ou providerTransactionId. Casamento por chave forte e certo.
+  matchKeyStrong String? @map("match_key_strong") @db.VarChar(128)
+  /// sha256(accountId|direction|amount|effectiveDate).
+  matchKeyFuzzy  String  @map("match_key_fuzzy") @db.VarChar(64)
+  matchedItemId  String? @map("matched_item_id") @db.VarChar(40)
+  matchConfidence MatchConfidence? @map("match_confidence")
+
+  raw Json
+
+  run ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, side, matchKeyStrong])
+  @@index([runId, side, matchKeyFuzzy])
+  @@map("reconciliation_item")
+}
+
+model ReconciliationBreak {
+  id             String      @id @db.VarChar(40)
+  environment    Environment
+  runId          String      @map("run_id") @db.VarChar(40)
+  /// Quebras persistem entre execucoes; este e quando ela apareceu.
+  firstSeenRunId String      @map("first_seen_run_id") @db.VarChar(40)
+  connectionId   String      @map("connection_id") @db.VarChar(40)
+  accountId      String?     @map("account_id") @db.VarChar(40)
+
+  type     BreakType
+  severity BreakSeverity
+  status   BreakStatus @default(OPEN)
+
+  amountCents   BigInt?  @map("amount_cents")
+  deltaCents    BigInt?  @map("delta_cents")
+  effectiveDate DateTime @map("effective_date") @db.Date
+  endToEndId    String?  @map("end_to_end_id") @db.VarChar(32)
+
+  providerItemId String? @map("provider_item_id") @db.VarChar(40)
+  localItemId    String? @map("local_item_id") @db.VarChar(40)
+  ledgerItemId   String? @map("ledger_item_id") @db.VarChar(40)
+
+  description String @db.VarChar(1024)
+  /// Os dois lados normalizados e redigidos, para revisao lado a lado.
+  evidence    Json
+  ageDays     Int    @default(0) @map("age_days")
+
+  assignedTo     String?           @map("assigned_to") @db.VarChar(128)
+  resolution     ResolutionAction?
+  resolutionNote String?           @map("resolution_note") @db.Text
+  resolvedBy     String?           @map("resolved_by") @db.VarChar(128)
+  resolvedAt     DateTime?         @map("resolved_at") @db.Timestamptz(6)
+  /// Ajuste no ledger criado pela resolucao. Resolucao NUNCA edita historico:
+  /// lanca ajuste novo e balanceado.
+  adjustmentTransactionId String?  @map("adjustment_transaction_id") @db.VarChar(40)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  run ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  /// Deduplicacao entre execucoes diarias: a mesma quebra nao vira duas.
+  @@unique([connectionId, type, endToEndId, effectiveDate])
+  @@index([environment, status, severity, effectiveDate])
+  @@index([environment, accountId, status])
+  @@map("reconciliation_break")
+}
