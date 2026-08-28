@@ -30,7 +30,110 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/adapter-kit:
+    dependencies:
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../taxonomy
+      undici:
+        specifier: ^7.2.0
+        version: 7.29.0
+    devDependencies:
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest-config
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/conformance:
+    dependencies:
+      '@baasconn/adapter-kit':
+        specifier: workspace:*
+        version: link:../adapter-kit
+      '@baasconn/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/contracts:
+    dependencies:
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/ledger:
+    dependencies:
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../taxonomy
+    devDependencies:
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest-config
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)
+
+  packages/provider-spi:
     dependencies:
       '@baasconn/taxonomy':
         specifier: workspace:*
@@ -2197,6 +2300,10 @@ packages:
 
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+
+  undici@7.29.0:
+    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
+    engines: {node: '>=20.18.1'}
 
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
@@ -4550,6 +4657,8 @@ snapshots:
     optional: true
 
   undici-types@6.21.0: {}
+
+  undici@7.29.0: {}
 
   universalify@0.1.2: {}
 
