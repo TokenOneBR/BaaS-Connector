@@ -45,7 +45,9 @@ export class CapabilityGuard implements CanActivate {
 
     // PARTIAL e EMULATED nao sao erro, mas o cliente precisa poder registrar.
     if (entry.level !== SupportLevel.SUPPORTED) {
-      const response = context.switchToHttp().getResponse<{ setHeader(k: string, v: string): void }>();
+      const response = context
+        .switchToHttp()
+        .getResponse<{ setHeader(k: string, v: string): void }>();
       response.setHeader('X-Baas-Capability-Level', entry.level);
       if (entry.note) response.setHeader('X-Baas-Capability-Note', encodeURIComponent(entry.note));
     }

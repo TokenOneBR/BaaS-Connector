@@ -51,7 +51,10 @@ export class CanonicalErrorFilter implements ExceptionFilter {
         'Erro interno',
       );
     } else {
-      this.logger.debug({ path: request.path, code: error.code, request_id: requestId }, 'Erro de cliente');
+      this.logger.debug(
+        { path: request.path, code: error.code, request_id: requestId },
+        'Erro de cliente',
+      );
     }
 
     response.status(error.httpStatus).json(body);

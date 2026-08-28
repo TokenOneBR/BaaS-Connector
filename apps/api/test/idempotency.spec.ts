@@ -157,11 +157,12 @@ describe('interceptor de idempotencia', () => {
 
   const run = async (request: Record<string, unknown>, handler: CallHandler) => {
     const response = makeResponse();
-    const result = await (
-      interceptor.intercept(makeContext(request, response.api), handler) as never as {
-        toPromise?: () => Promise<unknown>;
-      }
-    );
+    const result = await (interceptor.intercept(
+      makeContext(request, response.api),
+      handler,
+    ) as never as {
+      toPromise?: () => Promise<unknown>;
+    });
     // O interceptor devolve um Observable; convertemos para promessa.
     const value = await new Promise((resolve, reject) => {
       (result as unknown as { subscribe: (o: unknown) => void }).subscribe({

@@ -12,7 +12,10 @@ import { AdminSessionGuard, MinRole, type AdminRequest } from './admin-session.g
 const zLogin = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  totp_code: z.string().regex(/^\d{6}$/).optional(),
+  totp_code: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
 });
 
 const zRefresh = z.object({ refresh_token: z.string().min(16) });

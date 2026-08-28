@@ -60,10 +60,10 @@ export class ApiKeyGuard implements CanActivate {
       actorType: 'API_KEY',
     });
 
-    const routeRequiresSignature = this.reflector.getAllAndOverride<boolean>(REQUIRE_SIGNATURE_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const routeRequiresSignature = this.reflector.getAllAndOverride<boolean>(
+      REQUIRE_SIGNATURE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (routeRequiresSignature || key.signingRequired) {
       await this.apiKeys.verifySignature(key, {

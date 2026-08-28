@@ -22,7 +22,10 @@ export function atLeast(role: ConsoleRole, minimum: ConsoleRole): boolean {
 }
 
 /** Papeis que exigem segundo fator. Quem pode gravar credencial precisa dele. */
-export const MFA_REQUIRED_ROLES: ReadonlySet<ConsoleRole> = new Set<ConsoleRole>(['OWNER', 'ADMIN']);
+export const MFA_REQUIRED_ROLES: ReadonlySet<ConsoleRole> = new Set<ConsoleRole>([
+  'OWNER',
+  'ADMIN',
+]);
 
 export interface ConsoleUserRecord {
   id: string;

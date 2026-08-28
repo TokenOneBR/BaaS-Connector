@@ -89,7 +89,8 @@ export class ApiKeyService {
     const parsed = parseApiKey(rawKey);
     if (!parsed) {
       throw new BaasError(BaasErrorCode.INVALID_API_KEY, {
-        message: 'Formato de chave invalido. Esperado bck_hml_<id>_<segredo> ou bck_prd_<id>_<segredo>.',
+        message:
+          'Formato de chave invalido. Esperado bck_hml_<id>_<segredo> ou bck_prd_<id>_<segredo>.',
       });
     }
 
@@ -115,7 +116,11 @@ export class ApiKeyService {
       throw new BaasError(BaasErrorCode.ENVIRONMENT_MISMATCH);
     }
 
-    if (record.ipAllowlist.length > 0 && clientIp && !this.ipAllowed(clientIp, record.ipAllowlist)) {
+    if (
+      record.ipAllowlist.length > 0 &&
+      clientIp &&
+      !this.ipAllowed(clientIp, record.ipAllowlist)
+    ) {
       throw new BaasError(BaasErrorCode.AUTHORIZATION_DENIED, {
         message: 'Origem nao permitida para esta chave de API.',
       });
@@ -218,7 +223,9 @@ export class ApiKeyService {
  */
 export function canonicalSignatureString(input: Omit<SignatureInput, 'signature'>): string {
   const bodyDigest = createHash('sha256').update(input.rawBody).digest('hex');
-  return [input.method.toUpperCase(), input.path, input.timestamp, input.nonce, bodyDigest].join('\n');
+  return [input.method.toUpperCase(), input.path, input.timestamp, input.nonce, bodyDigest].join(
+    '\n',
+  );
 }
 
 export function buildSignature(secret: string, input: Omit<SignatureInput, 'signature'>): string {

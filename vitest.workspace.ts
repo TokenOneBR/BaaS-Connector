@@ -6,8 +6,11 @@ export default [
   'packages/ledger',
   'packages/conformance',
   'packages/crypto',
+  'packages/db',
+  'packages/observability',
   'packages/adapters/*',
   'apps/api',
   'apps/worker',
   'apps/mock-bank',
+  'e2e',
 ];

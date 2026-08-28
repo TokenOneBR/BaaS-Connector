@@ -36,12 +36,7 @@ class MemoryUsers implements ConsoleUserRepository {
 class MemorySessions implements ConsoleSessionRepository {
   readonly rows = new Map<string, SessionRecord>();
 
-  async create(input: {
-    id: string;
-    userId: string;
-    refreshTokenHash: string;
-    expiresAt: Date;
-  }) {
+  async create(input: { id: string; userId: string; refreshTokenHash: string; expiresAt: Date }) {
     this.rows.set(input.id, { ...input, revokedAt: null });
   }
   async findById(id: string) {
@@ -162,7 +157,10 @@ describe('sessao do console', () => {
   });
 
   it('nao revela se o e-mail existe', async () => {
-    const inexistente = await login({ email: 'ninguem@tokenone.com.br', password: 'seja-o-que-for' });
+    const inexistente = await login({
+      email: 'ninguem@tokenone.com.br',
+      password: 'seja-o-que-for',
+    });
     const senhaErrada = await login({
       email: 'operador@tokenone.com.br',
       password: 'senha-errada-mas-longa',

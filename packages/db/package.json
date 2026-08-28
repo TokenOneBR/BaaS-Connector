@@ -21,6 +21,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "postinstall": "prisma generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run",

@@ -1,7 +1,4 @@
-import {
-  InMemoryCircuitBreaker,
-  InMemoryTokenStore,
-} from '@baasconn/adapter-kit';
+import { InMemoryCircuitBreaker, InMemoryTokenStore } from '@baasconn/adapter-kit';
 import { getContext } from '@baasconn/observability';
 import type {
   AdapterRuntime,
@@ -10,7 +7,12 @@ import type {
   ProviderContext,
   ScopedLogger,
 } from '@baasconn/provider-spi';
-import { CapabilityNotSupportedError, SupportLevel, systemClock, type CapabilityKey } from '@baasconn/taxonomy';
+import {
+  CapabilityNotSupportedError,
+  SupportLevel,
+  systemClock,
+  type CapabilityKey,
+} from '@baasconn/taxonomy';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { CredentialResolver } from './credential.resolver.js';
@@ -50,7 +52,10 @@ export class ProviderResolver {
     @Inject(SCOPED_LOGGER) private readonly logger: ScopedLogger,
   ) {}
 
-  async resolve(connectionId: string, options: { operationId?: string } = {}): Promise<BoundProvider> {
+  async resolve(
+    connectionId: string,
+    options: { operationId?: string } = {},
+  ): Promise<BoundProvider> {
     const connection = await this.credentials.resolve(connectionId);
     const factory = this.registry.factory(connection.provider);
     const requestContext = getContext();

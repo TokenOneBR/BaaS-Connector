@@ -20,7 +20,8 @@ export class ApiConfig {
   readonly databaseUrl = process.env.DATABASE_URL ?? '';
   readonly redisUrl = process.env.REDIS_URL ?? '';
 
-  readonly kmsDriver = (process.env.KMS_DRIVER ?? 'local') as 'local' | 'aws-kms' | 'gcp-kms' | 'azure-kv';
+  readonly kmsDriver = (process.env.KMS_DRIVER ?? 'local') as
+    'local' | 'aws-kms' | 'gcp-kms' | 'azure-kv';
   readonly kmsKeyId = process.env.KMS_KEY_ID;
   readonly kmsMasterSecret = process.env.KMS_MASTER_SECRET ?? '';
   readonly blindIndexPepper = process.env.BLIND_INDEX_PEPPER ?? '';

@@ -95,7 +95,10 @@ export class AdminAuthService {
    * corrente), entao um refresh token roubado e usado depois do legitimo falha
    * — e a falha e o sinal de que houve roubo.
    */
-  async refresh(rawToken: string, context: { userAgent?: string; ipAddress?: string } = {}): Promise<IssuedSession> {
+  async refresh(
+    rawToken: string,
+    context: { userAgent?: string; ipAddress?: string } = {},
+  ): Promise<IssuedSession> {
     const parsed = parseRefreshToken(rawToken);
     if (!parsed) throw new BaasError(BaasErrorCode.SESSION_EXPIRED);
 
@@ -227,7 +230,9 @@ export function formatRefreshToken(sessionId: string, secret: string): string {
   return `${sessionId}.${secret}`;
 }
 
-export function parseRefreshToken(value: string): { sessionId: string; secret: string } | undefined {
+export function parseRefreshToken(
+  value: string,
+): { sessionId: string; secret: string } | undefined {
   const separator = value.indexOf('.');
   if (separator <= 0 || separator === value.length - 1) return undefined;
   return { sessionId: value.slice(0, separator), secret: value.slice(separator + 1) };

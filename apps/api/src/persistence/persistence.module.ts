@@ -1,10 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 
-import {
-  CONSOLE_SESSION_REPOSITORY,
-  CONSOLE_USER_REPOSITORY,
-} from '../admin/admin.types.js';
+import { CONSOLE_SESSION_REPOSITORY, CONSOLE_USER_REPOSITORY } from '../admin/admin.types.js';
 import { API_KEY_REPOSITORY, NONCE_STORE } from '../auth/api-key.service.js';
 import { CLOCK, type Clock } from '../common/clock.js';
 import { ApiConfig } from '../config/config.service.js';

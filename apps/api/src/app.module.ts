@@ -10,7 +10,11 @@ import { RawBodyMiddleware } from './common/raw-body.middleware.js';
 import { RequestContextMiddleware } from './common/request-context.middleware.js';
 import { ConfigModule } from './config/config.module.js';
 import { CryptoModule } from './crypto/crypto.module.js';
-import { HealthController, READINESS_PROBES, type ReadinessProbe } from './health/health.controller.js';
+import {
+  HealthController,
+  READINESS_PROBES,
+  type ReadinessProbe,
+} from './health/health.controller.js';
 import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor.js';
 import { ObservabilityModule } from './observability/observability.module.js';
 import { PersistenceModule } from './persistence/persistence.module.js';
@@ -19,21 +23,29 @@ import { REDIS } from './persistence/redis.provider.js';
 import { ProvidersModule } from './providers/providers.module.js';
 
 @Module({
-  imports: [ConfigModule, ObservabilityModule, CryptoModule, PersistenceModule, ProvidersModule, AdminModule],
+  imports: [
+    ConfigModule,
+    ObservabilityModule,
+    CryptoModule,
+    PersistenceModule,
+    ProvidersModule,
+    AdminModule,
+  ],
   controllers: [HealthController],
   providers: [
     ApiKeyService,
     {
       provide: READINESS_PROBES,
       inject: [PrismaService, REDIS],
-      useFactory: (
-        prisma: PrismaService,
-        redis: { ping(): Promise<string> },
-      ): ReadinessProbe[] => [
+      useFactory: (prisma: PrismaService, redis: { ping(): Promise<string> }): ReadinessProbe[] => [
         { name: 'postgres', check: () => prisma.ping() },
         {
           name: 'redis',
-          check: () => redis.ping().then((reply) => reply === 'PONG').catch(() => false),
+          check: () =>
+            redis
+              .ping()
+              .then((reply) => reply === 'PONG')
+              .catch(() => false),
         },
       ],
     },
@@ -54,8 +66,6 @@ export class AppModule implements NestModule {
 
     // So nas rotas de webhook. Nas demais, os bytes crus vem do `verify` do
     // parser JSON, em main.ts.
-    consumer
-      .apply(RawBodyMiddleware)
-      .forRoutes({ path: 'webhooks/*', method: RequestMethod.ALL });
+    consumer.apply(RawBodyMiddleware).forRoutes({ path: 'webhooks/*', method: RequestMethod.ALL });
   }
 }

@@ -4,7 +4,6 @@ import { Controller, Get, Inject } from '@nestjs/common';
 import { Public } from '../auth/api-key.guard.js';
 import { CLOCK } from '../common/clock.js';
 
-
 export const READINESS_PROBES = Symbol('BAAS_READINESS_PROBES');
 
 export interface ReadinessProbe {

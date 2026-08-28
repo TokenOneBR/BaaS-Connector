@@ -45,6 +45,52 @@ describe('escopo de ambiente', () => {
     expect(args.where).toEqual({ AND: [{}, { environment: 'HOMOLOGACAO' }] });
   });
 
+  it('mescla no topo em findUnique, senao o Prisma recusa', () => {
+    const args = applyEnvironmentScope(
+      'Account',
+      'findUnique',
+      { where: { id: 'acc_1' } },
+      HOMOLOG,
+    );
+
+    // Envolver num AND tiraria `id` do topo e o Prisma responderia
+    // "Argument where needs at least one of ...". O seletor unico precisa
+    // continuar no primeiro nivel.
+    expect(args.where).toEqual({ environment: 'HOMOLOGACAO', id: 'acc_1' });
+    expect(args.where).not.toHaveProperty('AND');
+  });
+
+  it('mescla no topo em update e delete pelo mesmo motivo', () => {
+    for (const operation of ['update', 'delete']) {
+      const args = applyEnvironmentScope('Account', operation, { where: { id: 'acc_1' } }, HOMOLOG);
+      expect(args.where, operation).toEqual({ environment: 'HOMOLOGACAO', id: 'acc_1' });
+    }
+  });
+
+  it('no upsert filtra pelo unico e cria com ambiente', () => {
+    const args = applyEnvironmentScope(
+      'AccountBalance',
+      'upsert',
+      { where: { accountId: 'acc_1' }, create: { accountId: 'acc_1' } },
+      HOMOLOG,
+    );
+    expect(args.where).toEqual({ environment: 'HOMOLOGACAO', accountId: 'acc_1' });
+    expect(args.create).toEqual({ environment: 'HOMOLOGACAO', accountId: 'acc_1' });
+  });
+
+  it('um environment explicito do repositorio vence o injetado', () => {
+    // O filtro explicito e o contrato; este helper e a rede. Se os dois
+    // discordam, quem escreveu a query decide — e o teste de integracao dela
+    // vai apontar a divergencia.
+    const args = applyEnvironmentScope(
+      'Account',
+      'create',
+      { data: { id: 'acc_1', environment: 'PRODUCAO' } },
+      HOMOLOG,
+    );
+    expect(args.data).toMatchObject({ environment: 'PRODUCAO' });
+  });
+
   it('nao mexe em modelo fora do escopo', () => {
     const args = applyEnvironmentScope('ConsoleUser', 'findMany', { where: {} }, HOMOLOG);
     expect(args.where).toEqual({});

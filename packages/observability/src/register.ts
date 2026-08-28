@@ -13,10 +13,8 @@
 const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 
 if (endpoint) {
-   
   console.warn(`[observability] OpenTelemetry habilitado, exportando para ${endpoint}`);
 } else {
-   
   console.warn('[observability] OTEL_EXPORTER_OTLP_ENDPOINT ausente; tracing desabilitado');
 }
 

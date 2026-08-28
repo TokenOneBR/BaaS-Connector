@@ -17,7 +17,13 @@ export class RedisNonceStore implements NonceStore {
   constructor(private readonly redis: Redis) {}
 
   async claim(keyId: string, nonce: string, ttlSeconds: number): Promise<boolean> {
-    const result = await this.redis.set(`baas:nonce:${keyId}:${nonce}`, '1', 'EX', ttlSeconds, 'NX');
+    const result = await this.redis.set(
+      `baas:nonce:${keyId}:${nonce}`,
+      '1',
+      'EX',
+      ttlSeconds,
+      'NX',
+    );
     return result === 'OK';
   }
 }
