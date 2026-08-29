@@ -32,6 +32,7 @@
     "db:validate": "prisma validate"
   },
   "dependencies": {
+    "@baasconn/ledger": "workspace:*",
     "@baasconn/taxonomy": "workspace:*",
     "@prisma/client": "^6.1.0"
   },

@@ -17,7 +17,11 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
  */
 
 const MIGRATIONS_DIR = join(import.meta.dirname, '../prisma/migrations');
-const MIGRATION_NAMES = ['20260828110000_init', '20260828120000_hardening'];
+const MIGRATION_NAMES = [
+  '20260828110000_init',
+  '20260828120000_hardening',
+  '20260829100000_ledger_procedure',
+];
 const ENV = 'HOMOLOGACAO';
 
 const migrations = MIGRATION_NAMES.map((name) =>
@@ -293,5 +297,217 @@ describe('indices unicos parciais', () => {
     await seedAccount(database);
     await pixDetail(database, 'txn_1', null);
     await expect(pixDetail(database, 'txn_2', null)).resolves.toBeDefined();
+  });
+});
+
+/**
+ * A procedure do razao.
+ *
+ * Ela existe porque a migration de hardening revoga UPDATE nos contadores do
+ * papel da aplicacao. Sem SECURITY DEFINER, o razao fica impossivel de
+ * escrever em producao — e passando em todo teste de desenvolvimento, onde o
+ * papel nao existe e o REVOKE e pulado. Os testes abaixo exercitam a funcao
+ * pelo mesmo caminho que a aplicacao usa.
+ */
+describe('ledger.post_transaction', () => {
+  const post = (
+    database: Db,
+    transaction: Record<string, unknown>,
+    entries: Array<Record<string, unknown>>,
+    accounts: Array<Record<string, unknown>>,
+  ) =>
+    database.query('SELECT ledger.post_transaction($1::jsonb, $2::jsonb, $3::jsonb)', [
+      JSON.stringify(transaction),
+      JSON.stringify(entries),
+      JSON.stringify(accounts),
+    ]);
+
+  const transferOf = (id: string, key: string, amount: number, phase = 'POSTED') => ({
+    transaction: {
+      id,
+      environment: ENV,
+      type: 'PIX_IN_RECEIVE',
+      status: phase === 'PENDING' ? 'PENDING' : 'POSTED',
+      currency: 'BRL',
+      amount_cents: amount,
+      idempotency_key: key,
+      effective_at: '2026-08-28T12:00:00.000Z',
+      posted_at: phase === 'POSTED' ? '2026-08-28T12:00:00.000Z' : null,
+      voided_at: null,
+      external_ref: null,
+      description: null,
+      pending_transaction_id: null,
+      metadata: {},
+    },
+    entries: [
+      {
+        id: `len_${id}_1`,
+        environment: ENV,
+        transaction_id: id,
+        ledger_account_id: 'lac_ext',
+        direction: 'DEBIT',
+        amount_cents: amount,
+        phase,
+        currency: 'BRL',
+        sequence: 0,
+        resulting_posted_cents: amount,
+        effective_at: '2026-08-28T12:00:00.000Z',
+      },
+      {
+        id: `len_${id}_2`,
+        environment: ENV,
+        transaction_id: id,
+        ledger_account_id: 'lac_a',
+        direction: 'CREDIT',
+        amount_cents: amount,
+        phase,
+        currency: 'BRL',
+        sequence: 1,
+        resulting_posted_cents: amount,
+        effective_at: '2026-08-28T12:00:00.000Z',
+      },
+    ],
+  });
+
+  it('escreve transacao, lancamentos e contadores numa chamada', async () => {
+    const database = await open();
+    const { transaction, entries } = transferOf('ltx_1', 'chave-1', 150_000);
+
+    await post(database, transaction, entries, [
+      {
+        id: 'lac_ext',
+        debits_posted: 150_000,
+        credits_posted: 0,
+        debits_pending: 0,
+        credits_pending: 0,
+        entry_count: 1,
+        last_entry_id: 'len_ltx_1_1',
+      },
+      {
+        id: 'lac_a',
+        debits_posted: 0,
+        credits_posted: 150_000,
+        debits_pending: 0,
+        credits_pending: 0,
+        entry_count: 1,
+        last_entry_id: 'len_ltx_1_2',
+      },
+    ]);
+
+    const conta = await database.query<{ credits_posted: bigint; version: bigint }>(
+      `SELECT credits_posted, version FROM ledger_account WHERE id = 'lac_a'`,
+    );
+    expect(String(conta.rows[0]?.credits_posted)).toBe('150000');
+    // A versao cresce a cada escrita: e o que permite a conciliacao detectar
+    // que a linha mudou entre duas leituras.
+    expect(String(conta.rows[0]?.version)).toBe('1');
+
+    const lancamentos = await database.query(
+      `SELECT id FROM ledger_entry WHERE transaction_id = 'ltx_1'`,
+    );
+    expect(lancamentos.rows).toHaveLength(2);
+  });
+
+  it('recusa transacao desbalanceada no COMMIT, nao antes', async () => {
+    const database = await open();
+    const { transaction, entries } = transferOf('ltx_2', 'chave-2', 100);
+    // Uma perna alterada: debito 100, credito 90.
+    entries[1]!.amount_cents = 90;
+
+    // O trigger e DEFERRABLE INITIALLY DEFERRED de proposito — ele so pode
+    // julgar quando todas as pernas ja entraram. Recusar no primeiro INSERT
+    // tornaria impossivel escrever qualquer transacao.
+    await expect(post(database, transaction, entries, [])).rejects.toThrow(/LEDGER_UNBALANCED/);
+  });
+
+  it('recusa contador que deixaria a conta negativa', async () => {
+    const database = await open();
+    const { transaction, entries } = transferOf('ltx_3', 'chave-3', 100);
+
+    // O CHECK e o que de fato garante a propriedade: um erro de aplicacao, uma
+    // migration com bug ou uma sessao psql batem todos aqui.
+    await expect(
+      post(database, transaction, entries, [
+        {
+          id: 'lac_a',
+          debits_posted: 500,
+          credits_posted: 0,
+          debits_pending: 0,
+          credits_pending: 0,
+          entry_count: 1,
+          last_entry_id: null,
+        },
+      ]),
+    ).rejects.toThrow(/ledger_account_no_overdraft/);
+  });
+
+  it('deixa a conta com allows_negative ficar negativa', async () => {
+    const database = await open();
+    const { transaction, entries } = transferOf('ltx_4', 'chave-4', 100);
+
+    // `9000` (mundo externo) existe justamente para toda transacao fechar sem
+    // caso especial quando o outro lado nao e nosso.
+    await expect(
+      post(database, transaction, entries, [
+        {
+          id: 'lac_ext',
+          debits_posted: 0,
+          credits_posted: 999_999,
+          debits_pending: 0,
+          credits_pending: 0,
+          entry_count: 1,
+          last_entry_id: null,
+        },
+      ]),
+    ).resolves.toBeDefined();
+  });
+
+  it('resolve uma pendente atualizando so o status da original', async () => {
+    const database = await open();
+    const pendente = transferOf('ltx_5', 'chave-5', 100, 'PENDING');
+    await post(database, pendente.transaction, pendente.entries, []);
+
+    // Segunda chamada com o mesmo id: o ON CONFLICT so reescreve status e
+    // carimbos, nunca o valor nem a chave de idempotencia.
+    await post(
+      database,
+      { ...pendente.transaction, status: 'POSTED', posted_at: '2026-08-28T12:05:00.000Z' },
+      [],
+      [],
+    );
+
+    const row = await database.query<{ status: string; amount_cents: bigint }>(
+      `SELECT status, amount_cents FROM ledger_transaction WHERE id = 'ltx_5'`,
+    );
+    expect(row.rows[0]?.status).toBe('POSTED');
+    expect(String(row.rows[0]?.amount_cents)).toBe('100');
+  });
+
+  it('recusa duas resolucoes para a mesma pendente', async () => {
+    const database = await open();
+    const pendente = transferOf('ltx_6', 'chave-6', 100, 'PENDING');
+    await post(database, pendente.transaction, pendente.entries, []);
+
+    const resolucao = (id: string, key: string) => ({
+      ...transferOf(id, key, 100).transaction,
+      pending_transaction_id: 'ltx_6',
+    });
+
+    await post(database, resolucao('ltx_7', 'chave-7'), [], []);
+    // Uma pendente resolvida duas vezes seria dinheiro capturado em dobro.
+    await expect(post(database, resolucao('ltx_8', 'chave-8'), [], [])).rejects.toThrow(
+      /ledger_tx_pending_resolution_uq/,
+    );
+  });
+
+  it('recusa chave de idempotencia repetida no mesmo ambiente', async () => {
+    const database = await open();
+    const primeira = transferOf('ltx_9', 'mesma-chave', 100);
+    await post(database, primeira.transaction, primeira.entries, []);
+
+    const segunda = transferOf('ltx_10', 'mesma-chave', 100);
+    await expect(post(database, segunda.transaction, segunda.entries, [])).rejects.toThrow(
+      /idempotency_key/,
+    );
   });
 });

@@ -396,6 +396,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@baasconn/ledger':
+        specifier: workspace:*
+        version: link:../ledger
       '@baasconn/taxonomy':
         specifier: workspace:*
         version: link:../taxonomy
