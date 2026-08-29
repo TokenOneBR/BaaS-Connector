@@ -13,6 +13,7 @@
     "@baasconn/api": "workspace:*",
     "@baasconn/crypto": "workspace:*",
     "@baasconn/eslint-config": "workspace:*",
+    "@baasconn/ledger": "workspace:*",
     "@baasconn/mock-bank": "workspace:*",
     "@baasconn/taxonomy": "workspace:*",
     "@baasconn/tsconfig": "workspace:*",

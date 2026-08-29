@@ -9,7 +9,14 @@ import {
   CONNECTION_REPOSITORY,
   INBOUND_EVENT_REPOSITORY,
   InProcessEventQueue,
+  LEDGER_STORE_FACTORY,
+  OPERATION_REPOSITORY,
   OUTBOX_REPOSITORY,
+  PIX_CHARGE_REPOSITORY,
+  PIX_KEY_REPOSITORY,
+  TRANSACTION_REPOSITORY,
+  buildSignature,
+  generateNonce,
 } from '@baasconn/api/testing';
 import {
   EnvelopeCrypto,
@@ -18,6 +25,7 @@ import {
   hashSecret,
   secretLookup,
 } from '@baasconn/crypto';
+import type { LedgerAccount, LedgerEntry } from '@baasconn/ledger';
 import { AppModule as MockBankModule } from '@baasconn/mock-bank/app';
 import { Environment, newId } from '@baasconn/taxonomy';
 import type { INestApplication } from '@nestjs/common';
@@ -46,14 +54,44 @@ export interface Harness {
     audit: { rows: Array<Record<string, unknown>>; forResource(id: string): unknown[] };
     inbound: { rows: Map<string, Record<string, unknown>> };
     accounts: { statusHistory: Array<{ accountId: string; from: string; to: string }> };
+    transactions: {
+      rows: Map<string, Record<string, unknown>>;
+      statusHistory: Array<{ transactionId: string; from: string; to: string }>;
+    };
+    keys: { rows: Map<string, Record<string, unknown>> };
+    charges: { rows: Map<string, Record<string, unknown>> };
+    operations: { rows: Map<string, Record<string, unknown>> };
+    ledger: {
+      for(environment: Environment): {
+        snapshot(): { accounts: LedgerAccount[]; entries: LedgerEntry[] };
+      };
+    };
   };
+  /**
+   * Assina uma requisicao de movimentacao.
+   *
+   * As rotas de dinheiro carregam `@RequireSignature()`, entao o e2e PRECISA
+   * assinar — e e por isso que o caminho HMAC deixa de ser exercitado so por
+   * teste de unidade e passa a ser exercitado de ponta a ponta.
+   */
+  sign(method: string, path: string, body: unknown): Record<string, string>;
   /** Aguarda a fila em processo drenar antes de afirmar sobre o estado. */
   settle(): Promise<void>;
+  /**
+   * Espera uma condicao, drenando a fila a cada rodada.
+   *
+   * A liquidacao do Mock Bank e assincrona por HTTP: o webhook chega quando
+   * chega. Isto NAO e um `sleep` de duracao fixa — e um poll sobre a condicao
+   * de verdade, com prazo. Um teste que dorme um tempo arbitrario e um teste
+   * que fica intermitente em CI lento.
+   */
+  waitFor(condition: () => boolean | Promise<boolean>, timeoutMs?: number): Promise<void>;
   stop(): Promise<void>;
 }
 
 const KMS_SECRET = 'segredo-mestre-do-e2e-com-tamanho-suficiente';
 const WEBHOOK_SECRET = 'dev-mock-secret';
+const SIGNING_SECRET = 'segredo-de-assinatura-do-e2e';
 const CLIENT_ID = 'mock-client';
 const CLIENT_SECRET = 'mock-secret';
 
@@ -61,6 +99,10 @@ export async function startHarness(): Promise<Harness> {
   process.env.NODE_ENV = 'test';
   process.env.KMS_MASTER_SECRET = KMS_SECRET;
   process.env.MOCK_BANK_STORE = 'memory';
+  // Liquidacao imediata: o atraso aleatorio do Mock Bank serve para demonstrar
+  // o produto, nao para tornar a suite lenta e intermitente.
+  process.env.MOCK_SETTLEMENT_DELAY_MIN_MS = '0';
+  process.env.MOCK_SETTLEMENT_DELAY_MAX_MS = '0';
   process.env.DATABASE_URL ??= 'postgresql://baas:baas@127.0.0.1:5432/baas?schema=public';
 
   const mockBank = await bootMockBank();
@@ -93,10 +135,42 @@ export async function startHarness(): Promise<Harness> {
       audit: api.get(AUDIT_REPOSITORY),
       inbound: api.get(INBOUND_EVENT_REPOSITORY),
       accounts: api.get(ACCOUNT_REPOSITORY),
+      transactions: api.get(TRANSACTION_REPOSITORY),
+      keys: api.get(PIX_KEY_REPOSITORY),
+      charges: api.get(PIX_CHARGE_REPOSITORY),
+      operations: api.get(OPERATION_REPOSITORY),
+      ledger: api.get(LEDGER_STORE_FACTORY),
+    },
+    sign: (method, path, body) => {
+      const rawBody = body === undefined ? '' : JSON.stringify(body);
+      const timestamp = String(Math.floor(Date.now() / 1000));
+      const nonce = generateNonce();
+      return {
+        'x-baas-timestamp': timestamp,
+        'x-baas-nonce': nonce,
+        'x-baas-signature': `v1=${buildSignature(SIGNING_SECRET, {
+          method,
+          path,
+          rawBody,
+          timestamp,
+          nonce,
+        })}`,
+      };
     },
     // A fila e em processo: drenar e deterministico, sem `sleep`. Um teste que
     // dorme esperando um webhook e um teste que fica intermitente em CI lento.
     settle: () => api.get(InProcessEventQueue).drain(),
+    waitFor: async (condition, timeoutMs = 5_000) => {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        await api.get(InProcessEventQueue).drain();
+        if (await condition()) return;
+        if (Date.now() > deadline) {
+          throw new Error(`Condicao nao satisfeita em ${timeoutMs}ms`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    },
     stop: async () => {
       await api.close();
       await mockBank.close();
@@ -153,11 +227,27 @@ async function seedFixtures(mockBankUrl: string): Promise<Seed> {
         'onboarding:write',
         'onboarding:documents',
         'balance:read',
+        'pix:read',
+        'pix:write',
+        'pix:refund',
+        'pix:keys:read',
+        'pix:keys:write',
+        'statement:read',
         'pii:read',
       ],
       secretHash: await hashSecret(generated.secret),
       secretLookup: secretLookup(generated.secret),
+      // A chave NAO exige assinatura no registro; quem exige e o
+      // `@RequireSignature()` das rotas de dinheiro. E a garantia mais forte
+      // das duas: vale mesmo se o registro da chave estiver errado, e e ela
+      // que o e2e prova ao mandar uma transferencia sem assinar.
+      //
+      // Ligar no registro tambem tornaria o upload de documento impossivel: a
+      // rota faz stream do corpo, entao `request.rawBody` nunca e preenchido e
+      // o guard assina `{}` enquanto o cliente assinou os bytes do arquivo.
+      // Fechar essa lacuna pede um digest em streaming, e nao e deste marco.
       signingRequired: false,
+      signingSecret: SIGNING_SECRET,
       defaultConnectionId: connectionId,
       ipAllowlist: [],
       rateLimitTier: 'standard',
@@ -171,7 +261,10 @@ async function seedFixtures(mockBankUrl: string): Promise<Seed> {
       provider: 'MOCK_BANK',
       status: 'ACTIVE',
       baseUrl: mockBankUrl,
-      config: {},
+      // Encurta o timeout do adapter: o cenario de desfecho desconhecido do
+      // Mock Bank nao responde nunca, e os 10s padrao custariam 10s de suite
+      // por teste que o exercita.
+      config: { requestTimeoutMs: 1_500 },
       credentials: {
         ciphertext: credentials.ciphertext,
         iv: credentials.iv,

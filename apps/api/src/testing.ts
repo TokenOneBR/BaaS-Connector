@@ -21,6 +21,14 @@ export {
 } from './accounts/accounts.types.js';
 export { AUDIT_REPOSITORY, EVENT_QUEUE, OUTBOX_REPOSITORY } from './events/outbox.types.js';
 export { INBOUND_EVENT_REPOSITORY } from './webhooks/webhooks.types.js';
+export {
+  OPERATION_REPOSITORY,
+  PIX_CHARGE_REPOSITORY,
+  PIX_KEY_REPOSITORY,
+  TRANSACTION_REPOSITORY,
+} from './pix/pix.types.js';
+export { LEDGER_STORE_FACTORY } from './ledger/ledger.types.js';
+export { buildSignature, generateNonce } from './auth/api-key.service.js';
 export type {
   MemoryAccountRepository,
   MemoryAuditRepository,
@@ -28,3 +36,10 @@ export type {
   MemoryOnboardingRepository,
   MemoryOutboxRepository,
 } from './persistence/memory/domain.repositories.js';
+export type {
+  MemoryOperationRepository,
+  MemoryPixChargeRepository,
+  MemoryPixKeyRepository,
+  MemoryTransactionRepository,
+} from './persistence/memory/pix.repositories.js';
+export type { MemoryLedgerStoreFactory } from './ledger/memory-ledger-store.js';

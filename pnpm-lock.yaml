@@ -217,6 +217,9 @@ importers:
       '@baasconn/eslint-config':
         specifier: workspace:*
         version: link:../tooling/eslint-config
+      '@baasconn/ledger':
+        specifier: workspace:*
+        version: link:../packages/ledger
       '@baasconn/mock-bank':
         specifier: workspace:*
         version: link:../apps/mock-bank
