@@ -9,14 +9,23 @@ import type { AuthedRequest } from './api-key.guard.js';
 
 export const CAPABILITY_KEY = 'baas:capability';
 
+/** Capacidade fixa, ou derivada do corpo da requisicao. */
+export type CapabilitySelector =
+  | CapabilityKey
+  | ((request: { body?: unknown; query?: unknown }) => CapabilityKey);
+
 /**
  * Exige uma capacidade do provedor.
  *
  * Resolve o manifesto e devolve 501 ANTES de qualquer chamada de rede, com a
  * nota do manifesto explicando a limitacao. Sem isso, o cliente receberia um
  * erro opaco do provedor depois de um round-trip.
+ *
+ * Aceita uma FUNCAO quando a capacidade depende do pedido: criar conta e
+ * `accounts.create.pf` ou `accounts.create.pj` conforme o titular. Fixar uma
+ * das duas recusaria por engano uma conexao que suporta so a outra.
  */
-export const RequiresCapability = (capability: CapabilityKey) =>
+export const RequiresCapability = (capability: CapabilitySelector) =>
   SetMetadata(CAPABILITY_KEY, capability);
 
 @Injectable()
@@ -27,13 +36,14 @@ export class CapabilityGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const capability = this.reflector.getAllAndOverride<CapabilityKey>(CAPABILITY_KEY, [
+    const selector = this.reflector.getAllAndOverride<CapabilitySelector>(CAPABILITY_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!capability) return true;
+    if (!selector) return true;
 
     const request = context.switchToHttp().getRequest<AuthedRequest>();
+    const capability = typeof selector === 'function' ? selector(request) : selector;
     const connectionId = this.resolveConnectionId(request);
     if (!connectionId) return true;
 

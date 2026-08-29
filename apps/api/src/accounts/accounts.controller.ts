@@ -1,6 +1,12 @@
 import { zCreateAccount, zListAccountsQuery, zUpdateAccountStatus } from '@baasconn/contracts';
 import { EnvelopeCrypto } from '@baasconn/crypto';
-import { ActorType, BaasError, BaasErrorCode, type Environment } from '@baasconn/taxonomy';
+import {
+  ActorType,
+  BaasError,
+  BaasErrorCode,
+  HolderType,
+  type Environment,
+} from '@baasconn/taxonomy';
 import { Body, Controller, Get, HttpCode, Param, Post, Query, Req } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { z } from 'zod';
@@ -35,7 +41,15 @@ export class AccountsController {
   @HttpCode(201)
   @Scopes('accounts:write')
   @Idempotent({ operationClass: 'accounts.create' })
-  @RequiresCapability('accounts.create.pj')
+  // A capacidade depende do titular: PF e PJ sao capacidades diferentes, e uma
+  // conexao pode suportar so uma delas. Fixar `pj` recusaria por engano a
+  // criacao de conta PF numa conexao que so faz PF.
+  @RequiresCapability((request) =>
+    (request.body as { holder?: { type?: string } } | undefined)?.holder?.type ===
+    HolderType.INDIVIDUAL
+      ? 'accounts.create.pf'
+      : 'accounts.create.pj',
+  )
   async create(
     @Body(new ZodValidationPipe(zCreateAccount)) body: z.infer<typeof zCreateAccount>,
     @Req() request: AuthedRequest,

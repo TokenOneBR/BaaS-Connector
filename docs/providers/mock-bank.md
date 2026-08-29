@@ -169,6 +169,22 @@ e nenhuma conta sem permissão está negativa.
 O teste de 200 PIX-outs concorrentes contra saldo para exatamente 100 liquida
 100 e recusa 100, pelo HTTP real.
 
+## Timeout configurável
+
+O cenário de desfecho desconhecido (centavos `,29`) simplesmente **não
+responde** — é o ponto dele. Com os timeouts padrão do kit, cada teste que o
+exercita esperaria 10 segundos por cabeçalhos.
+
+Por isso — e **só** neste adapter, porque só ele tem um cenário que trava de
+propósito — a conexão aceita `config.requestTimeoutMs`:
+
+```jsonc
+{
+  "baseUrl": "http://localhost:3002",
+  "config": { "requestTimeoutMs": 1500 }
+}
+```
+
 ## Formato do wire
 
 Deliberadamente **não** igual ao canônico: valores em decimal string, status em

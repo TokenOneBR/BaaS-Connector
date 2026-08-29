@@ -120,6 +120,17 @@ Cada uma dessas tem um [ADR](docs/adr/) com as alternativas descartadas.
 | `packages/conformance` | A suíte que todo adapter precisa passar |
 | `packages/ledger` | Motor de partidas dobradas em duas fases |
 
+## Documentação
+
+| Documento | O que cobre |
+|---|---|
+| [Fluxos de dinheiro](docs/guides/money-flows.md) | Saldo e cache, chaves, cobranças, Pix in/out, devolução e extrato — com o porquê de cada ordem |
+| [Escrevendo um adapter](docs/guides/writing-a-provider-adapter.md) | Do `pnpm new:adapter` até a conformidade verde |
+| [Gravando fixtures](docs/guides/recording-fixtures.md) | Como capturar e limpar cassetes |
+| [Desenvolvimento local](docs/guides/local-development.md) | Subir a stack e rodar a suíte |
+| [Matriz de capacidades](docs/providers/capability-matrix.md) | O que cada provedor suporta, gerado dos manifestos |
+| [ADRs](docs/adr/README.md) | As decisões estruturais e o que foi rejeitado |
+
 ## Contribuindo
 
 O caminho de maior valor é **completar um adapter**. Comece por
