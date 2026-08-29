@@ -152,6 +152,8 @@ export interface HolderRepository {
 
 export interface ListAccountsFilter {
   environment: Environment;
+  /** A conciliacao roda por conexao: sem isto, traria todas e descartaria. */
+  connectionId?: string;
   status?: AccountStatus;
   holderType?: HolderType;
   externalId?: string;

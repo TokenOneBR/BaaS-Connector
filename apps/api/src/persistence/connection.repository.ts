@@ -19,9 +19,32 @@ export class PrismaConnectionRepository implements ConnectionRepository, Connect
 
   async findById(id: string): Promise<StoredConnection | undefined> {
     const row = await this.prisma.client.providerConnection.findUnique({ where: { id } });
-    if (!row) return undefined;
+    return row ? toStored(row) : undefined;
+  }
 
-    return {
+  async listActive(): Promise<StoredConnection[]> {
+    const rows = await this.prisma.client.providerConnection.findMany({
+      where: { status: { in: ['ACTIVE', 'DEGRADED'] } },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map(toStored);
+  }
+
+  async slugOf(connectionId: string): Promise<string | undefined> {
+    const row = await this.prisma.client.providerConnection.findUnique({
+      where: { id: connectionId },
+      select: { provider: true },
+    });
+    return row?.provider;
+  }
+}
+
+type ConnectionRow = NonNullable<
+  Awaited<ReturnType<PrismaService['client']['providerConnection']['findUnique']>>
+>;
+
+function toStored(row: ConnectionRow): StoredConnection {
+  return {
       id: row.id,
       environment: row.environment as Environment,
       provider: row.provider,
@@ -50,14 +73,5 @@ export class PrismaConnectionRepository implements ConnectionRepository, Connect
               keyId: row.webhookSecretKeyId,
             }
           : null,
-    };
-  }
-
-  async slugOf(connectionId: string): Promise<string | undefined> {
-    const row = await this.prisma.client.providerConnection.findUnique({
-      where: { id: connectionId },
-      select: { provider: true },
-    });
-    return row?.provider;
-  }
+  };
 }

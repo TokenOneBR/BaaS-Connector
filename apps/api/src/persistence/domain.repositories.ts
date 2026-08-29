@@ -137,6 +137,7 @@ export class PrismaAccountRepository implements AccountRepository {
     const rows = await this.prisma.client.account.findMany({
       where: {
         environment: filter.environment,
+        providerConnectionId: filter.connectionId,
         status: filter.status,
         externalId: filter.externalId,
         holder: filter.holderType ? { type: filter.holderType } : undefined,

@@ -104,6 +104,7 @@ export class MemoryAccountRepository implements AccountRepository {
   async list(filter: ListAccountsFilter) {
     const all = [...this.rows.values()]
       .filter((row) => row.environment === filter.environment)
+      .filter((row) => !filter.connectionId || row.providerConnectionId === filter.connectionId)
       .filter((row) => !filter.status || row.status === filter.status)
       .filter((row) => !filter.externalId || row.externalId === filter.externalId)
       // Ordem descendente por id: ULID e ordenavel no tempo, entao ordenar por

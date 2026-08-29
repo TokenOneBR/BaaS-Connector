@@ -149,6 +149,9 @@ model ReconciliationBreak {
   deltaCents    BigInt?  @map("delta_cents")
   effectiveDate DateTime @map("effective_date") @db.Date
   endToEndId    String?  @map("end_to_end_id") @db.VarChar(32)
+  /// Chave natural derivada, NOT NULL. Ver a migration: colapsar por NULL
+  /// juntaria duas quebras distintas numa linha so.
+  dedupeKey     String   @map("dedupe_key") @db.VarChar(160)
 
   providerItemId String? @map("provider_item_id") @db.VarChar(40)
   localItemId    String? @map("local_item_id") @db.VarChar(40)
@@ -173,8 +176,14 @@ model ReconciliationBreak {
 
   run ReconciliationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
-  /// Deduplicacao entre execucoes diarias: a mesma quebra nao vira duas.
-  @@unique([connectionId, type, endToEndId, effectiveDate])
+  // Deduplicacao entre execucoes: a mesma quebra nao vira duas.
+  //
+  // A chave e `dedupeKey`, e nao `endToEndId`, porque E2EID e nullable e em
+  // Postgres NULL != NULL num indice unico — quebra sem E2EID se multiplicava
+  // a cada execucao. O `map:` casa com o nome criado na migration crua; sem
+  // ele o Prisma geraria outro nome e o proximo `migrate dev` recriaria o
+  // indice.
+  @@unique([connectionId, type, effectiveDate, dedupeKey], map: "reconciliation_break_dedupe_uq")
   @@index([environment, status, severity, effectiveDate])
   @@index([environment, accountId, status])
   @@map("reconciliation_break")

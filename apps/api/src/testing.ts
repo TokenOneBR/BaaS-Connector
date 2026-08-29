@@ -13,13 +13,15 @@ export { AppModule } from './app.module.js';
 export { API_KEY_REPOSITORY, NONCE_STORE } from './auth/api-key.service.js';
 export { CONNECTION_REPOSITORY } from './providers/credential.resolver.js';
 export { CONNECTION_LOOKUP } from './providers/provider.registry.js';
-export { InProcessEventQueue } from './events/in-process-queue.js';
 export {
   ACCOUNT_REPOSITORY,
   HOLDER_REPOSITORY,
   ONBOARDING_REPOSITORY,
 } from './accounts/accounts.types.js';
 export { AUDIT_REPOSITORY, EVENT_QUEUE, OUTBOX_REPOSITORY } from './events/outbox.types.js';
+// A PORTA, nao a implementacao. O e2e drena pela interface, entao trocar o
+// binding por BullMQ no marco do worker nao quebra o harness.
+export type { EventQueue, QueuedJob } from './events/outbox.types.js';
 export { INBOUND_EVENT_REPOSITORY } from './webhooks/webhooks.types.js';
 export {
   OPERATION_REPOSITORY,

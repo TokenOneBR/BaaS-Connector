@@ -33,6 +33,14 @@ export const CONNECTION_REPOSITORY = Symbol('BAAS_CONNECTION_REPOSITORY');
 
 export interface ConnectionRepository {
   findById(id: string): Promise<StoredConnection | undefined>;
+  /**
+   * Conexoes que o worker deve varrer.
+   *
+   * DEGRADED entra junto com ACTIVE de proposito: uma conexao com problema e
+   * a que MAIS precisa de conciliacao, e pular por causa do status seria
+   * parar de olhar exatamente onde os numeros divergem.
+   */
+  listActive(): Promise<StoredConnection[]>;
 }
 
 export interface ResolvedConnection {

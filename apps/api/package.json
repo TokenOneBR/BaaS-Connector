@@ -11,8 +11,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.mts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@baasconn/adapter-kit": "workspace:*",

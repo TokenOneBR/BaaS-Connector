@@ -21,6 +21,7 @@ const MIGRATION_NAMES = [
   '20260828110000_init',
   '20260828120000_hardening',
   '20260829100000_ledger_procedure',
+  '20260829140000_break_dedupe',
 ];
 const ENV = 'HOMOLOGACAO';
 
@@ -509,5 +510,103 @@ describe('ledger.post_transaction', () => {
     await expect(post(database, segunda.transaction, segunda.entries, [])).rejects.toThrow(
       /idempotency_key/,
     );
+  });
+});
+
+/**
+ * Dedup de quebra de conciliacao.
+ *
+ * O comentario no schema promete "a mesma quebra nao vira duas". Com um unique
+ * comum e `end_to_end_id` nullable, ele mentia: em Postgres NULL nunca e igual
+ * a NULL num indice unico. A execucao intraday roda a cada 30 minutos, entao a
+ * mesma quebra de saldo virava 48 linhas por dia.
+ *
+ * A chave e uma coluna DERIVADA, e nao `COALESCE(end_to_end_id, '')` nem
+ * `NULLS NOT DISTINCT`: as duas colapsariam numa linha so todas as quebras do
+ * mesmo (conexao, tipo, data) sem E2EID, e o operador resolveria uma achando
+ * que resolveu as duas.
+ */
+describe('dedup de quebra de conciliacao', () => {
+  const RUN = 'rec_1';
+
+  async function withRun(): Promise<Db> {
+    const database = await open();
+    await database.exec(`
+      INSERT INTO reconciliation_run
+        (id, environment, connection_id, scope, window_start, window_end, triggered_by)
+      VALUES ('${RUN}', '${ENV}', 'con_1', 'INTRADAY',
+              '2026-08-29T00:00:00Z', '2026-08-29T23:59:59Z', 'teste');
+    `);
+    return database;
+  }
+
+  const insertBreak = (
+    database: Db,
+    id: string,
+    input: { type?: string; endToEndId?: string | null; dedupeKey: string },
+  ) =>
+    database.query(
+      `INSERT INTO reconciliation_break
+         (id, environment, run_id, first_seen_run_id, connection_id, type, severity,
+          effective_date, end_to_end_id, dedupe_key, description, evidence, updated_at)
+       VALUES ($1, '${ENV}', '${RUN}', '${RUN}', 'con_1', $2::"BreakType", 'HIGH',
+               DATE '2026-08-29', $3, $4, 'divergencia', '{}'::jsonb, now())`,
+      [id, input.type ?? 'BALANCE_MISMATCH', input.endToEndId ?? null, input.dedupeKey],
+    );
+
+  it('quebra SEM E2EID nao duplica entre execucoes', async () => {
+    const database = await withRun();
+    await insertBreak(database, 'brk_1', { dedupeKey: 'bal:acc_1' });
+
+    // Este e o caso que escapava: sem chave derivada, a segunda execucao
+    // abriria uma quebra nova para a MESMA divergencia de saldo, e o operador
+    // veria ruido no lugar de trabalho.
+    await expect(insertBreak(database, 'brk_2', { dedupeKey: 'bal:acc_1' })).rejects.toThrow(
+      /reconciliation_break_dedupe_uq/,
+    );
+  });
+
+  it('duas quebras DISTINTAS sem E2EID continuam distintas', async () => {
+    const database = await withRun();
+    // O que `NULLS NOT DISTINCT` e `COALESCE(.., '')` estragariam: dois
+    // debitos fantasma diferentes no mesmo dia sao duas quebras, e resolver
+    // uma nao resolve a outra.
+    await insertBreak(database, 'brk_3', {
+      type: 'MISSING_ON_PROVIDER',
+      dedupeKey: 'litem:txn_a',
+    });
+    await insertBreak(database, 'brk_4', {
+      type: 'MISSING_ON_PROVIDER',
+      dedupeKey: 'litem:txn_b',
+    });
+
+    const rows = await database.query<{ count: bigint }>(
+      `SELECT count(*) AS count FROM reconciliation_break WHERE type = 'MISSING_ON_PROVIDER'`,
+    );
+    expect(String(rows.rows[0]?.count)).toBe('2');
+  });
+
+  it('quebra COM E2EID continua deduplicando', async () => {
+    const database = await withRun();
+    const e2e = 'E1234567820260829120011111111111';
+    await insertBreak(database, 'brk_5', { endToEndId: e2e, dedupeKey: `e2e:${e2e}` });
+
+    await expect(
+      insertBreak(database, 'brk_6', { endToEndId: e2e, dedupeKey: `e2e:${e2e}` }),
+    ).rejects.toThrow(/reconciliation_break_dedupe_uq/);
+  });
+
+  it('a chave derivada e obrigatoria', async () => {
+    const database = await withRun();
+    // NOT NULL e o que garante que a dedup nunca volta a depender de NULL.
+    await expect(
+      database.exec(`
+        INSERT INTO reconciliation_break
+          (id, environment, run_id, first_seen_run_id, connection_id, type, severity,
+           effective_date, description, evidence, updated_at)
+        VALUES ('brk_7', '${ENV}', '${RUN}', '${RUN}', 'con_1', 'BALANCE_MISMATCH', 'HIGH',
+                DATE '2026-08-29', 'sem chave', '{}'::jsonb, now());
+      `),
+    ).rejects.toThrow(/dedupe_key/);
   });
 });

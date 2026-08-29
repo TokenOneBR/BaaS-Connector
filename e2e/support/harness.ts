@@ -8,7 +8,7 @@ import {
   CONNECTION_LOOKUP,
   CONNECTION_REPOSITORY,
   INBOUND_EVENT_REPOSITORY,
-  InProcessEventQueue,
+  EVENT_QUEUE,
   LEDGER_STORE_FACTORY,
   OPERATION_REPOSITORY,
   OUTBOX_REPOSITORY,
@@ -17,6 +17,7 @@ import {
   TRANSACTION_REPOSITORY,
   buildSignature,
   generateNonce,
+  type EventQueue,
 } from '@baasconn/api/testing';
 import {
   EnvelopeCrypto,
@@ -159,11 +160,11 @@ export async function startHarness(): Promise<Harness> {
     },
     // A fila e em processo: drenar e deterministico, sem `sleep`. Um teste que
     // dorme esperando um webhook e um teste que fica intermitente em CI lento.
-    settle: () => api.get(InProcessEventQueue).drain(),
+    settle: () => api.get<EventQueue>(EVENT_QUEUE).drain(),
     waitFor: async (condition, timeoutMs = 5_000) => {
       const deadline = Date.now() + timeoutMs;
       for (;;) {
-        await api.get(InProcessEventQueue).drain();
+        await api.get<EventQueue>(EVENT_QUEUE).drain();
         if (await condition()) return;
         if (Date.now() > deadline) {
           throw new Error(`Condicao nao satisfeita em ${timeoutMs}ms`);
@@ -297,6 +298,9 @@ async function bootApi(seed: Seed): Promise<INestApplication> {
     .overrideProvider(CONNECTION_REPOSITORY)
     .useValue({
       findById: async (id: string) => (id === seed.connectionId ? seed.connection : undefined),
+      // O worker enumera conexoes para agendar conciliacao e polling; sem isto
+      // o dobro do harness mentiria sobre o formato da porta.
+      listActive: async () => [seed.connection],
     })
     .overrideProvider(CONNECTION_LOOKUP)
     .useValue({
