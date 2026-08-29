@@ -17,6 +17,7 @@ import {
   type ReadinessProbe,
 } from './health/health.controller.js';
 import { IdempotencyInterceptor } from './idempotency/idempotency.interceptor.js';
+import { LedgerModule } from './ledger/ledger.module.js';
 import { ObservabilityModule } from './observability/observability.module.js';
 import { PersistenceModule } from './persistence/persistence.module.js';
 import { PrismaService } from './persistence/prisma.service.js';
@@ -29,6 +30,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     ConfigModule,
     ObservabilityModule,
     CryptoModule,
+    LedgerModule,
     PersistenceModule,
     ProvidersModule,
     AdminModule,
