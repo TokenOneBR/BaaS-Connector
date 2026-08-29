@@ -4,6 +4,7 @@ export default [
   'packages/provider-spi',
   'packages/adapter-kit',
   'packages/ledger',
+  'packages/reconciliation',
   'packages/conformance',
   'packages/crypto',
   'packages/db',

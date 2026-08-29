@@ -573,6 +573,31 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
 
+  packages/reconciliation:
+    dependencies:
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../taxonomy
+    devDependencies:
+      '@baasconn/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint-config
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest-config
+      fast-check:
+        specifier: ^3.23.2
+        version: 3.23.2
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
+
   packages/taxonomy:
     dependencies:
       ulid:
