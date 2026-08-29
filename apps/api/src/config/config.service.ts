@@ -41,6 +41,26 @@ export class ApiConfig {
   /** Versao global do cache: incrementar e o "limpar tudo" no deploy. */
   readonly cacheVersion = Number(process.env.CACHE_VERSION ?? 1);
 
+  /**
+   * Nome e cidade do recebedor no BR Code.
+   *
+   * Sao campos OBRIGATORIOS do EMV (tags 59 e 60): um QR sem eles e recusado
+   * no app do pagador, e o erro aparece do lado do cliente, nao do nosso.
+   */
+  readonly merchantName = (process.env.PIX_MERCHANT_NAME ?? 'BAAS CONNECTOR').slice(0, 25);
+  readonly merchantCity = (process.env.PIX_MERCHANT_CITY ?? 'SAO PAULO').slice(0, 15);
+
+  /**
+   * Segredo que assina os cursores de paginacao.
+   *
+   * Derivado do pepper do blind index quando nao configurado: e mais um
+   * segredo obrigatorio a menos, e o dominio separado impede que uma chave
+   * sirva as duas coisas. A assinatura nao esconde o cursor — detecta
+   * adulteracao.
+   */
+  readonly cursorSecret =
+    process.env.CURSOR_SIGNING_SECRET ?? `cursor:${this.blindIndexPepper || 'dev-cursor-secret'}`;
+
   readonly requestTimeoutMs = Number(process.env.REQUEST_TIMEOUT_MS ?? 30_000);
   readonly signatureToleranceSeconds = Number(process.env.SIGNATURE_TOLERANCE ?? 300);
 

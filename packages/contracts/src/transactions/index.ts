@@ -87,6 +87,8 @@ export const zStatementEntry = z.object({
   description: z.string().nullish(),
 });
 
+export type StatementEntryDto = z.infer<typeof zStatementEntry>;
+
 export const zStatementQuery = zPaginationQuery
   .extend({
     from: zEffectiveDate,

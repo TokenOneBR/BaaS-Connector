@@ -36,6 +36,8 @@ export enum EventType {
   PIX_OUT_PENDING = 'pix_out.pending',
   PIX_OUT_SETTLED = 'pix_out.settled',
   PIX_OUT_FAILED = 'pix_out.failed',
+  /** Devolucao que NOS enviamos, no momento em que o provedor a aceita. */
+  PIX_REFUND_CREATED = 'pix_refund.created',
   PIX_REFUND_RECEIVED = 'pix_refund.received',
   PIX_REFUND_SETTLED = 'pix_refund.settled',
 

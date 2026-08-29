@@ -12,6 +12,12 @@ import { CLOCK, type Clock } from '../common/clock.js';
 import { ApiConfig } from '../config/config.service.js';
 import { AUDIT_REPOSITORY, OUTBOX_REPOSITORY } from '../events/outbox.types.js';
 import { IDEMPOTENCY_REPOSITORY } from '../idempotency/idempotency.types.js';
+import {
+  OPERATION_REPOSITORY,
+  PIX_CHARGE_REPOSITORY,
+  PIX_KEY_REPOSITORY,
+  TRANSACTION_REPOSITORY,
+} from '../pix/pix.types.js';
 import { CONNECTION_REPOSITORY } from '../providers/credential.resolver.js';
 import { CONNECTION_LOOKUP } from '../providers/provider.registry.js';
 import { PROVIDER_CALL_SINK } from '../providers/provider.resolver.js';
@@ -41,7 +47,19 @@ import {
   MemoryOutboxRepository,
 } from './memory/domain.repositories.js';
 import { MemoryIdempotencyRepository } from './memory/idempotency.repository.js';
+import {
+  MemoryOperationRepository,
+  MemoryPixChargeRepository,
+  MemoryPixKeyRepository,
+  MemoryTransactionRepository,
+} from './memory/pix.repositories.js';
 import { InMemoryNonceStore, RedisNonceStore } from './nonce.store.js';
+import {
+  PrismaOperationRepository,
+  PrismaPixChargeRepository,
+  PrismaPixKeyRepository,
+  PrismaTransactionRepository,
+} from './pix.repositories.js';
 import { PrismaService } from './prisma.service.js';
 import { NoopProviderCallSink, ProviderCallRecorder } from './provider-call.sink.js';
 import { REDIS, redisProvider } from './redis.provider.js';
@@ -70,6 +88,10 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PrismaOutboxRepository,
     PrismaAuditRepository,
     PrismaInboundEventRepository,
+    PrismaTransactionRepository,
+    PrismaPixKeyRepository,
+    PrismaPixChargeRepository,
+    PrismaOperationRepository,
     ProviderCallRecorder,
     { provide: API_KEY_REPOSITORY, useExisting: PrismaApiKeyRepository },
     {
@@ -102,6 +124,10 @@ import { REDIS, redisProvider } from './redis.provider.js';
       PrismaInboundEventRepository,
       MemoryInboundEventRepository,
     ),
+    domainProvider(TRANSACTION_REPOSITORY, PrismaTransactionRepository, MemoryTransactionRepository),
+    domainProvider(PIX_KEY_REPOSITORY, PrismaPixKeyRepository, MemoryPixKeyRepository),
+    domainProvider(PIX_CHARGE_REPOSITORY, PrismaPixChargeRepository, MemoryPixChargeRepository),
+    domainProvider(OPERATION_REPOSITORY, PrismaOperationRepository, MemoryOperationRepository),
     {
       provide: PROVIDER_CALL_SINK,
       inject: [ApiConfig, ProviderCallRecorder],
@@ -133,6 +159,10 @@ import { REDIS, redisProvider } from './redis.provider.js';
     OUTBOX_REPOSITORY,
     AUDIT_REPOSITORY,
     INBOUND_EVENT_REPOSITORY,
+    TRANSACTION_REPOSITORY,
+    PIX_KEY_REPOSITORY,
+    PIX_CHARGE_REPOSITORY,
+    OPERATION_REPOSITORY,
     PROVIDER_CALL_SINK,
     NONCE_STORE,
   ],

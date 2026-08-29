@@ -24,6 +24,7 @@ import { ObservabilityModule } from './observability/observability.module.js';
 import { PersistenceModule } from './persistence/persistence.module.js';
 import { PrismaService } from './persistence/prisma.service.js';
 import { REDIS } from './persistence/redis.provider.js';
+import { PixModule } from './pix/pix.module.js';
 import { ProvidersModule } from './providers/providers.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 
@@ -39,6 +40,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     AdminModule,
     AccountsModule,
     BalanceModule,
+    PixModule,
     WebhooksModule,
   ],
   controllers: [HealthController],
