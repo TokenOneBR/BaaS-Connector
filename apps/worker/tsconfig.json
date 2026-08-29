@@ -1,0 +1,13 @@
+{
+  "extends": "@baasconn/tsconfig/nest.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@baasconn/api/domain": ["../api/dist/domain.d.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "test"]
+}

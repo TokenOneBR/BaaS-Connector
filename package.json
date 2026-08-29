@@ -28,7 +28,8 @@
     "gen:capability-matrix": "tsx scripts/gen-capability-matrix.ts",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build --filter='./packages/*' && changeset publish"
+    "release": "turbo run build --filter='./packages/*' && changeset publish",
+    "worker": "pnpm --filter @baasconn/worker dev"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

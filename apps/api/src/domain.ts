@@ -40,6 +40,11 @@ export { ProvidersModule } from './providers/providers.module.js';
 export { WebhookApplyModule } from './webhooks/webhook-apply.module.js';
 
 // --------------------------- servicos ---------------------------
+// `Metrics` sai DAQUI, e nao de `@baasconn/observability` direto: o container
+// do Nest compara token por identidade de objeto, e um consumidor que importe
+// a classe por outro caminho pode receber uma instancia de modulo diferente da
+// que `ObservabilityModule` proveu. Uma seam, uma identidade.
+export { Metrics } from '@baasconn/observability';
 export { ApiConfig } from './config/config.service.js';
 export { OperationReconciler } from './pix/operation-reconciler.js';
 export { PrismaService } from './persistence/prisma.service.js';

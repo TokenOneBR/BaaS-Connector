@@ -49,6 +49,27 @@ jobs:
           path: '**/coverage/**'
           retention-days: 7
 
+  integration:
+    name: Testes de integracao (Redis real)
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    services:
+      # Redis de verdade, e nao um dobro: o BullMQ depende de comandos
+      # bloqueantes, filas com atraso e scripts Lua, e um mock erraria
+      # exatamente a semantica que queremos provar.
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      REDIS_URL: redis://127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      - run: pnpm test:integration
+
   build:
     name: Build
     runs-on: ubuntu-latest
