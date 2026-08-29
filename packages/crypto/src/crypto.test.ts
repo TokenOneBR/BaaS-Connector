@@ -227,6 +227,27 @@ describe('segredos de API key', () => {
     });
   });
 
+  it('a gramatica e nao ambigua com keyId que contem underscore', () => {
+    // `newId('apiKey')` produz `key_01M16...`, entao o keyId REALMENTE tem
+    // underscore. Se o segredo aleatorio tambem tivesse, o grupo guloso do
+    // keyId engoliria parte do segredo — era o que acontecia com base64url,
+    // em ~40% das chaves geradas. 200 rodadas porque uma so passaria por
+    // sorte na maioria das execucoes.
+    for (let i = 0; i < 200; i += 1) {
+      const keyId = `key_01M16N${String(i).padStart(3, '0')}`;
+      const generated = generateApiKey({ environment: 'HOMOLOGACAO', keyId });
+      expect(parseApiKey(generated.secret)?.keyId).toBe(keyId);
+    }
+  });
+
+  it('o segredo aleatorio nunca contem o separador', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const generated = generateApiKey({ environment: 'PRODUCAO', keyId: 'key_x' });
+      const aleatorio = generated.secret.slice(generated.prefix.length + 1);
+      expect(aleatorio).toMatch(/^[0-9a-f]+$/);
+    }
+  });
+
   it('parseApiKey recusa formato invalido', () => {
     expect(parseApiKey('nao-e-uma-chave')).toBeUndefined();
     expect(parseApiKey('bck_xxx_key_abc')).toBeUndefined();

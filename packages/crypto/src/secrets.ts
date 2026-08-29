@@ -64,7 +64,12 @@ export function generateApiKey(options: {
   keyId: string;
 }): GeneratedApiKey {
   const env = options.environment === 'PRODUCAO' ? 'prd' : 'hml';
-  const random = randomBytes(24).toString('base64url');
+  // HEX, e nao base64url: o `keyId` e um ULID com prefixo e JA contem `_`
+  // (`key_01M16...`). Se o segredo aleatorio tambem puder conter `_`, a
+  // gramatica `bck_<env>_<keyId>_<segredo>` fica ambigua e nao ha como
+  // separar os dois. Com base64url isso acontecia em ~40% das chaves.
+  // Sao os mesmos 192 bits de entropia, numa string mais longa.
+  const random = randomBytes(24).toString('hex');
   const secret = `bck_${env}_${options.keyId}_${random}`;
   return {
     secret,
@@ -77,7 +82,9 @@ export function generateApiKey(options: {
 export function parseApiKey(
   value: string,
 ): { environment: 'HOMOLOGACAO' | 'PRODUCAO'; keyId: string; secret: string } | undefined {
-  const match = /^bck_(hml|prd)_([A-Za-z0-9_]+)_([A-Za-z0-9_-]+)$/.exec(value.trim());
+  // O segredo NAO aceita `_`: e o que faz o grupo guloso do `keyId` parar no
+  // ultimo separador de verdade. Ver o comentario em `generateApiKey`.
+  const match = /^bck_(hml|prd)_([A-Za-z0-9_]+)_([A-Za-z0-9]+)$/.exec(value.trim());
   if (!match) return undefined;
   return {
     environment: match[1] === 'prd' ? 'PRODUCAO' : 'HOMOLOGACAO',
