@@ -1,15 +1,35 @@
-import { zCreateCharge, zCreatePixKey, zResolvePixKeyQuery } from '@baasconn/contracts';
-import { PixKeyType } from '@baasconn/taxonomy';
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  zCreateCharge,
+  zCreatePixKey,
+  zCreateRefund,
+  zResolvePixKeyQuery,
+  zSendPix,
+} from '@baasconn/contracts';
+import { Money, PixKeyType } from '@baasconn/taxonomy';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { actorOf } from '../accounts/accounts.controller.js';
-import { Scopes, type AuthedRequest } from '../auth/api-key.guard.js';
+import { RequireSignature, Scopes, type AuthedRequest } from '../auth/api-key.guard.js';
 import { RequiresCapability } from '../auth/capability.guard.js';
 import { ZodValidationPipe } from '../common/zod.pipe.js';
+import { Idempotent } from '../idempotency/idempotency.interceptor.js';
 
 import { PixChargesService, toPixChargeDto } from './pix-charges.service.js';
 import { PixKeysService, toPixKeyDto } from './pix-keys.service.js';
+import { PixTransfersService, toTransactionDto } from './pix-transfers.service.js';
 
 const zListLimit = z.object({ limit: z.coerce.number().int().min(1).max(100).default(25) });
 
@@ -18,6 +38,7 @@ export class PixController {
   constructor(
     private readonly keys: PixKeysService,
     private readonly charges: PixChargesService,
+    private readonly transfers: PixTransfersService,
   ) {}
 
   @Post('keys')
@@ -131,5 +152,75 @@ export class PixController {
     @Req() request: AuthedRequest,
   ) {
     return toPixChargeDto(await this.charges.cancel(actorOf(request), accountId, txid));
+  }
+
+  /**
+   * Envia um Pix.
+   *
+   * Quatro guardas, e nenhuma e redundante: escopo (a chave pode fazer isso?),
+   * capacidade (o provedor faz isso?), assinatura HMAC (a requisicao e
+   * autentica, mesmo com a chave vazada?) e idempotencia (esta e a mesma
+   * requisicao de antes?).
+   *
+   * O 202 nao e um detalhe de estilo: e um desfecho de negocio. Significa "a
+   * operacao existe, o dinheiro pode ter saido, NAO retente — consulte". Um
+   * 500 no lugar convidaria exatamente o retry que causa pagamento duplo.
+   */
+  @Post('transfers')
+  @Scopes('pix:write')
+  @RequireSignature()
+  @RequiresCapability('pix.out.send')
+  @Idempotent({ operationClass: 'pix.out' })
+  async sendTransfer(
+    @Param('accountId') accountId: string,
+    @Body(new ZodValidationPipe(zSendPix)) body: z.infer<typeof zSendPix>,
+    @Req() request: AuthedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const outcome = await this.transfers.send(actorOf(request), accountId, body, {
+      reconcileFirst: (request as { reconcileBeforeExecute?: boolean }).reconcileBeforeExecute,
+    });
+
+    if (outcome.kind === 'accepted') {
+      response.status(202);
+      return {
+        object: 'operation' as const,
+        status: 'processing' as const,
+        operation_id: outcome.operation.id,
+        transaction: toTransactionDto(outcome.transaction),
+        _meta: {
+          message:
+            'O provedor nao confirmou o desfecho. Consulte /v1/operations/' +
+            `${outcome.operation.id} — nao reenvie esta transferencia.`,
+        },
+      };
+    }
+
+    response.status(201);
+    return toTransactionDto(outcome.transaction);
+  }
+
+  @Post('refunds')
+  @Scopes('pix:refund')
+  @RequireSignature()
+  @RequiresCapability('pix.refund.create')
+  @Idempotent({ operationClass: 'pix.refund' })
+  async createRefund(
+    @Param('accountId') accountId: string,
+    @Body(new ZodValidationPipe(zCreateRefund)) body: z.infer<typeof zCreateRefund>,
+    @Req() request: AuthedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const transaction = await this.transfers.refund(actorOf(request), accountId, {
+      transactionId: body.transaction_id,
+      originalEndToEndId: body.original_end_to_end_id,
+      amountCents: body.amount ? Money.fromJSON(body.amount).cents : undefined,
+      reasonCode: body.reason_code,
+      description: body.description,
+      externalId: body.external_id,
+    });
+
+    response.status(201);
+    return toTransactionDto(transaction);
   }
 }

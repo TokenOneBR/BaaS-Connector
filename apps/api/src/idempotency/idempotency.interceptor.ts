@@ -39,6 +39,12 @@ export interface IdempotentOptions {
 
 export const Idempotent = (options: IdempotentOptions) => SetMetadata(IDEMPOTENT_KEY, options);
 
+interface ResponseLike {
+  statusCode?: number;
+  status(code: number): unknown;
+  setHeader(name: string, value: string): void;
+}
+
 /**
  * Idempotencia de ponta a ponta.
  *
@@ -71,10 +77,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     options: IdempotentOptions,
   ): Promise<unknown> {
     const request = context.switchToHttp().getRequest<AuthedRequest>();
-    const response = context.switchToHttp().getResponse<{
-      status(code: number): unknown;
-      setHeader(name: string, value: string): void;
-    }>();
+    const response = context.switchToHttp().getResponse<ResponseLike>();
 
     const key = String(request.headers['idempotency-key'] ?? '').trim();
     const required = IDEMPOTENCY_REQUIRED_CLASSES.has(options.operationClass);
@@ -131,7 +134,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     record: Awaited<ReturnType<IdempotencyRepository['claim']>>['record'],
     fingerprint: string,
     endpointKey: string,
-    response: { status(code: number): unknown; setHeader(name: string, value: string): void },
+    response: ResponseLike,
     next: CallHandler,
     request: AuthedRequest,
   ): Promise<unknown> {
@@ -178,7 +181,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     next: CallHandler,
     recordId: string,
     operationId: string,
-    response: { status(code: number): unknown; setHeader(name: string, value: string): void },
+    response: ResponseLike,
   ): Promise<unknown> {
     // O cliente precisa do operationId mesmo quando a resposta e um 202 de
     // desfecho desconhecido: e por ele que se consulta /v1/operations/:id, e
@@ -187,9 +190,12 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     try {
       const result = await firstValueFrom(next.handle());
+      // O status REAL da resposta, nao um 200 fixo. O replay devolve o que
+      // ficou gravado aqui, e um 202 de desfecho desconhecido que voltasse
+      // como 200 diria ao cliente que o pagamento liquidou.
       await this.repository.complete({
         id: recordId,
-        status: 200,
+        status: response.statusCode ?? 200,
         body: result,
         state: 'COMPLETED',
       });

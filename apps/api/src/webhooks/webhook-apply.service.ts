@@ -1,12 +1,23 @@
 import { Metrics } from '@baasconn/observability';
 import type { CanonicalEventDraft } from '@baasconn/provider-spi';
+import type { MoneyJSON } from '@baasconn/taxonomy';
 import {
   ActorType,
   AccountStatus,
   EventType,
+  Money,
   OnboardingStatus,
+  PixChargeStatus,
+  PixInitiationMethod,
+  PixPurpose,
   RequirementCode,
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+  newId,
+  toEffectiveDate,
   type Clock,
+  type Environment,
 } from '@baasconn/taxonomy';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
@@ -17,6 +28,7 @@ import {
   type OnboardingRepository,
   type StatusChangeRejection,
 } from '../accounts/accounts.types.js';
+import { CACHE_STORE, accountTag, type CacheStore } from '../cache/cache.types.js';
 import { CLOCK } from '../common/clock.js';
 import { KeyedMutex } from '../events/keyed-mutex.js';
 import {
@@ -25,6 +37,13 @@ import {
   type AuditRepository,
   type OutboxRepository,
 } from '../events/outbox.types.js';
+import { ShadowLedgerService } from '../ledger/shadow-ledger.service.js';
+import {
+  PIX_CHARGE_REPOSITORY,
+  TRANSACTION_REPOSITORY,
+  type PixChargeRepository,
+  type TransactionRepository,
+} from '../pix/pix.types.js';
 import { ProviderResolver } from '../providers/provider.resolver.js';
 
 import {
@@ -45,6 +64,31 @@ type DraftOutcome = 'applied' | 'recorded' | 'ignored';
 /** Tentativas antes de mandar para a dead-letter. */
 const MAX_ATTEMPTS = 2;
 
+/** Forma dos eventos de pagamento, comum aos quatro tipos de Pix. */
+interface PaymentEventData {
+  providerAccountId?: string;
+  direction?: 'in' | 'out';
+  status?: string;
+  amount?: MoneyJSON;
+  endToEndId?: string;
+  returnId?: string;
+  txid?: string;
+  counterparty?: { name?: string; ispb?: string; branch?: string; accountNumber?: string };
+  settledAt?: string;
+}
+
+/**
+ * Status de cobranca do provedor para o canonico.
+ *
+ * Desconhecido devolve `undefined` e o chamador decide — nunca um palpite: uma
+ * cobranca marcada COMPLETED por engano faz o lojista entregar a mercadoria.
+ */
+function toChargeStatus(raw?: string): PixChargeStatus | undefined {
+  if (!raw) return undefined;
+  const upper = raw.toUpperCase();
+  return upper in PixChargeStatus ? (upper as PixChargeStatus) : undefined;
+}
+
 /**
  * Aplica um evento de provedor ao dominio.
  *
@@ -63,9 +107,13 @@ export class WebhookApplyService {
   constructor(
     private readonly providers: ProviderResolver,
     private readonly metrics: Metrics,
+    private readonly ledger: ShadowLedgerService,
     @Inject(INBOUND_EVENT_REPOSITORY) private readonly events: InboundEventRepository,
     @Inject(ACCOUNT_REPOSITORY) private readonly accounts: AccountRepository,
     @Inject(ONBOARDING_REPOSITORY) private readonly cases: OnboardingRepository,
+    @Inject(TRANSACTION_REPOSITORY) private readonly transactions: TransactionRepository,
+    @Inject(PIX_CHARGE_REPOSITORY) private readonly charges: PixChargeRepository,
+    @Inject(CACHE_STORE) private readonly cache: CacheStore,
     @Inject(OUTBOX_REPOSITORY) private readonly outbox: OutboxRepository,
     @Inject(AUDIT_REPOSITORY) private readonly audit: AuditRepository,
     @Inject(CLOCK) private readonly clock: Clock,
@@ -138,9 +186,12 @@ export class WebhookApplyService {
         return this.applyAccount(event, provider, draft);
       case 'onboarding':
         return this.applyOnboarding(event, provider, draft);
+      case 'transaction':
+        return this.applyTransaction(event, provider, draft);
+      case 'charge':
+        return this.applyCharge(event, provider, draft);
       default:
-        // Transacao e cobranca entram no marco dos fluxos de dinheiro. Ate la,
-        // o evento fica registrado e nao aplicado — visivel, nao perdido.
+        // Tipo de agregado que nao conhecemos: registrado, nao perdido.
         return 'ignored';
     }
   }
@@ -279,6 +330,294 @@ export class WebhookApplyService {
     }
 
     return 'applied';
+  }
+
+  /**
+   * Aplica um evento de pagamento.
+   *
+   * Os QUATRO eventos de Pix — saida pendente, saida liquidada, entrada
+   * recebida e devolucao — compartilham este caminho porque compartilham o
+   * agregado `transaction`. O `KeyedMutex` ja serializa `pending` antes de
+   * `settled` para a mesma transacao, sem trabalho adicional.
+   *
+   * Uma transacao que NAO existe localmente e um Pix de ENTRADA: ninguem o
+   * pediu, ele simplesmente chegou. E o unico caso em que o webhook cria
+   * registro, e e por ele que o dinheiro que entra aparece para o cliente.
+   */
+  private async applyTransaction(
+    event: InboundEventRecord,
+    provider: string,
+    draft: CanonicalEventDraft,
+  ): Promise<DraftOutcome> {
+    const data = draft.data as PaymentEventData;
+    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : event.receivedAt;
+    const incoming = (data.status ?? draft.transitionTo) as TransactionStatus;
+
+    const existing = await this.findTransaction(event, provider, draft, data);
+
+    if (!existing) {
+      if (data.direction !== 'in') {
+        // Saida que nao conhecemos e anomalia, nao rotina: significa que o
+        // provedor pagou algo que nao pedimos, ou que perdemos a escrita.
+        this.logger.warn(
+          { provider, provider_transaction_id: draft.subject.providerId },
+          'Evento de saida para transacao desconhecida',
+        );
+        return 'ignored';
+      }
+      return this.receiveInbound(event, provider, draft, data, occurredAt);
+    }
+
+    // O E2EID quase sempre chega SO agora: e gerado pelo PSP do pagador e nao
+    // existia quando gravamos a transacao.
+    const settled = incoming === TransactionStatus.SETTLED;
+    const failed =
+      incoming === TransactionStatus.FAILED || incoming === TransactionStatus.CANCELLED;
+
+    let ledgerPostedTransactionId: string | undefined;
+    if (existing.ledgerPendingTransactionId && (settled || failed)) {
+      const resolved = settled
+        ? await this.ledger.settleOut(
+            event.environment,
+            existing.ledgerPendingTransactionId,
+            `pix-out-settle:${existing.id}`,
+          )
+        : await this.ledger.voidOut(
+            event.environment,
+            existing.ledgerPendingTransactionId,
+            `pix-out-void:${existing.id}`,
+          );
+      ledgerPostedTransactionId = resolved.transaction.id;
+    }
+
+    const result = await this.transactions.applyStatusChange({
+      environment: event.environment,
+      transactionId: existing.id,
+      toStatus: incoming,
+      endToEndId: data.endToEndId,
+      settledAt: data.settledAt ? new Date(data.settledAt) : settled ? occurredAt : undefined,
+      ledgerPostedTransactionId,
+      occurredAt,
+      source: 'PROVIDER_WEBHOOK',
+      providerEventId: event.providerEventId ?? undefined,
+      withinTransaction: async (transactionId) => {
+        await this.outbox.append({
+          environment: event.environment,
+          type: draft.type as EventType,
+          provider,
+          connectionId: event.connectionId,
+          subjectKind: 'transaction',
+          subjectId: transactionId,
+          payload: { status: incoming, end_to_end_id: data.endToEndId ?? null },
+          previous: { status: existing.status },
+          occurredAt,
+        });
+      },
+    });
+
+    if (!result.applied) {
+      await this.handleRejection(event, provider, 'transaction', existing.id, {
+        reason: result.reason,
+        from: result.currentStatus ?? existing.status,
+        to: incoming,
+      });
+      return 'recorded';
+    }
+
+    await this.invalidateBalance(event.environment, existing.accountId);
+    return 'applied';
+  }
+
+  /**
+   * Registra um Pix de entrada.
+   *
+   * O credito no razao sombra e a gravacao da transacao acontecem juntos. Se
+   * o razao falhar, nao gravamos a transacao: um extrato com um credito que o
+   * razao nao conhece e exatamente o break que a conciliacao existe para
+   * achar, e produzi-lo de proposito seria absurdo.
+   */
+  private async receiveInbound(
+    event: InboundEventRecord,
+    provider: string,
+    draft: CanonicalEventDraft,
+    data: PaymentEventData,
+    occurredAt: Date,
+  ): Promise<DraftOutcome> {
+    if (!data.providerAccountId) return 'ignored';
+
+    const account = await this.accounts.findByProviderAccountId(
+      event.environment,
+      provider,
+      data.providerAccountId,
+    );
+    if (!account?.ledgerAvailableAccountId) return 'ignored';
+
+    // Dedupe de ultimo recurso pelo E2EID: e globalmente unico no Pix, e e o
+    // que salva quando o provedor reentrega com um id de evento novo.
+    if (data.endToEndId) {
+      const byE2e = await this.transactions.findByEndToEndId(event.environment, data.endToEndId);
+      if (byE2e) {
+        await this.events.markDiscarded(event.id, 'e2eid ja registrado');
+        return 'recorded';
+      }
+    }
+
+    const amountCents = data.amount ? Money.fromJSON(data.amount).cents : 0n;
+    const posted = await this.ledger.creditIn({
+      environment: event.environment,
+      availableId: account.ledgerAvailableAccountId,
+      amountCents,
+      idempotencyKey: `pix-in:${draft.subject.providerId}`,
+      externalRef: data.endToEndId ?? draft.subject.providerId,
+    });
+
+    const isRefund = draft.type === EventType.PIX_REFUND_SETTLED;
+    const transaction = await this.transactions.create({
+      id: newId('transaction'),
+      environment: event.environment,
+      accountId: account.id,
+      type: isRefund ? TransactionType.PIX_REFUND_IN : TransactionType.PIX_IN,
+      direction: TransactionDirection.CREDIT,
+      status: (data.status ?? TransactionStatus.SETTLED) as TransactionStatus,
+      lastEventAt: occurredAt,
+      amountCents,
+      feeCents: 0n,
+      netAmountCents: amountCents,
+      refundedAmountCents: 0n,
+      currency: 'BRL',
+      description: null,
+      provider,
+      providerConnectionId: event.connectionId,
+      providerTransactionId: draft.subject.providerId,
+      idempotencyKey: null,
+      effectiveDate: toEffectiveDate(occurredAt),
+      requestedAt: occurredAt,
+      settledAt: data.settledAt ? new Date(data.settledAt) : occurredAt,
+      ledgerPostedTransactionId: posted.transaction.id,
+      pix: {
+        endToEndId: data.endToEndId ?? null,
+        returnId: data.returnId ?? null,
+        txid: data.txid ?? null,
+        initiationMethod: PixInitiationMethod.KEY,
+        purpose: PixPurpose.TRANSFER,
+        counterparty: data.counterparty
+          ? {
+              name: data.counterparty.name ?? null,
+              ispb: data.counterparty.ispb ?? null,
+              branch: data.counterparty.branch ?? null,
+              accountNumber: data.counterparty.accountNumber ?? null,
+            }
+          : null,
+        settlementAt: data.settledAt ? new Date(data.settledAt) : occurredAt,
+      },
+      metadata: {},
+      createdAt: occurredAt,
+      updatedAt: occurredAt,
+    });
+
+    await this.outbox.append({
+      environment: event.environment,
+      type: draft.type as EventType,
+      provider,
+      connectionId: event.connectionId,
+      subjectKind: 'transaction',
+      subjectId: transaction.id,
+      payload: {
+        account_id: account.id,
+        amount_cents: amountCents.toString(),
+        end_to_end_id: data.endToEndId ?? null,
+      },
+      occurredAt,
+    });
+
+    await this.invalidateBalance(event.environment, account.id);
+    return 'applied';
+  }
+
+  /**
+   * Aplica um evento de cobranca.
+   *
+   * Diferente de conta e onboarding: `pix_charge.paid` NAO traz `transitionTo`,
+   * e o `status` vem como texto cru do provedor. O mapeamento acontece aqui,
+   * antes do guard, e o guard usa a tabela de transicao de cobranca.
+   */
+  private async applyCharge(
+    event: InboundEventRecord,
+    provider: string,
+    draft: CanonicalEventDraft,
+  ): Promise<DraftOutcome> {
+    const data = draft.data as {
+      status?: string;
+      paidAmount?: MoneyJSON;
+    };
+
+    const charge = await this.charges.findByTxid(event.environment, draft.subject.providerId);
+    if (!charge) return 'ignored';
+
+    const incoming = toChargeStatus(data.status) ?? PixChargeStatus.COMPLETED;
+    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : event.receivedAt;
+
+    const result = await this.charges.applyStatusChange({
+      environment: event.environment,
+      txid: charge.txid,
+      toStatus: incoming,
+      paidAmountCents: data.paidAmount ? Money.fromJSON(data.paidAmount).cents : undefined,
+      paidAt: incoming === PixChargeStatus.COMPLETED ? occurredAt : undefined,
+      occurredAt,
+      withinTransaction: async (chargeId) => {
+        await this.outbox.append({
+          environment: event.environment,
+          type: draft.type as EventType,
+          provider,
+          connectionId: event.connectionId,
+          subjectKind: 'pix_charge',
+          subjectId: chargeId,
+          payload: { status: incoming, txid: charge.txid },
+          previous: { status: charge.status },
+          occurredAt,
+        });
+      },
+    });
+
+    if (!result.applied) {
+      await this.handleRejection(event, provider, 'pix_charge', charge.id, {
+        reason: result.reason,
+        from: result.currentStatus ?? charge.status,
+        to: incoming,
+      });
+      return 'recorded';
+    }
+
+    return 'applied';
+  }
+
+  /**
+   * Acha a transacao pelo id do provedor, com queda para o E2EID.
+   *
+   * A queda importa: alguns provedores mudam o proprio id entre a aceitacao e
+   * a liquidacao, e o E2EID e a unica referencia estavel de ponta a ponta.
+   */
+  private async findTransaction(
+    event: InboundEventRecord,
+    provider: string,
+    draft: CanonicalEventDraft,
+    data: PaymentEventData,
+  ) {
+    const byProvider = await this.transactions.findByProviderTransactionId(
+      event.environment,
+      provider,
+      draft.subject.providerId,
+    );
+    if (byProvider) return byProvider;
+
+    return data.endToEndId
+      ? this.transactions.findByEndToEndId(event.environment, data.endToEndId)
+      : undefined;
+  }
+
+  /** Invalida por TAG. `SCAN` em caminho quente degrada o Redis inteiro. */
+  private async invalidateBalance(environment: Environment, accountId: string): Promise<void> {
+    await this.cache.invalidateTag(accountTag(environment, accountId));
   }
 
   /**

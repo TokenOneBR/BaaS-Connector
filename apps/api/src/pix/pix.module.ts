@@ -4,20 +4,30 @@ import { AccountsModule } from '../accounts/accounts.module.js';
 import { LedgerModule } from '../ledger/ledger.module.js';
 import { ProvidersModule } from '../providers/providers.module.js';
 
+import { OperationReconciler } from './operation-reconciler.js';
 import { PixChargesService } from './pix-charges.service.js';
 import { PixKeysService } from './pix-keys.service.js';
+import { PixTransfersService } from './pix-transfers.service.js';
 import { PixController } from './pix.controller.js';
+import { TransactionsController } from './transactions.controller.js';
 
 /**
  * Fluxos de dinheiro.
  *
- * Chaves e cobrancas primeiro; transferencias, devolucoes e extrato entram nos
- * commits seguintes, no mesmo modulo — todos compartilham o razao sombra e o
- * mesmo `ActorContext`.
+ * Chaves, cobrancas, transferencias, devolucoes, extrato e o resolvedor de
+ * desfecho desconhecido moram juntos porque compartilham o razao sombra e o
+ * mesmo `ActorContext` — e porque separar transferencia de conciliacao criaria
+ * um ciclo entre modulos sem isolar nada.
  */
 @Module({
   imports: [ProvidersModule, AccountsModule, LedgerModule],
-  controllers: [PixController],
-  providers: [PixKeysService, PixChargesService],
+  controllers: [PixController, TransactionsController],
+  providers: [
+    PixKeysService,
+    PixChargesService,
+    PixTransfersService,
+    OperationReconciler,
+  ],
+  exports: [PixTransfersService, OperationReconciler],
 })
 export class PixModule {}
