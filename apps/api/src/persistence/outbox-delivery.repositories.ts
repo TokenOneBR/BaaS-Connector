@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   ClaimedOutboxEvent,
   DeliveryStatusValue,
+  DueDelivery,
   OutboxDispatchRepository,
   WebhookDeliveryRecord,
   WebhookDeliveryRepository,
@@ -53,6 +54,17 @@ export class PrismaOutboxDispatchRepository implements OutboxDispatchRepository 
 
       return rows.map(toClaimedEvent);
     });
+  }
+
+  async findEventById(id: string): Promise<ClaimedOutboxEvent | undefined> {
+    const rows = await this.prisma.client.$queryRaw<Array<Record<string, unknown>>>`
+      SELECT id, environment, type, data_version, provider, connection_id,
+             subject_kind, subject_id, sequence, payload, previous,
+             occurred_at, created_at
+        FROM outbox_event
+       WHERE id = ${id}`;
+    const row = rows[0];
+    return row ? toClaimedEvent(row) : undefined;
   }
 
   async pendingStats(): Promise<{ pending: number; oldestAgeSeconds: number }> {
@@ -171,16 +183,22 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
    * gravar a linha e enfileirar o job — e e o que torna a escada de 72h
    * duravel em vez de dependente do Redis.
    */
-  async claimDue(limit: number, now: Date): Promise<WebhookDeliveryRecord[]> {
+  async claimDue(limit: number, now: Date): Promise<DueDelivery[]> {
+    // O `FOR UPDATE` trava so `d`: travar tambem a linha do evento poria dois
+    // varredores em contencao sobre um evento que ninguem vai alterar.
     const rows = await this.prisma.client.$queryRaw<Array<Record<string, unknown>>>`
-      SELECT id, event_id, endpoint_id, attempt, status, scheduled_for, attempted_at,
-             response_status, error
-        FROM webhook_delivery
-       WHERE status = 'PENDING' AND scheduled_for <= ${now}
-       ORDER BY scheduled_for
-         FOR UPDATE SKIP LOCKED
+      SELECT d.id, d.event_id, d.endpoint_id, d.attempt, d.status, d.scheduled_for,
+             d.attempted_at, d.response_status, d.error, e.environment
+        FROM webhook_delivery d
+        JOIN outbox_event e ON e.id = d.event_id
+       WHERE d.status = 'PENDING' AND d.scheduled_for <= ${now}
+       ORDER BY d.scheduled_for
+         FOR UPDATE OF d SKIP LOCKED
        LIMIT ${limit}`;
-    return rows.map(toDelivery);
+    return rows.map((row) => ({
+      ...toDelivery(row),
+      environment: row.environment as Environment,
+    }));
   }
 
   async complete(input: Parameters<WebhookDeliveryRepository['complete']>[0]): Promise<void> {

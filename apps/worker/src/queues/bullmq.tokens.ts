@@ -9,7 +9,17 @@ export const QUEUE_REGISTRY = Symbol('BAAS_QUEUE_REGISTRY');
 export type QueueRegistry = ReadonlyMap<QueueName, Queue>;
 
 /** Prefixo proprio: um Redis compartilhado com o cache continua legivel. */
-export const BULLMQ_PREFIX = 'baas';
+export const DEFAULT_BULLMQ_PREFIX = 'baas';
+
+/**
+ * O prefixo, por injecao e nao por constante.
+ *
+ * Duas razoes concretas: dois deploys que dividem um Redis gerenciado
+ * precisam de espacos separados, e o teste de integracao roda contra um Redis
+ * que no CI e compartilhado entre arquivos — com prefixo fixo, um
+ * `obliterate` apagaria o trabalho de outro arquivo no meio da execucao.
+ */
+export const BULLMQ_PREFIX = Symbol('BAAS_BULLMQ_PREFIX');
 
 /**
  * Conexao dedicada ao BullMQ.

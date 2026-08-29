@@ -10,11 +10,7 @@ import { CONSOLE_SESSION_REPOSITORY, CONSOLE_USER_REPOSITORY } from '../admin/ad
 import { API_KEY_REPOSITORY, NONCE_STORE } from '../auth/api-key.service.js';
 import { CLOCK, type Clock } from '../common/clock.js';
 import { ApiConfig } from '../config/config.service.js';
-import {
-  AGGREGATE_LOCK,
-  KeyedMutexLock,
-  RedisAggregateLock,
-} from '../events/aggregate-lock.js';
+import { AGGREGATE_LOCK, KeyedMutexLock, RedisAggregateLock } from '../events/aggregate-lock.js';
 import {
   OUTBOX_DISPATCH_REPOSITORY,
   WEBHOOK_DELIVERY_REPOSITORY,
@@ -147,7 +143,11 @@ import { REDIS, redisProvider } from './redis.provider.js';
       PrismaInboundEventRepository,
       MemoryInboundEventRepository,
     ),
-    domainProvider(TRANSACTION_REPOSITORY, PrismaTransactionRepository, MemoryTransactionRepository),
+    domainProvider(
+      TRANSACTION_REPOSITORY,
+      PrismaTransactionRepository,
+      MemoryTransactionRepository,
+    ),
     domainProvider(PIX_KEY_REPOSITORY, PrismaPixKeyRepository, MemoryPixKeyRepository),
     domainProvider(PIX_CHARGE_REPOSITORY, PrismaPixChargeRepository, MemoryPixChargeRepository),
     domainProvider(OPERATION_REPOSITORY, PrismaOperationRepository, MemoryOperationRepository),

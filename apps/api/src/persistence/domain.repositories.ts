@@ -603,7 +603,10 @@ const transactionStorage = new AsyncLocalStorage<Tx>();
  * pelo contexto — e o preco de manter os dois como portas injetaveis, em vez
  * de arrastar `tx` por toda assinatura do dominio.
  */
-export async function withTransactionalPorts(tx: Tx, fn: () => Promise<void> | undefined): Promise<void> {
+export async function withTransactionalPorts(
+  tx: Tx,
+  fn: () => Promise<void> | undefined,
+): Promise<void> {
   await transactionStorage.run(tx, async () => {
     await fn();
   });

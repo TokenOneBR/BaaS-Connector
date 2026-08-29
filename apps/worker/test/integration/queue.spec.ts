@@ -94,15 +94,28 @@ describe.skipIf(!disponivel)('filas sobre Redis real', () => {
   it('degraus diferentes da mesma operacao sao jobs diferentes', async () => {
     // O degrau entra na chave: reagendar o degrau 3 nao pode ser recusado
     // porque o degrau 2 ja existiu.
-    await eventQueue.enqueue({ kind: 'operation_resolve', environment: ENV, operationId: 'opr_1', step: 0 });
-    await eventQueue.enqueue({ kind: 'operation_resolve', environment: ENV, operationId: 'opr_1', step: 1 });
+    await eventQueue.enqueue({
+      kind: 'operation_resolve',
+      environment: ENV,
+      operationId: 'opr_1',
+      step: 0,
+    });
+    await eventQueue.enqueue({
+      kind: 'operation_resolve',
+      environment: ENV,
+      operationId: 'opr_1',
+      step: 1,
+    });
 
     const fila = queues.get(QUEUE.operationResolve)!;
     expect(await fila.getWaitingCount()).toBe(2);
   });
 
   it('job com atraso nao fica pronto antes da hora', async () => {
-    await eventQueue.enqueue({ kind: 'inbound_webhook', eventId: 'evt_atraso' }, { delayMs: 60_000 });
+    await eventQueue.enqueue(
+      { kind: 'inbound_webhook', eventId: 'evt_atraso' },
+      { delayMs: 60_000 },
+    );
 
     const fila = queues.get(QUEUE.inboundWebhook)!;
     expect(await fila.getDelayedCount()).toBe(1);

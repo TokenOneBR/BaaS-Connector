@@ -359,8 +359,7 @@ export class MemoryInboundEventRepository implements InboundEventRepository {
     return [...this.rows.values()]
       .filter(
         (row) =>
-          (row.status === 'RECEIVED' || row.status === 'PROCESSING') &&
-          row.receivedAt <= olderThan,
+          (row.status === 'RECEIVED' || row.status === 'PROCESSING') && row.receivedAt <= olderThan,
       )
       .slice(0, limit);
   }

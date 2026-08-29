@@ -74,6 +74,7 @@ export {
   type AuditRepository,
   type EventQueue,
   type OutboxRepository,
+  type OutboxDispatchJob,
   type QueuedJob,
 } from './events/outbox.types.js';
 export {
@@ -81,6 +82,7 @@ export {
   WEBHOOK_DELIVERY_REPOSITORY,
   WEBHOOK_ENDPOINT_REPOSITORY,
   type ClaimedOutboxEvent,
+  type DueDelivery,
   type OutboxDispatchRepository,
   type SecretEnvelope,
   type WebhookDeliveryRecord,

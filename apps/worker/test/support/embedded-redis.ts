@@ -30,13 +30,17 @@ export class EmbeddedRedis {
     this.child = spawn(
       'redis-server',
       [
-        '--port', String(port),
-        '--bind', '127.0.0.1',
+        '--port',
+        String(port),
+        '--bind',
+        '127.0.0.1',
         // Sem RDB e sem AOF: um `dump.rdb` no cwd do teste vira lixo no repo,
         // e o que testamos e a semantica dos comandos, nao a durabilidade em
         // disco.
-        '--save', '',
-        '--appendonly', 'no',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
       ],
       { stdio: ['ignore', 'ignore', 'ignore'] },
     );

@@ -72,6 +72,14 @@ export interface OutboxDispatchRepository {
    * lento ser re-reivindicado a cada segundo, e o mesmo evento sairia N vezes.
    */
   claimBatch(limit: number, at: Date): Promise<ClaimedOutboxEvent[]>;
+  /**
+   * Busca um evento ja reivindicado, por id.
+   *
+   * O job de entrega carrega SO o `deliveryId` — de proposito, para o payload
+   * do Redis nao ser uma segunda copia do evento que pode divergir da linha do
+   * Postgres. Quem entrega precisa reler o evento, e e este o caminho.
+   */
+  findEventById(id: string): Promise<ClaimedOutboxEvent | undefined>;
   /** Metrica: quantos esperam, e ha quanto tempo o mais velho espera. */
   pendingStats(): Promise<{ pending: number; oldestAgeSeconds: number }>;
 }
@@ -90,6 +98,11 @@ export interface WebhookDeliveryRecord {
   error?: string | null;
 }
 
+/** Entrega vencida, com o ambiente do evento que a originou. */
+export interface DueDelivery extends WebhookDeliveryRecord {
+  environment: Environment;
+}
+
 export interface WebhookDeliveryRepository {
   /** `skipDuplicates`: a unica de (evento, endpoint, tentativa) torna idempotente. */
   scheduleFirstAttempts(
@@ -103,8 +116,14 @@ export interface WebhookDeliveryRepository {
     scheduledFor: Date;
   }): Promise<void>;
   findById(id: string): Promise<WebhookDeliveryRecord | undefined>;
-  /** Entregas prontas para tentar, com `FOR UPDATE SKIP LOCKED`. */
-  claimDue(limit: number, now: Date): Promise<WebhookDeliveryRecord[]>;
+  /**
+   * Entregas prontas para tentar, com `FOR UPDATE SKIP LOCKED`.
+   *
+   * Devolve o AMBIENTE junto, vindo do evento por join. `webhook_delivery` nao
+   * tem a coluna, e quem reenfileira precisa dela: inventar um ambiente no
+   * varredor faria o job rodar sob o escopo errado.
+   */
+  claimDue(limit: number, now: Date): Promise<DueDelivery[]>;
   complete(input: {
     id: string;
     status: DeliveryStatusValue;

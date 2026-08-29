@@ -20,11 +20,7 @@ import {
 } from '@baasconn/api/domain';
 import { EVENT_QUEUE } from '@baasconn/api/domain';
 import { buildWebhookSignature } from '@baasconn/crypto';
-import {
-  WEBHOOK_HEADERS,
-  WEBHOOK_RETRY_SCHEDULE_SECONDS,
-  newId,
-} from '@baasconn/taxonomy';
+import { WEBHOOK_HEADERS, WEBHOOK_RETRY_SCHEDULE_SECONDS, newId } from '@baasconn/taxonomy';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { EndpointSecrets } from './endpoint-secrets.js';

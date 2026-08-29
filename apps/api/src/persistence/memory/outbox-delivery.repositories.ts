@@ -1,7 +1,8 @@
-import type { Environment } from '@baasconn/taxonomy';
+import { Environment } from '@baasconn/taxonomy';
 
 import type {
   ClaimedOutboxEvent,
+  DueDelivery,
   OutboxDispatchRepository,
   WebhookDeliveryRecord,
   WebhookDeliveryRepository,
@@ -33,6 +34,13 @@ export class MemoryOutboxDispatchRepository implements OutboxDispatchRepository 
     return pendentes.map(({ dispatchedAt: _ignorado, ...rest }) => rest);
   }
 
+  async findEventById(id: string): Promise<ClaimedOutboxEvent | undefined> {
+    const row = this.rows.get(id);
+    if (!row) return undefined;
+    const { dispatchedAt: _ignorado, ...rest } = row;
+    return rest;
+  }
+
   async pendingStats(): Promise<{ pending: number; oldestAgeSeconds: number }> {
     const pendentes = [...this.rows.values()].filter((row) => !row.dispatchedAt);
     const maisVelho = pendentes.reduce<Date | undefined>(
@@ -41,9 +49,7 @@ export class MemoryOutboxDispatchRepository implements OutboxDispatchRepository 
     );
     return {
       pending: pendentes.length,
-      oldestAgeSeconds: maisVelho
-        ? (this.referenceNow.getTime() - maisVelho.getTime()) / 1000
-        : 0,
+      oldestAgeSeconds: maisVelho ? (this.referenceNow.getTime() - maisVelho.getTime()) / 1000 : 0,
     };
   }
 }
@@ -91,6 +97,7 @@ export class MemoryWebhookDeliveryRepository implements WebhookDeliveryRepositor
   /** `eventId -> sequence`, para decidir "anterior" sem uma tabela de eventos. */
   readonly sequenceOf = new Map<string, bigint>();
   readonly subjectOf = new Map<string, { kind: string; id: string }>();
+  readonly environmentOf = new Map<string, Environment>();
 
   private key(eventId: string, endpointId: string, attempt: number): string {
     return `${eventId}|${endpointId}|${attempt}`;
@@ -101,7 +108,9 @@ export class MemoryWebhookDeliveryRepository implements WebhookDeliveryRepositor
   ): Promise<void> {
     for (const row of rows) {
       const chave = this.key(row.eventId, row.endpointId, 1);
-      if ([...this.rows.values()].some((r) => this.key(r.eventId, r.endpointId, r.attempt) === chave)) {
+      if (
+        [...this.rows.values()].some((r) => this.key(r.eventId, r.endpointId, r.attempt) === chave)
+      ) {
         continue;
       }
       this.rows.set(row.id, { ...row, attempt: 1, status: 'PENDING' });
@@ -122,11 +131,17 @@ export class MemoryWebhookDeliveryRepository implements WebhookDeliveryRepositor
     return this.rows.get(id);
   }
 
-  async claimDue(limit: number, now: Date): Promise<WebhookDeliveryRecord[]> {
+  async claimDue(limit: number, now: Date): Promise<DueDelivery[]> {
     return [...this.rows.values()]
       .filter((row) => row.status === 'PENDING' && row.scheduledFor <= now)
       .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
-      .slice(0, limit);
+      .slice(0, limit)
+      .map((row) => ({
+        ...row,
+        // O join com `outbox_event` da versao Prisma, aqui como mapa lateral —
+        // mesma tecnica de `sequenceOf` e `subjectOf`.
+        environment: this.environmentOf.get(row.eventId) ?? Environment.HOMOLOGACAO,
+      }));
   }
 
   async complete(input: Parameters<WebhookDeliveryRepository['complete']>[0]): Promise<void> {

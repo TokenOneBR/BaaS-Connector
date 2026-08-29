@@ -45,33 +45,33 @@ type ConnectionRow = NonNullable<
 
 function toStored(row: ConnectionRow): StoredConnection {
   return {
-      id: row.id,
-      environment: row.environment as Environment,
-      provider: row.provider,
-      status: row.status,
-      baseUrl: row.baseUrl,
-      config: (row.config ?? {}) as Record<string, unknown>,
-      credentials: {
-        ciphertext: Buffer.from(row.credentialsCiphertext),
-        iv: Buffer.from(row.credentialsIv),
-        tag: Buffer.from(row.credentialsTag),
-        wrappedKey: Buffer.from(row.credentialsWrappedKey),
-        keyId: row.credentialsKeyId,
-        version: row.credentialsVersion,
-      },
-      webhookSecret:
-        row.webhookSecretCiphertext &&
-        row.webhookSecretIv &&
-        row.webhookSecretTag &&
-        row.webhookSecretWrappedKey &&
-        row.webhookSecretKeyId
-          ? {
-              ciphertext: Buffer.from(row.webhookSecretCiphertext),
-              iv: Buffer.from(row.webhookSecretIv),
-              tag: Buffer.from(row.webhookSecretTag),
-              wrappedKey: Buffer.from(row.webhookSecretWrappedKey),
-              keyId: row.webhookSecretKeyId,
-            }
-          : null,
+    id: row.id,
+    environment: row.environment as Environment,
+    provider: row.provider,
+    status: row.status,
+    baseUrl: row.baseUrl,
+    config: (row.config ?? {}) as Record<string, unknown>,
+    credentials: {
+      ciphertext: Buffer.from(row.credentialsCiphertext),
+      iv: Buffer.from(row.credentialsIv),
+      tag: Buffer.from(row.credentialsTag),
+      wrappedKey: Buffer.from(row.credentialsWrappedKey),
+      keyId: row.credentialsKeyId,
+      version: row.credentialsVersion,
+    },
+    webhookSecret:
+      row.webhookSecretCiphertext &&
+      row.webhookSecretIv &&
+      row.webhookSecretTag &&
+      row.webhookSecretWrappedKey &&
+      row.webhookSecretKeyId
+        ? {
+            ciphertext: Buffer.from(row.webhookSecretCiphertext),
+            iv: Buffer.from(row.webhookSecretIv),
+            tag: Buffer.from(row.webhookSecretTag),
+            wrappedKey: Buffer.from(row.webhookSecretWrappedKey),
+            keyId: row.webhookSecretKeyId,
+          }
+        : null,
   };
 }

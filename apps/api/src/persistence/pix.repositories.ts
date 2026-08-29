@@ -198,9 +198,7 @@ export class PrismaTransactionRepository implements TransactionRepository {
     return {
       data: page.map(toTransaction),
       nextCursor:
-        hasMore && last
-          ? { date: toDateOnly(last.effectiveDate), id: last.id }
-          : undefined,
+        hasMore && last ? { date: toDateOnly(last.effectiveDate), id: last.id } : undefined,
     };
   }
 
@@ -428,11 +426,7 @@ export class PrismaPixChargeRepository implements PixChargeRepository {
         return { applied: false, reason: 'same_state' as const };
       }
 
-      const legal = checkTransition(
-        PIX_CHARGE_STATUS_TRANSITIONS,
-        current.status,
-        input.toStatus,
-      );
+      const legal = checkTransition(PIX_CHARGE_STATUS_TRANSITIONS, current.status, input.toStatus);
       if (!legal.allowed) {
         return { applied: false, reason: 'illegal_transition' as const };
       }
@@ -461,7 +455,9 @@ export class PrismaOperationRepository implements OperationRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(environment: Environment, id: string) {
-    const row = await this.prisma.client.providerOperation.findFirst({ where: { environment, id } });
+    const row = await this.prisma.client.providerOperation.findFirst({
+      where: { environment, id },
+    });
     return row ? toOperation(row) : undefined;
   }
 

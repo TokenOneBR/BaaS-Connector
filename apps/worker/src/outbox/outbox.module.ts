@@ -3,12 +3,14 @@ import { Module } from '@nestjs/common';
 
 import { EndpointSecrets } from './endpoint-secrets.js';
 import { OutboxDispatcherService } from './outbox-dispatcher.service.js';
+import { OutboxHandler } from './outbox.handler.js';
 import { WebhookTransport } from './webhook-transport.js';
 
 @Module({
   providers: [
     WebhookTransport,
     OutboxDispatcherService,
+    OutboxHandler,
     {
       provide: EndpointSecrets,
       inject: [EnvelopeCrypto, CLOCK],

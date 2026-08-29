@@ -4,7 +4,13 @@ import { Injectable } from '@nestjs/common';
 import { request } from 'undici';
 
 export type TransportResult =
-  | { kind: 'response'; status: number; retryAfterSeconds?: number; bodySnippet?: string; durationMs: number }
+  | {
+      kind: 'response';
+      status: number;
+      retryAfterSeconds?: number;
+      bodySnippet?: string;
+      durationMs: number;
+    }
   | { kind: 'network'; error: string; durationMs: number };
 
 /** Primeiros 2 KB da resposta. Corpo ilimitado de terceiro e DoS de memoria. */
@@ -86,10 +92,7 @@ async function readSnippet(body: Readable): Promise<string> {
 }
 
 /** `Retry-After` em segundos. A forma com data HTTP tambem e aceita. */
-function parseRetryAfter(
-  value: string | string[] | undefined,
-  now: Date,
-): number | undefined {
+function parseRetryAfter(value: string | string[] | undefined, now: Date): number | undefined {
   const raw = Array.isArray(value) ? value[0] : value;
   if (!raw) return undefined;
 

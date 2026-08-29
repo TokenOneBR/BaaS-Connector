@@ -2,7 +2,7 @@ import { CLOCK, type Clock, type EventQueue, type QueuedJob } from '@baasconn/ap
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { QUEUE_REGISTRY, type QueueRegistry } from './bullmq.tokens.js';
-import { QUEUE_FOR_KIND, jobIdOf } from './queue.names.js';
+import { QUEUE_FOR_KIND, QUEUE_POLICY, jobIdOf } from './queue.names.js';
 
 /** Intervalo entre amostras do `drain`. */
 const DRAIN_POLL_MS = 10;
@@ -23,7 +23,19 @@ export class BullMqEventQueue implements EventQueue {
     const queue = this.queues.get(name);
     if (!queue) throw new Error(`Sem fila registrada para ${job.kind}`);
 
-    await queue.add(job.kind, job, { jobId: jobIdOf(job), delay: options.delayMs });
+    // A politica da fila e aplicada AQUI porque `attempts` e `backoff` sao
+    // opcoes de JOB no BullMQ, nao de worker. Sem isto o `QUEUE_POLICY` seria
+    // decorativo: todo job cairia no padrao `attempts: 1` e o retry declarado
+    // para webhook de entrada simplesmente nao existiria.
+    const policy = QUEUE_POLICY[name];
+    await queue.add(job.kind, job, {
+      jobId: jobIdOf(job),
+      delay: options.delayMs,
+      attempts: policy.attempts,
+      ...(policy.backoffMs === undefined
+        ? {}
+        : { backoff: { type: 'exponential', delay: policy.backoffMs } }),
+    });
   }
 
   /**

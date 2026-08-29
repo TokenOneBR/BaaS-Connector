@@ -121,9 +121,7 @@ export class MemoryTransactionRepository implements TransactionRepository {
     return {
       data: page,
       nextCursor:
-        all.length > filter.limit && last
-          ? { date: last.effectiveDate, id: last.id }
-          : undefined,
+        all.length > filter.limit && last ? { date: last.effectiveDate, id: last.id } : undefined,
     };
   }
 

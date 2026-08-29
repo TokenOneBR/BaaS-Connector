@@ -11,9 +11,9 @@ import {
 } from '@baasconn/api/domain';
 import { Module } from '@nestjs/common';
 
+import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { OutboxModule } from './outbox/outbox.module.js';
 import { BullMqModule } from './queues/bullmq.module.js';
-import { JobRunner } from './queues/job-runner.js';
 
 /**
  * Raiz do worker.
@@ -37,8 +37,7 @@ import { JobRunner } from './queues/job-runner.js';
     OperationReconcilerModule,
     BullMqModule,
     OutboxModule,
+    MaintenanceModule,
   ],
-  providers: [JobRunner],
-  exports: [JobRunner],
 })
 export class WorkerModule {}

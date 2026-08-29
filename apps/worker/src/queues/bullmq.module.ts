@@ -7,10 +7,14 @@ import { BullMqEventQueue } from './bullmq-event-queue.js';
 import {
   BULLMQ_CONNECTION,
   BULLMQ_PREFIX,
+  DEFAULT_BULLMQ_PREFIX,
   QUEUE_REGISTRY,
   createBullConnection,
   type QueueRegistry,
 } from './bullmq.tokens.js';
+import { QueueHandlerRegistry } from './handler.registry.js';
+import { JobRunner } from './job-runner.js';
+import { QueueHost } from './queue.host.js';
 import { QUEUE } from './queue.names.js';
 
 @Global()
@@ -23,15 +27,19 @@ import { QUEUE } from './queue.names.js';
         createBullConnection(config.redisUrl || 'redis://127.0.0.1:6379'),
     },
     {
+      provide: BULLMQ_PREFIX,
+      useFactory: (): string => process.env.BULLMQ_PREFIX ?? DEFAULT_BULLMQ_PREFIX,
+    },
+    {
       provide: QUEUE_REGISTRY,
-      inject: [BULLMQ_CONNECTION],
-      useFactory: (connection: Redis): QueueRegistry =>
+      inject: [BULLMQ_CONNECTION, BULLMQ_PREFIX],
+      useFactory: (connection: Redis, prefix: string): QueueRegistry =>
         new Map(
           Object.values(QUEUE).map((name) => [
             name,
             new Queue(name, {
               connection,
-              prefix: BULLMQ_PREFIX,
+              prefix,
               defaultJobOptions: {
                 // Retencao curta no sucesso e longa na falha: um job que deu
                 // certo nao tem historia, um que falhou e o unico rastro que
@@ -44,13 +52,25 @@ import { QUEUE } from './queue.names.js';
         ),
     },
     BullMqEventQueue,
+    QueueHandlerRegistry,
+    JobRunner,
+    QueueHost,
     // A porta `EVENT_QUEUE` aponta para o BullMQ NESTE processo. O
     // `WebhookApplyService` vem do mesmo codigo da API e reenfileira quando
     // perde o lock do agregado: se a porta apontasse para a fila em processo,
     // esse reenfileiramento morreria com o pod.
     { provide: EVENT_QUEUE, useExisting: BullMqEventQueue },
   ],
-  exports: [BULLMQ_CONNECTION, QUEUE_REGISTRY, BullMqEventQueue, EVENT_QUEUE],
+  exports: [
+    BULLMQ_CONNECTION,
+    BULLMQ_PREFIX,
+    QUEUE_REGISTRY,
+    BullMqEventQueue,
+    QueueHandlerRegistry,
+    JobRunner,
+    QueueHost,
+    EVENT_QUEUE,
+  ],
 })
 export class BullMqModule implements OnApplicationShutdown {
   private readonly logger = new Logger(BullMqModule.name);
