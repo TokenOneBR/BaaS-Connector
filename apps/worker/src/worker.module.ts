@@ -11,6 +11,7 @@ import {
 } from '@baasconn/api/domain';
 import { Module } from '@nestjs/common';
 
+import { OutboxModule } from './outbox/outbox.module.js';
 import { BullMqModule } from './queues/bullmq.module.js';
 import { JobRunner } from './queues/job-runner.js';
 
@@ -35,6 +36,7 @@ import { JobRunner } from './queues/job-runner.js';
     WebhookApplyModule,
     OperationReconcilerModule,
     BullMqModule,
+    OutboxModule,
   ],
   providers: [JobRunner],
   exports: [JobRunner],

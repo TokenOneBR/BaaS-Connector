@@ -45,3 +45,12 @@ export type {
   MemoryTransactionRepository,
 } from './persistence/memory/pix.repositories.js';
 export type { MemoryLedgerStoreFactory } from './ledger/memory-ledger-store.js';
+// Estes saem como VALOR, e nao so como tipo: o teste de integracao do worker
+// monta o despachante com eles. Sao dobros, que e exatamente o que este
+// barril existe para publicar — continuam fora de `./domain`, onde entrariam
+// como implementacao no caminho de producao.
+export {
+  MemoryOutboxDispatchRepository,
+  MemoryWebhookDeliveryRepository,
+  MemoryWebhookEndpointRepository,
+} from './persistence/memory/outbox-delivery.repositories.js';

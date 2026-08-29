@@ -13,6 +13,7 @@ import { RawBodyMiddleware } from './common/raw-body.middleware.js';
 import { RequestContextMiddleware } from './common/request-context.middleware.js';
 import { ConfigModule } from './config/config.module.js';
 import { CryptoModule } from './crypto/crypto.module.js';
+import { InProcessQueueModule } from './events/in-process-queue.module.js';
 import {
   HealthController,
   READINESS_PROBES,
@@ -41,6 +42,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     AccountsModule,
     BalanceModule,
     PixModule,
+    InProcessQueueModule,
     WebhooksModule,
   ],
   controllers: [HealthController],

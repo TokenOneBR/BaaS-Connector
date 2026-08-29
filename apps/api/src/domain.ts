@@ -77,6 +77,21 @@ export {
   type QueuedJob,
 } from './events/outbox.types.js';
 export {
+  OUTBOX_DISPATCH_REPOSITORY,
+  WEBHOOK_DELIVERY_REPOSITORY,
+  WEBHOOK_ENDPOINT_REPOSITORY,
+  type ClaimedOutboxEvent,
+  type OutboxDispatchRepository,
+  type SecretEnvelope,
+  type WebhookDeliveryRecord,
+  type WebhookDeliveryRepository,
+  type WebhookEndpointRecord,
+  type WebhookEndpointRepository,
+} from './events/outbox-delivery.types.js';
+export { decideDelivery, nextAttemptAt, type DeliveryDecision } from './events/delivery-outcome.js';
+export { matchesEventType } from './events/event-type-filter.js';
+export { EnvelopeCrypto } from '@baasconn/crypto';
+export {
   INBOUND_EVENT_REPOSITORY,
   type InboundEventRecord,
   type InboundEventRepository,

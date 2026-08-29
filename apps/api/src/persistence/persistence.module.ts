@@ -15,6 +15,11 @@ import {
   KeyedMutexLock,
   RedisAggregateLock,
 } from '../events/aggregate-lock.js';
+import {
+  OUTBOX_DISPATCH_REPOSITORY,
+  WEBHOOK_DELIVERY_REPOSITORY,
+  WEBHOOK_ENDPOINT_REPOSITORY,
+} from '../events/outbox-delivery.types.js';
 import { AUDIT_REPOSITORY, OUTBOX_REPOSITORY } from '../events/outbox.types.js';
 import { IDEMPOTENCY_REPOSITORY } from '../idempotency/idempotency.types.js';
 import {
@@ -53,12 +58,22 @@ import {
 } from './memory/domain.repositories.js';
 import { MemoryIdempotencyRepository } from './memory/idempotency.repository.js';
 import {
+  MemoryOutboxDispatchRepository,
+  MemoryWebhookDeliveryRepository,
+  MemoryWebhookEndpointRepository,
+} from './memory/outbox-delivery.repositories.js';
+import {
   MemoryOperationRepository,
   MemoryPixChargeRepository,
   MemoryPixKeyRepository,
   MemoryTransactionRepository,
 } from './memory/pix.repositories.js';
 import { InMemoryNonceStore, RedisNonceStore } from './nonce.store.js';
+import {
+  PrismaOutboxDispatchRepository,
+  PrismaWebhookDeliveryRepository,
+  PrismaWebhookEndpointRepository,
+} from './outbox-delivery.repositories.js';
 import {
   PrismaOperationRepository,
   PrismaPixChargeRepository,
@@ -97,6 +112,9 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PrismaPixKeyRepository,
     PrismaPixChargeRepository,
     PrismaOperationRepository,
+    PrismaOutboxDispatchRepository,
+    PrismaWebhookEndpointRepository,
+    PrismaWebhookDeliveryRepository,
     ProviderCallRecorder,
     { provide: API_KEY_REPOSITORY, useExisting: PrismaApiKeyRepository },
     {
@@ -133,6 +151,21 @@ import { REDIS, redisProvider } from './redis.provider.js';
     domainProvider(PIX_KEY_REPOSITORY, PrismaPixKeyRepository, MemoryPixKeyRepository),
     domainProvider(PIX_CHARGE_REPOSITORY, PrismaPixChargeRepository, MemoryPixChargeRepository),
     domainProvider(OPERATION_REPOSITORY, PrismaOperationRepository, MemoryOperationRepository),
+    domainProvider(
+      OUTBOX_DISPATCH_REPOSITORY,
+      PrismaOutboxDispatchRepository,
+      MemoryOutboxDispatchRepository,
+    ),
+    domainProvider(
+      WEBHOOK_ENDPOINT_REPOSITORY,
+      PrismaWebhookEndpointRepository,
+      MemoryWebhookEndpointRepository,
+    ),
+    domainProvider(
+      WEBHOOK_DELIVERY_REPOSITORY,
+      PrismaWebhookDeliveryRepository,
+      MemoryWebhookDeliveryRepository,
+    ),
     {
       provide: PROVIDER_CALL_SINK,
       inject: [ApiConfig, ProviderCallRecorder],
@@ -178,6 +211,9 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PIX_KEY_REPOSITORY,
     PIX_CHARGE_REPOSITORY,
     OPERATION_REPOSITORY,
+    OUTBOX_DISPATCH_REPOSITORY,
+    WEBHOOK_ENDPOINT_REPOSITORY,
+    WEBHOOK_DELIVERY_REPOSITORY,
     PROVIDER_CALL_SINK,
     NONCE_STORE,
     AGGREGATE_LOCK,

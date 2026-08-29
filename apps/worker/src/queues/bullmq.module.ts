@@ -1,4 +1,4 @@
-import { ApiConfig } from '@baasconn/api/domain';
+import { ApiConfig, EVENT_QUEUE } from '@baasconn/api/domain';
 import { Global, Inject, Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
@@ -44,8 +44,13 @@ import { QUEUE } from './queue.names.js';
         ),
     },
     BullMqEventQueue,
+    // A porta `EVENT_QUEUE` aponta para o BullMQ NESTE processo. O
+    // `WebhookApplyService` vem do mesmo codigo da API e reenfileira quando
+    // perde o lock do agregado: se a porta apontasse para a fila em processo,
+    // esse reenfileiramento morreria com o pod.
+    { provide: EVENT_QUEUE, useExisting: BullMqEventQueue },
   ],
-  exports: [BULLMQ_CONNECTION, QUEUE_REGISTRY, BullMqEventQueue],
+  exports: [BULLMQ_CONNECTION, QUEUE_REGISTRY, BullMqEventQueue, EVENT_QUEUE],
 })
 export class BullMqModule implements OnApplicationShutdown {
   private readonly logger = new Logger(BullMqModule.name);
