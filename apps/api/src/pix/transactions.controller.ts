@@ -1,4 +1,4 @@
-import { zListTransactionsQuery } from '@baasconn/contracts';
+import { zListTransactionsQuery, zStatementQuery } from '@baasconn/contracts';
 import { BaasError, BaasErrorCode } from '@baasconn/taxonomy';
 import { Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
@@ -17,10 +17,12 @@ import {
   type OperationRepository,
   type TransactionRepository,
 } from './pix.types.js';
+import { StatementService } from './statement.service.js';
 
 @Controller('v1')
 export class TransactionsController {
   constructor(
+    private readonly statement: StatementService,
     private readonly reconciler: OperationReconciler,
     @Inject(TRANSACTION_REPOSITORY) private readonly transactions: TransactionRepository,
     @Inject(OPERATION_REPOSITORY) private readonly operations: OperationRepository,
@@ -60,6 +62,42 @@ export class TransactionsController {
     return {
       object: 'list' as const,
       data: page.data.map(toTransactionDto),
+      page: {
+        has_more: page.nextCursor !== undefined,
+        next_cursor: page.nextCursor ?? null,
+        prev_cursor: null,
+        limit: query.limit,
+      },
+    };
+  }
+
+  /**
+   * Extrato da conta.
+   *
+   * So estados que JA ACONTECERAM entram. Uma transferencia em voo num
+   * extrato faria o cliente conciliar contra um movimento que ainda pode ser
+   * desfeito — e um extrato que muda retroativamente nao e extrato.
+   */
+  @Get('accounts/:accountId/statement')
+  @Scopes('statement:read')
+  async listStatement(
+    @Param('accountId') accountId: string,
+    @Query(new ZodValidationPipe(zStatementQuery)) query: z.infer<typeof zStatementQuery>,
+    @Req() request: AuthedRequest,
+  ) {
+    const actor = actorOf(request);
+    const page = await this.statement.list({
+      environment: actor.environment,
+      accountId,
+      from: query.from,
+      to: query.to,
+      limit: query.limit,
+      cursor: query.cursor,
+    });
+
+    return {
+      object: 'list' as const,
+      data: page.data,
       page: {
         has_more: page.nextCursor !== undefined,
         next_cursor: page.nextCursor ?? null,

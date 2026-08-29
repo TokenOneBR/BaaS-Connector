@@ -9,6 +9,7 @@ import { PixChargesService } from './pix-charges.service.js';
 import { PixKeysService } from './pix-keys.service.js';
 import { PixTransfersService } from './pix-transfers.service.js';
 import { PixController } from './pix.controller.js';
+import { StatementService } from './statement.service.js';
 import { TransactionsController } from './transactions.controller.js';
 
 /**
@@ -26,6 +27,7 @@ import { TransactionsController } from './transactions.controller.js';
     PixKeysService,
     PixChargesService,
     PixTransfersService,
+    StatementService,
     OperationReconciler,
   ],
   exports: [PixTransfersService, OperationReconciler],
