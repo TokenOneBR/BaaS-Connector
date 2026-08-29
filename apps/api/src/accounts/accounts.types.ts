@@ -46,6 +46,9 @@ export interface AccountRecord {
   lastEventAt?: Date | null;
   kind: AccountKind;
   currency: string;
+  /** Contas do razao sombra. As colunas ja existiam; o M6 passa a usa-las. */
+  ledgerAvailableAccountId?: string | null;
+  ledgerBlockedAccountId?: string | null;
   ispb?: string | null;
   branch?: string | null;
   number?: string | null;
@@ -192,6 +195,13 @@ export interface AccountRepository {
     /** Executado dentro da MESMA transacao da mudanca. */
     withinTransaction?: (accountId: string) => Promise<void>;
   }): Promise<StatusChangeResult<AccountRecord>>;
+  /** Liga o par de contas do razao a conta. Chamado uma vez, na abertura. */
+  attachLedgerAccounts(input: {
+    environment: Environment;
+    accountId: string;
+    availableId: string;
+    blockedId: string;
+  }): Promise<AccountRecord>;
   attachProviderAccount(input: {
     environment: Environment;
     accountId: string;

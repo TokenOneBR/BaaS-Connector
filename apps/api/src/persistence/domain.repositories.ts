@@ -172,6 +172,17 @@ export class PrismaAccountRepository implements AccountRepository {
     return toAccount(row);
   }
 
+  async attachLedgerAccounts(input: Parameters<AccountRepository['attachLedgerAccounts']>[0]) {
+    const row = await this.prisma.client.account.update({
+      where: { id: input.accountId },
+      data: {
+        ledgerAvailableAccountId: input.availableId,
+        ledgerBlockedAccountId: input.blockedId,
+      },
+    });
+    return toAccount(row);
+  }
+
   async attachProviderAccount(input: Parameters<AccountRepository['attachProviderAccount']>[0]) {
     const row = await this.prisma.client.account.update({
       where: { id: input.accountId },
@@ -643,6 +654,8 @@ function toAccount(row: Record<string, unknown>): AccountRecord {
     lastEventAt: (row.lastEventAt as Date | null) ?? null,
     kind: row.kind as AccountRecord['kind'],
     currency: row.currency as string,
+    ledgerAvailableAccountId: (row.ledgerAvailableAccountId as string | null) ?? null,
+    ledgerBlockedAccountId: (row.ledgerBlockedAccountId as string | null) ?? null,
     ispb: (row.ispb as string | null) ?? null,
     branch: (row.branch as string | null) ?? null,
     number: (row.number as string | null) ?? null,

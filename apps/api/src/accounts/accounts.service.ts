@@ -28,6 +28,7 @@ import {
   type AuditRepository,
   type OutboxRepository,
 } from '../events/outbox.types.js';
+import { ShadowLedgerService } from '../ledger/shadow-ledger.service.js';
 import { ProviderResolver } from '../providers/provider.resolver.js';
 
 import {
@@ -60,6 +61,7 @@ export class AccountsService {
     private readonly providers: ProviderResolver,
     private readonly crypto: EnvelopeCrypto,
     private readonly blindIndex: BlindIndex,
+    private readonly ledger: ShadowLedgerService,
     @Inject(HOLDER_REPOSITORY) private readonly holders: HolderRepository,
     @Inject(ACCOUNT_REPOSITORY) private readonly accounts: AccountRepository,
     @Inject(ONBOARDING_REPOSITORY) private readonly onboardings: OnboardingRepository,
@@ -130,7 +132,18 @@ export class AccountsService {
       openedAt: created.openedAt ? new Date(created.openedAt) : undefined,
     });
 
-    await this.seedOnboarding(attached, holder, bound, actor, now);
+    // Contas do razao sombra abertas junto com a conta. Abrir sob demanda, no
+    // primeiro movimento, deixaria o caminho quente do PIX out dependendo de
+    // uma escrita que pode falhar.
+    const ledgerAccounts = await this.ledger.openAccounts(actor.environment, attached.id);
+    const withLedger = await this.accounts.attachLedgerAccounts({
+      environment: actor.environment,
+      accountId: attached.id,
+      availableId: ledgerAccounts.availableId,
+      blockedId: ledgerAccounts.blockedId,
+    });
+
+    await this.seedOnboarding(withLedger, holder, bound, actor, now);
 
     await this.outbox.append({
       environment: actor.environment,
@@ -165,7 +178,7 @@ export class AccountsService {
       occurredAt: now,
     });
 
-    return attached;
+    return withLedger;
   }
 
   async get(environment: Environment, id: string): Promise<AccountRecord> {

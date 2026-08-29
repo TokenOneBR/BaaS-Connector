@@ -121,6 +121,15 @@ export class MemoryAccountRepository implements AccountRepository {
     return record;
   }
 
+  async attachLedgerAccounts(input: Parameters<AccountRepository['attachLedgerAccounts']>[0]) {
+    const row = this.rows.get(input.accountId);
+    if (!row) throw new Error(`Conta ${input.accountId} nao encontrada`);
+    row.ledgerAvailableAccountId = input.availableId;
+    row.ledgerBlockedAccountId = input.blockedId;
+    row.updatedAt = new Date();
+    return row;
+  }
+
   async attachProviderAccount(input: Parameters<AccountRepository['attachProviderAccount']>[0]) {
     const row = this.rows.get(input.accountId);
     if (!row) throw new Error(`Conta ${input.accountId} nao encontrada`);

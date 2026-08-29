@@ -6,6 +6,8 @@ import { AdminModule } from './admin/admin.module.js';
 import { ApiKeyGuard } from './auth/api-key.guard.js';
 import { ApiKeyService } from './auth/api-key.service.js';
 import { CapabilityGuard } from './auth/capability.guard.js';
+import { BalanceModule } from './balance/balance.module.js';
+import { CacheModule } from './cache/cache.module.js';
 import { CanonicalErrorFilter } from './common/error.filter.js';
 import { RawBodyMiddleware } from './common/raw-body.middleware.js';
 import { RequestContextMiddleware } from './common/request-context.middleware.js';
@@ -30,11 +32,13 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     ConfigModule,
     ObservabilityModule,
     CryptoModule,
+    CacheModule,
     LedgerModule,
     PersistenceModule,
     ProvidersModule,
     AdminModule,
     AccountsModule,
+    BalanceModule,
     WebhooksModule,
   ],
   controllers: [HealthController],
