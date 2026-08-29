@@ -3,10 +3,8 @@
 // carregado antes disso guarda a referencia original e nunca aparece no trace.
 import '@baasconn/observability/register';
 
-import { createServer } from 'node:http';
-
 import { installBigIntSerializer } from '@baasconn/db';
-import { Metrics } from '@baasconn/observability';
+import { Metrics, startMetricsServer } from '@baasconn/observability';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import express from 'express';
@@ -76,40 +74,12 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  await startMetricsServer(app.get(Metrics), config, logger);
+  await startMetricsServer(app.get(Metrics), config.metricsPort, (url) =>
+    logger.log(`Metricas em ${url}`),
+  );
 
   await app.listen(config.port, '0.0.0.0');
   logger.log(`API em http://0.0.0.0:${config.port} (ambiente ${config.nodeEnv})`);
-}
-
-/**
- * Listener de metricas, em porta separada.
- *
- * `/metrics` no listener publico e vazamento (nomes de conexao, volumes,
- * cardinalidade de conta) e vetor de DoS barato: cada raspagem serializa o
- * registro inteiro. A porta 9464 fica atras da NetworkPolicy, alcancavel so
- * pelo Prometheus.
- */
-async function startMetricsServer(
-  metrics: Metrics,
-  config: ApiConfig,
-  logger: Logger,
-): Promise<void> {
-  const server = createServer((request, response) => {
-    if (request.url !== '/metrics') {
-      response.writeHead(404).end();
-      return;
-    }
-    void metrics
-      .render()
-      .then((body) => {
-        response.writeHead(200, { 'Content-Type': metrics.contentType }).end(body);
-      })
-      .catch(() => response.writeHead(500).end());
-  });
-
-  await new Promise<void>((resolve) => server.listen(config.metricsPort, '0.0.0.0', resolve));
-  logger.log(`Metricas em http://0.0.0.0:${config.metricsPort}/metrics`);
 }
 
 void bootstrap();

@@ -4,7 +4,7 @@ import { AccountsModule } from '../accounts/accounts.module.js';
 import { LedgerModule } from '../ledger/ledger.module.js';
 import { ProvidersModule } from '../providers/providers.module.js';
 
-import { OperationReconciler } from './operation-reconciler.js';
+import { OperationReconcilerModule } from './operation-reconciler.module.js';
 import { PixChargesService } from './pix-charges.service.js';
 import { PixKeysService } from './pix-keys.service.js';
 import { PixTransfersService } from './pix-transfers.service.js';
@@ -21,15 +21,14 @@ import { TransactionsController } from './transactions.controller.js';
  * um ciclo entre modulos sem isolar nada.
  */
 @Module({
-  imports: [ProvidersModule, AccountsModule, LedgerModule],
+  imports: [ProvidersModule, AccountsModule, LedgerModule, OperationReconcilerModule],
   controllers: [PixController, TransactionsController],
   providers: [
     PixKeysService,
     PixChargesService,
     PixTransfersService,
     StatementService,
-    OperationReconciler,
   ],
-  exports: [PixTransfersService, OperationReconciler],
+  exports: [PixTransfersService, OperationReconcilerModule],
 })
 export class PixModule {}

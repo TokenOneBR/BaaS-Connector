@@ -5,20 +5,20 @@ import { InProcessEventQueue } from '../events/in-process-queue.js';
 import { EVENT_QUEUE } from '../events/outbox.types.js';
 import { ProvidersModule } from '../providers/providers.module.js';
 
+import { WebhookApplyModule } from './webhook-apply.module.js';
 import { WebhookApplyService } from './webhook-apply.service.js';
 import { WebhookSweeper } from './webhook-sweeper.service.js';
 import { WebhooksController } from './webhooks.controller.js';
 
 @Module({
-  imports: [ProvidersModule, AccountsModule],
+  imports: [ProvidersModule, AccountsModule, WebhookApplyModule],
   controllers: [WebhooksController],
   providers: [
-    WebhookApplyService,
     WebhookSweeper,
     InProcessEventQueue,
     { provide: EVENT_QUEUE, useExisting: InProcessEventQueue },
   ],
-  exports: [WebhookApplyService, EVENT_QUEUE],
+  exports: [WebhookApplyModule, EVENT_QUEUE],
 })
 export class WebhooksModule implements OnModuleInit {
   constructor(

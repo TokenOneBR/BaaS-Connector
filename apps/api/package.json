@@ -54,6 +54,10 @@
   "exports": {
     ".": "./dist/main.js",
     "./app": "./src/app.module.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./domain": {
+      "types": "./dist/domain.d.ts",
+      "default": "./dist/domain.js"
+    }
   }
 }

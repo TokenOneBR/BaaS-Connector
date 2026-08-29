@@ -23,7 +23,9 @@ export const ROOT_LOGGER = Symbol('BAAS_ROOT_LOGGER');
       inject: [ApiConfig],
       useFactory: (config: ApiConfig): Logger =>
         createLogger({
-          service: 'baas-api',
+          // Do ambiente: o worker importa este mesmo modulo, e um log dele
+          // dizendo `baas-api` mandaria quem investiga para o processo errado.
+          service: process.env.SERVICE_NAME ?? 'baas-api',
           version: process.env.APP_VERSION,
           // Pretty so em desenvolvimento: exige o transport `pino-pretty`,
           // que e devDependency e nao existe na imagem de producao.

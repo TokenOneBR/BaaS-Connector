@@ -85,8 +85,14 @@ export class ApiConfig {
    * Valida a configuracao no boot.
    *
    * Em teste tudo tem default; em producao, faltar segredo e erro fatal.
+   *
+   * O PERFIL importa: o worker nao autentica ninguem e nunca assina token de
+   * sessao. Exigir `JWT_PRIVATE_KEY` dele levaria alguem a "consertar" o boot
+   * colocando a chave de assinatura da API no ambiente do worker — que e
+   * aumentar o raio de exposicao de uma chave para satisfazer uma checagem
+   * que nao devia existir.
    */
-  validate(): void {
+  validate(profile: 'api' | 'worker' = 'api'): void {
     if (this.isTest) return;
 
     const missing: string[] = [];
@@ -95,7 +101,7 @@ export class ApiConfig {
     if (this.kmsDriver === 'local' && !this.kmsMasterSecret) missing.push('KMS_MASTER_SECRET');
     if (this.kmsDriver !== 'local' && !this.kmsKeyId) missing.push('KMS_KEY_ID');
     if (!this.blindIndexPepper) missing.push('BLIND_INDEX_PEPPER');
-    if (!this.jwtPrivateKey) missing.push('JWT_PRIVATE_KEY');
+    if (profile === 'api' && !this.jwtPrivateKey) missing.push('JWT_PRIVATE_KEY');
 
     if (missing.length > 0) {
       throw new Error(
