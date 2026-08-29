@@ -62,10 +62,51 @@ export interface AuditRepository {
   record(draft: AuditDraft): Promise<void>;
 }
 
-export interface QueuedJob {
+export interface InboundWebhookJob {
   kind: 'inbound_webhook';
   eventId: string;
 }
+
+export interface OutboxDispatchJob {
+  kind: 'outbox_dispatch';
+  environment: Environment;
+  deliveryId: string;
+}
+
+export interface OperationResolveJob {
+  kind: 'operation_resolve';
+  environment: Environment;
+  operationId: string;
+  /** Degrau da escada. Faz parte do jobId, para o mesmo degrau nao duplicar. */
+  step: number;
+}
+
+export interface ReconciliationJob {
+  kind: 'reconciliation';
+  environment: Environment;
+  runId: string;
+}
+
+export interface PollJob {
+  kind: 'poll';
+  connectionId: string;
+  stream: string;
+  scopeId?: string;
+}
+
+/**
+ * Uniao discriminada de tudo que roda em segundo plano.
+ *
+ * Alargar uma uniao e seguro para quem PRODUZ: a API so enfileira
+ * `inbound_webhook`, e o consumidor em processo ja estreita com um `if` sobre
+ * `kind`, entao os outros ramos viram no-op dentro do processo dela.
+ */
+export type QueuedJob =
+  | InboundWebhookJob
+  | OutboxDispatchJob
+  | OperationResolveJob
+  | ReconciliationJob
+  | PollJob;
 
 /**
  * Fila de trabalho.
@@ -76,7 +117,15 @@ export interface QueuedJob {
  * duas esta ligada.
  */
 export interface EventQueue {
-  enqueue(job: QueuedJob): Promise<void>;
+  /**
+   * Enfileira um trabalho.
+   *
+   * `delayMs` e a escada de retry: o consumidor grava o proximo passo no
+   * Postgres e agenda o despertador aqui. A escada NAO vive na fila — uma
+   * escada que so existe no Redis e uma escada que um `FLUSHALL` apaga, e o
+   * cliente perde o evento sem nenhum rastro.
+   */
+  enqueue(job: QueuedJob, options?: { delayMs?: number }): Promise<void>;
   /** Aguarda a fila drenar. Existe para o teste, nao para producao. */
   drain(): Promise<void>;
 }

@@ -578,7 +578,7 @@ export class PrismaInboundEventRepository implements InboundEventRepository {
 
   async findStale(olderThan: Date, limit: number) {
     const rows = await this.prisma.client.inboundWebhookEvent.findMany({
-      where: { status: 'RECEIVED', receivedAt: { lte: olderThan } },
+      where: { status: { in: ['RECEIVED', 'PROCESSING'] }, receivedAt: { lte: olderThan } },
       take: limit,
     });
     return rows.map(toInboundEvent);

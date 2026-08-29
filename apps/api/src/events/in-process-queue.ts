@@ -30,7 +30,12 @@ export class InProcessEventQueue implements EventQueue {
     this.handler = handler;
   }
 
-  async enqueue(job: QueuedJob): Promise<void> {
+  async enqueue(job: QueuedJob, options: { delayMs?: number } = {}): Promise<void> {
+    // `delayMs` e ignorado de proposito: em processo, atraso seria um
+    // `setTimeout` sem durabilidade, e o unico chamador que precisa dele e o
+    // worker, que tem Redis. Fingir que suporta seria pior — um retry que
+    // some quando o processo reinicia.
+    void options;
     if (!this.handler) {
       this.logger.warn({ job }, 'Job enfileirado sem handler registrado');
       return;

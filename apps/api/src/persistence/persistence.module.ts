@@ -10,6 +10,11 @@ import { CONSOLE_SESSION_REPOSITORY, CONSOLE_USER_REPOSITORY } from '../admin/ad
 import { API_KEY_REPOSITORY, NONCE_STORE } from '../auth/api-key.service.js';
 import { CLOCK, type Clock } from '../common/clock.js';
 import { ApiConfig } from '../config/config.service.js';
+import {
+  AGGREGATE_LOCK,
+  KeyedMutexLock,
+  RedisAggregateLock,
+} from '../events/aggregate-lock.js';
 import { AUDIT_REPOSITORY, OUTBOX_REPOSITORY } from '../events/outbox.types.js';
 import { IDEMPOTENCY_REPOSITORY } from '../idempotency/idempotency.types.js';
 import {
@@ -135,6 +140,16 @@ import { REDIS, redisProvider } from './redis.provider.js';
         config.isTest ? new NoopProviderCallSink() : recorder,
     },
     {
+      provide: AGGREGATE_LOCK,
+      inject: [ApiConfig, REDIS],
+      useFactory: (config: ApiConfig, redis: Redis) =>
+        // Em teste nao ha Redis e o processo e um so: o mutex em memoria da a
+        // MESMA garantia. Em producao seria falso — cada pod teria sua propria
+        // ordem, e dois consumidores aplicariam o mesmo agregado ao mesmo
+        // tempo.
+        config.isTest ? new KeyedMutexLock() : new RedisAggregateLock(redis),
+    },
+    {
       provide: NONCE_STORE,
       inject: [ApiConfig, REDIS, CLOCK],
       useFactory: (config: ApiConfig, redis: Redis, clock: Clock) =>
@@ -165,6 +180,7 @@ import { REDIS, redisProvider } from './redis.provider.js';
     OPERATION_REPOSITORY,
     PROVIDER_CALL_SINK,
     NONCE_STORE,
+    AGGREGATE_LOCK,
   ],
 })
 export class PersistenceModule {}

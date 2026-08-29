@@ -30,11 +30,13 @@ import {
 } from '../accounts/accounts.types.js';
 import { CACHE_STORE, accountTag, type CacheStore } from '../cache/cache.types.js';
 import { CLOCK } from '../common/clock.js';
-import { KeyedMutex } from '../events/keyed-mutex.js';
+import { AGGREGATE_LOCK, aggregateKey, type AggregateLock } from '../events/aggregate-lock.js';
 import {
   AUDIT_REPOSITORY,
+  EVENT_QUEUE,
   OUTBOX_REPOSITORY,
   type AuditRepository,
+  type EventQueue,
   type OutboxRepository,
 } from '../events/outbox.types.js';
 import { ShadowLedgerService } from '../ledger/shadow-ledger.service.js';
@@ -102,7 +104,6 @@ function toChargeStatus(raw?: string): PixChargeStatus | undefined {
 @Injectable()
 export class WebhookApplyService {
   private readonly logger = new Logger(WebhookApplyService.name);
-  private readonly mutex = new KeyedMutex();
 
   constructor(
     private readonly providers: ProviderResolver,
@@ -114,6 +115,8 @@ export class WebhookApplyService {
     @Inject(TRANSACTION_REPOSITORY) private readonly transactions: TransactionRepository,
     @Inject(PIX_CHARGE_REPOSITORY) private readonly charges: PixChargeRepository,
     @Inject(CACHE_STORE) private readonly cache: CacheStore,
+    @Inject(AGGREGATE_LOCK) private readonly lock: AggregateLock,
+    @Inject(EVENT_QUEUE) private readonly queue: EventQueue,
     @Inject(OUTBOX_REPOSITORY) private readonly outbox: OutboxRepository,
     @Inject(AUDIT_REPOSITORY) private readonly audit: AuditRepository,
     @Inject(CLOCK) private readonly clock: Clock,
@@ -144,12 +147,22 @@ export class WebhookApplyService {
 
       const outcomes: DraftOutcome[] = [];
       for (const draft of drafts) {
-        const key = `${draft.subject.kind}:${draft.subject.providerId}`;
-        // FIFO por agregado, paralelo entre agregados: e o que impede
-        // `pix_out.settled` de ser aplicado antes de `pix_out.pending`.
-        outcomes.push(
-          await this.mutex.runExclusive(key, () => this.applyDraft(event, bound.slug, draft)),
-        );
+        // Exclusao por agregado, paralelo entre agregados. Quem NAO consegue o
+        // lock reenfileira em vez de esperar: o evento continua no Postgres,
+        // perder a vez custa 250 ms, e a correcao nunca dependeu deste lock —
+        // ela vem do `SELECT ... FOR UPDATE` e do guard monotonico.
+        const key = aggregateKey(event.environment, draft.subject.kind, draft.subject.providerId);
+        const held = await this.lock.run(key, () => this.applyDraft(event, bound.slug, draft));
+
+        if (!held.acquired) {
+          await this.queue.enqueue({ kind: 'inbound_webhook', eventId }, { delayMs: 250 });
+          // Sai sem marcar: o evento fica em PROCESSING, e o varredor — que
+          // desde este marco tambem olha PROCESSING — o resgata se o
+          // reenfileiramento se perder.
+          return;
+        }
+
+        outcomes.push(held.value);
       }
 
       if (outcomes.includes('applied')) {

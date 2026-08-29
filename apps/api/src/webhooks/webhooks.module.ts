@@ -1,41 +1,16 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
-import { AccountsModule } from '../accounts/accounts.module.js';
-import { InProcessEventQueue } from '../events/in-process-queue.js';
-import { EVENT_QUEUE } from '../events/outbox.types.js';
 import { ProvidersModule } from '../providers/providers.module.js';
 
 import { WebhookApplyModule } from './webhook-apply.module.js';
-import { WebhookApplyService } from './webhook-apply.service.js';
 import { WebhookSweeper } from './webhook-sweeper.service.js';
 import { WebhooksController } from './webhooks.controller.js';
 
+/** A superficie HTTP de webhook. A aplicacao ao dominio vive no modulo fino. */
 @Module({
-  imports: [ProvidersModule, AccountsModule, WebhookApplyModule],
+  imports: [ProvidersModule, WebhookApplyModule],
   controllers: [WebhooksController],
-  providers: [
-    WebhookSweeper,
-    InProcessEventQueue,
-    { provide: EVENT_QUEUE, useExisting: InProcessEventQueue },
-  ],
-  exports: [WebhookApplyModule, EVENT_QUEUE],
+  providers: [WebhookSweeper],
+  exports: [WebhookApplyModule],
 })
-export class WebhooksModule implements OnModuleInit {
-  constructor(
-    private readonly queue: InProcessEventQueue,
-    private readonly apply: WebhookApplyService,
-  ) {}
-
-  /**
-   * Liga a fila ao consumidor.
-   *
-   * A ligacao e aqui, e nao no construtor da fila, para a fila nao conhecer o
-   * servico de dominio — e o que permite trocar a implementacao por BullMQ
-   * mexendo so nesta linha.
-   */
-  onModuleInit(): void {
-    this.queue.setHandler(async (job) => {
-      if (job.kind === 'inbound_webhook') await this.apply.apply(job.eventId);
-    });
-  }
-}
+export class WebhooksModule {}

@@ -39,6 +39,13 @@ export interface InboundEventRepository {
   markProcessed(id: string, at: Date): Promise<void>;
   markDiscarded(id: string, reason: string): Promise<void>;
   markFailed(id: string, error: string, deadLetter: boolean): Promise<void>;
-  /** Eventos presos em RECEIVED alem da janela, para o varredor reenfileirar. */
+  /**
+   * Eventos presos alem da janela, para o varredor reenfileirar.
+   *
+   * Inclui PROCESSING, e nao so RECEIVED: um consumidor que morre depois do
+   * `markProcessing` — ou que sai sem aplicar porque outro pod detinha o lock
+   * do agregado — deixaria o evento preso para sempre num status que o
+   * varredor nao olhava.
+   */
   findStale(olderThan: Date, limit: number): Promise<InboundEventRecord[]>;
 }

@@ -357,7 +357,11 @@ export class MemoryInboundEventRepository implements InboundEventRepository {
 
   async findStale(olderThan: Date, limit: number) {
     return [...this.rows.values()]
-      .filter((row) => row.status === 'RECEIVED' && row.receivedAt <= olderThan)
+      .filter(
+        (row) =>
+          (row.status === 'RECEIVED' || row.status === 'PROCESSING') &&
+          row.receivedAt <= olderThan,
+      )
       .slice(0, limit);
   }
 }
