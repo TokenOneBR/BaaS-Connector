@@ -28,7 +28,10 @@ import type {
 } from '../accounts/accounts.types.js';
 import type {
   AuditDraft,
+  AuditFilter,
+  AuditRecord,
   AuditRepository,
+  AuditVerification,
   OutboxDraft,
   OutboxRepository,
 } from '../events/outbox.types.js';
@@ -499,6 +502,107 @@ export class PrismaAuditRepository implements AuditRepository {
       },
     });
   }
+
+  async list(input: AuditFilter): Promise<{ data: AuditRecord[]; nextCursor?: string }> {
+    const rows = await this.prisma.client.auditLog.findMany({
+      where: {
+        environment: input.environment,
+        actorId: input.actorId,
+        action: input.action,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        occurredAt: { gte: input.from, lte: input.to },
+        // Keyset pela SEQUENCIA, nao por data: a sequencia e monotonica e
+        // unica, e duas linhas no mesmo milissegundo desempatam sozinhas.
+        sequence: input.cursor ? { lt: BigInt(input.cursor) } : undefined,
+      },
+      orderBy: { sequence: 'desc' },
+      take: input.limit + 1,
+    });
+
+    const data = rows.slice(0, input.limit).map(toAuditRecord);
+    return {
+      data,
+      nextCursor: rows.length > input.limit ? data.at(-1)?.sequence : undefined,
+    };
+  }
+
+  async verifyChain(input: {
+    environment: Environment;
+    from: Date;
+    to: Date;
+  }): Promise<AuditVerification> {
+    const rows = await this.prisma.client.$queryRaw<
+      Array<{
+        checked_count: bigint;
+        divergent_id: string | null;
+        divergent_sequence: bigint | null;
+        divergent_occurred_at: Date | null;
+      }>
+    >`SELECT * FROM verify_audit_chain(${input.environment}::TEXT, ${input.from}::timestamptz, ${input.to}::timestamptz)`;
+
+    const row = rows[0];
+    return {
+      verified: !row?.divergent_id,
+      checkedCount: Number(row?.checked_count ?? 0),
+      from: input.from,
+      to: input.to,
+      firstDivergence: row?.divergent_id
+        ? {
+            auditId: row.divergent_id,
+            sequence: String(row.divergent_sequence),
+            occurredAt: row.divergent_occurred_at!,
+          }
+        : undefined,
+    };
+  }
+}
+
+/**
+ * `sequence` e `BigInt` no banco e STRING no dominio.
+ *
+ * A conversao acontece AQUI, e nao no serializador global de bigint: aquele
+ * corrige `toJSON`, que roda tarde demais — `respond()` ja teria tentado
+ * validar um objeto com bigint contra um schema que espera string, e falhado.
+ */
+function toAuditRecord(row: {
+  id: string;
+  environment: string;
+  sequence: bigint;
+  occurredAt: Date;
+  actorType: string;
+  actorId: string | null;
+  actorLabel: string | null;
+  actorIp: string | null;
+  action: string;
+  outcome: string;
+  errorCode: string | null;
+  resourceType: string;
+  resourceId: string | null;
+  before: unknown;
+  after: unknown;
+  changedFields: string[];
+  requestId: string | null;
+}): AuditRecord {
+  return {
+    id: row.id,
+    environment: row.environment as Environment,
+    sequence: String(row.sequence),
+    occurredAt: row.occurredAt,
+    actorType: row.actorType,
+    actorId: row.actorId ?? undefined,
+    actorLabel: row.actorLabel ?? undefined,
+    actorIp: row.actorIp ?? undefined,
+    action: row.action,
+    outcome: row.outcome,
+    errorCode: row.errorCode ?? undefined,
+    resourceType: row.resourceType,
+    resourceId: row.resourceId ?? undefined,
+    before: (row.before ?? undefined) as Record<string, unknown> | undefined,
+    after: (row.after ?? undefined) as Record<string, unknown> | undefined,
+    changedFields: row.changedFields,
+    requestId: row.requestId ?? undefined,
+  };
 }
 
 @Injectable()

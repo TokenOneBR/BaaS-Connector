@@ -58,8 +58,69 @@ export interface AuditDraft {
  * papel da aplicacao nao tem UPDATE nem DELETE na tabela, entao o repositorio
  * nao expoe — nem poderia expor — como alterar uma linha.
  */
+/**
+ * Trilha de auditoria.
+ *
+ * As leituras abaixo NAO enfraquecem a promessa append-only: continua nao
+ * havendo `update` nem `delete` nesta porta, e o papel do banco tambem nao os
+ * tem. Ler o que se gravou e o proposito da trilha.
+ */
 export interface AuditRepository {
   record(draft: AuditDraft): Promise<void>;
+  list(input: AuditFilter): Promise<{ data: AuditRecord[]; nextCursor?: string }>;
+  /**
+   * Recalcula a cadeia de hash e devolve a PRIMEIRA divergencia.
+   *
+   * A formula vive numa funcao SQL ao lado do trigger que a calcula. Duas
+   * definicoes da mesma formula divergem, e o sintoma seria acusar
+   * adulteracao que nao houve — ou perder a que houve.
+   */
+  verifyChain(input: {
+    environment: Environment;
+    from: Date;
+    to: Date;
+  }): Promise<AuditVerification>;
+}
+
+export interface AuditFilter {
+  environment: Environment;
+  actorId?: string;
+  action?: string;
+  resourceType?: string;
+  resourceId?: string;
+  from?: Date;
+  to?: Date;
+  limit: number;
+  cursor?: string;
+}
+
+export interface AuditRecord {
+  id: string;
+  environment: Environment;
+  /** `BigInt` no banco; string no dominio, porque o wire nao tem bigint. */
+  sequence: string;
+  occurredAt: Date;
+  actorType: string;
+  actorId?: string;
+  actorLabel?: string;
+  actorIp?: string;
+  action: string;
+  outcome: string;
+  errorCode?: string;
+  resourceType: string;
+  resourceId?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  changedFields: string[];
+  requestId?: string;
+}
+
+export interface AuditVerification {
+  verified: boolean;
+  checkedCount: number;
+  from: Date;
+  to: Date;
+  firstDivergence?: { auditId: string; sequence: string; occurredAt: Date };
 }
 
 export interface InboundWebhookJob {

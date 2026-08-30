@@ -8,6 +8,7 @@ import { AdminSurfaceGuard } from './admin-surface.guard.js';
 import { AdminController } from './admin.controller.js';
 import { ApiKeysController } from './api-keys.controller.js';
 import { ApiKeysService } from './api-keys.service.js';
+import { AuditController } from './audit.controller.js';
 import { ConnectionsController } from './connections.controller.js';
 import { ConnectionsService } from './connections.service.js';
 import { ConsoleEnvironmentPipe } from './environment.query.js';
@@ -22,7 +23,7 @@ import { AdminTokenService } from './token.service.js';
  */
 @Module({
   imports: [ProvidersModule],
-  controllers: [AdminController, ConnectionsController, ApiKeysController],
+  controllers: [AdminController, ConnectionsController, ApiKeysController, AuditController],
   providers: [
     AdminAuthService,
     AdminTokenService,

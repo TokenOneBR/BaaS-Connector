@@ -26,6 +26,9 @@ import type {
   AuditRepository,
   OutboxDraft,
   OutboxRepository,
+  AuditFilter,
+  AuditRecord,
+  AuditVerification,
 } from '../../events/outbox.types.js';
 import type { InboundEventRecord, InboundEventRepository } from '../../webhooks/webhooks.types.js';
 
@@ -312,6 +315,72 @@ export class MemoryAuditRepository implements AuditRepository {
   forResource(resourceId: string) {
     return this.rows.filter((row) => row.resourceId === resourceId);
   }
+
+  async list(input: AuditFilter): Promise<{ data: AuditRecord[]; nextCursor?: string }> {
+    const filtradas = this.rows
+      .map((row, index) => ({ row, sequence: index + 1 }))
+      .filter(({ row }) => row.environment === input.environment)
+      .filter(({ row }) => !input.actorId || row.actorId === input.actorId)
+      .filter(({ row }) => !input.action || row.action === input.action)
+      .filter(({ row }) => !input.resourceType || row.resourceType === input.resourceType)
+      .filter(({ row }) => !input.resourceId || row.resourceId === input.resourceId)
+      .filter(({ row }) => !input.from || row.occurredAt >= input.from)
+      .filter(({ row }) => !input.to || row.occurredAt <= input.to)
+      .reverse()
+      .filter(({ sequence }) => !input.cursor || sequence < Number(input.cursor));
+
+    const data = filtradas.slice(0, input.limit).map(toMemoryAuditRecord);
+    return {
+      data,
+      nextCursor: filtradas.length > input.limit ? data.at(-1)?.sequence : undefined,
+    };
+  }
+
+  /**
+   * O dobro NAO reimplementa a cadeia de hash.
+   *
+   * A cadeia e um trigger do Postgres, e a verificacao e uma funcao SQL ao
+   * lado dele. Simular as duas em memoria criaria uma TERCEIRA definicao da
+   * formula, que passaria a divergir — e o teste ficaria medindo o dobro. Em
+   * memoria nao ha o que adulterar, entao a resposta honesta e "intacta", e a
+   * garantia de verdade e provada contra Postgres em `packages/db/test`.
+   */
+  async verifyChain(input: {
+    environment: Environment;
+    from: Date;
+    to: Date;
+  }): Promise<AuditVerification> {
+    const contadas = this.rows.filter((row) => row.environment === input.environment).length;
+    return { verified: true, checkedCount: contadas, from: input.from, to: input.to };
+  }
+}
+
+function toMemoryAuditRecord({
+  row,
+  sequence,
+}: {
+  row: AuditDraft;
+  sequence: number;
+}): AuditRecord {
+  return {
+    id: `aud_mem_${sequence}`,
+    environment: row.environment,
+    sequence: String(sequence),
+    occurredAt: row.occurredAt,
+    actorType: row.actorType,
+    actorId: row.actorId,
+    actorLabel: row.actorLabel,
+    actorIp: row.actorIp,
+    action: row.action,
+    outcome: row.outcome,
+    errorCode: row.errorCode,
+    resourceType: row.resourceType,
+    resourceId: row.resourceId,
+    before: row.before,
+    after: row.after,
+    changedFields: row.changedFields ?? [],
+    requestId: row.requestId,
+  };
 }
 
 export class MemoryInboundEventRepository implements InboundEventRepository {

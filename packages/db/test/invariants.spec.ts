@@ -22,6 +22,7 @@ const MIGRATION_NAMES = [
   '20260828120000_hardening',
   '20260829100000_ledger_procedure',
   '20260829140000_break_dedupe',
+  '20260830120000_audit_verify',
 ];
 const ENV = 'HOMOLOGACAO';
 
@@ -253,6 +254,72 @@ describe('trilha de auditoria append-only', () => {
     expect(first!.h).not.toBe('00');
     expect(first!.p).toBeNull();
     expect(second!.p).toBe(first!.h);
+  });
+
+  it('a verificacao confirma uma cadeia intacta', async () => {
+    const database = await open();
+    await audit(database, 'aud_1', 'account.create');
+    await audit(database, 'aud_2', 'account.block');
+    await audit(database, 'aud_3', 'account.close');
+
+    const { rows } = await database.query<{
+      checked_count: string;
+      divergent_id: string | null;
+    }>(
+      `SELECT * FROM verify_audit_chain('${ENV}', '2000-01-01'::timestamptz, '2100-01-01'::timestamptz)`,
+    );
+
+    expect(Number(rows[0]!.checked_count)).toBe(3);
+    expect(rows[0]!.divergent_id).toBeNull();
+  });
+
+  it('a verificacao ACHA a linha adulterada, e nomeia qual', async () => {
+    // A formula do encadeamento vive no trigger; a verificacao recalcula com o
+    // MESMO `concat_ws`, na mesma migration. Reimplementa-la em TypeScript
+    // criaria duas definicoes que divergem na primeira mudanca — e o sintoma
+    // seria acusar adulteracao que nao houve, ou perder a que houve.
+    const database = await open();
+    await audit(database, 'aud_1', 'account.create');
+    await audit(database, 'aud_2', 'account.block');
+    await audit(database, 'aud_3', 'account.close');
+
+    // A aplicacao NAO consegue fazer isto: o trigger recusa UPDATE. Aqui o
+    // teste desliga o trigger para simular comprometimento do banco, que e
+    // exatamente a ameaca que a cadeia existe para detectar.
+    await database.exec(`ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_mutation`);
+    await database.exec(`UPDATE audit_log SET action = 'adulterado' WHERE id = 'aud_2'`);
+    await database.exec(`ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_mutation`);
+
+    const { rows } = await database.query<{
+      checked_count: string;
+      divergent_id: string | null;
+      divergent_sequence: string | null;
+    }>(
+      `SELECT * FROM verify_audit_chain('${ENV}', '2000-01-01'::timestamptz, '2100-01-01'::timestamptz)`,
+    );
+
+    expect(rows[0]!.divergent_id).toBe('aud_2');
+    // Para na PRIMEIRA divergencia: seguir depois dela reportaria toda linha
+    // seguinte como quebrada, e o operador perderia qual foi a alterada.
+    expect(Number(rows[0]!.checked_count)).toBe(2);
+  });
+
+  it('apagar uma linha e detectado pelo elo, nao pelo hash da propria linha', async () => {
+    const database = await open();
+    await audit(database, 'aud_1', 'account.create');
+    await audit(database, 'aud_2', 'account.block');
+    await audit(database, 'aud_3', 'account.close');
+
+    await database.exec(`ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_mutation`);
+    await database.exec(`DELETE FROM audit_log WHERE id = 'aud_2'`);
+    await database.exec(`ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_mutation`);
+
+    // A linha 3 continua com hash proprio valido — o que a denuncia e o
+    // `prev_hash`, que aponta para uma linha que nao existe mais.
+    const { rows } = await database.query<{ divergent_id: string | null }>(
+      `SELECT * FROM verify_audit_chain('${ENV}', '2000-01-01'::timestamptz, '2100-01-01'::timestamptz)`,
+    );
+    expect(rows[0]!.divergent_id).toBe('aud_3');
   });
 
   it('duas acoes identicas produzem hashes diferentes', async () => {

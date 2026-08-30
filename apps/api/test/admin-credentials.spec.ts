@@ -310,6 +310,36 @@ describe('credenciais e segredos nunca saem do /admin/v1', () => {
     expect(corpo.error.details?.length).toBeGreaterThan(0);
   });
 
+  it('a auditoria lista o que as rotas gravaram, com o ator certo', async () => {
+    const jwt = await token('admin@tokenone.com.br');
+    const criada = await criarConexao(jwt);
+
+    const page = (await api(
+      `/admin/v1/audit?environment=HOMOLOGACAO&resource_id=${criada.id}`,
+      jwt,
+    ).then((r) => r.json())) as { data: Array<Record<string, unknown>> };
+
+    expect(page.data.length).toBeGreaterThan(0);
+    expect(page.data[0]).toMatchObject({
+      action: 'connection.created',
+      // `USER`, e nao `API_KEY`: quem age no console e uma pessoa, e a trilha
+      // precisa dizer QUEM, nao "o console".
+      actor_type: 'USER',
+      resource_type: 'provider_connection',
+    });
+    // `sequence` e string: a coluna e BigInt e o wire nao tem bigint.
+    expect(typeof page.data[0]!.sequence).toBe('string');
+  });
+
+  it('VIEWER nao le auditoria; COMPLIANCE le', async () => {
+    await seedUser('compliance@tokenone.com.br', 'COMPLIANCE');
+    const viewer = await token('viewer@tokenone.com.br');
+    const compliance = await token('compliance@tokenone.com.br');
+
+    expect((await api('/admin/v1/audit?environment=HOMOLOGACAO', viewer)).status).toBe(403);
+    expect((await api('/admin/v1/audit?environment=HOMOLOGACAO', compliance)).status).toBe(200);
+  });
+
   it('sem `environment` na consulta, recusa', async () => {
     const jwt = await token('admin@tokenone.com.br');
     expect((await api('/admin/v1/connections', jwt)).status).toBe(422);
