@@ -38,9 +38,7 @@ export function buildClient(ctx: ProviderContext, credentials: MockBankCredentia
   });
 }
 
-function timeoutOverride(
-  config: Readonly<Record<string, unknown>>,
-): HttpClientOptions['timeouts'] {
+function timeoutOverride(config: Readonly<Record<string, unknown>>): HttpClientOptions['timeouts'] {
   const ms = Number(config.requestTimeoutMs);
   if (!Number.isFinite(ms) || ms <= 0) return undefined;
 

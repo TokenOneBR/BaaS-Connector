@@ -6,8 +6,9 @@ import { BearerAuthGuard } from '../common/auth.guard.js';
 import { MockClock } from '../common/clock.provider.js';
 import { MockBankError } from '../common/errors.js';
 import type { MockAccount } from '../common/store.js';
+import { LedgerService } from '../ledger/ledger.service.js';
 import { OnboardingService } from '../onboarding/onboarding.service.js';
-import { PaymentsService } from '../pix/payments.service.js';
+import { PaymentsService, type StatementLine } from '../pix/payments.service.js';
 
 import { AccountsService } from './accounts.service.js';
 
@@ -67,6 +68,7 @@ export class AccountsController {
     private readonly accounts: AccountsService,
     private readonly onboarding: OnboardingService,
     private readonly payments: PaymentsService,
+    private readonly ledger: LedgerService,
     private readonly clock: MockClock,
   ) {}
 
@@ -137,30 +139,59 @@ export class AccountsController {
     return serializeAccount(this.accounts.setStatus(id, AccountStatus.CLOSED));
   }
 
+  /**
+   * Extrato paginado, com os saldos da janela.
+   *
+   * Pagina de VERDADE, com cursor de keyset. Devolver a janela inteira e
+   * `tem_mais: false` sempre seria mais simples e teria um custo escondido: o
+   * laco de paginacao do conector nunca seria exercitado contra um servidor
+   * real, e o primeiro provedor que paginasse truncaria a janela em silencio —
+   * produzindo quebra de conciliacao inventada, que e pior que quebra nenhuma.
+   */
   @Get(':id/extrato')
   statement(
     @Param('id') id: string,
     @Query('data_inicio') from?: string,
     @Query('data_fim') to?: string,
+    @Query('limite') limite?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const start = from ? new Date(`${from}T00:00:00.000Z`) : new Date(0);
     const end = to ? new Date(`${to}T23:59:59.999Z`) : this.clock.now();
+    const account = this.accounts.get(id);
+
+    const todas = this.payments.statementLines(id, start, end);
+    const posicao = cursor ? decodeStatementCursor(cursor) : undefined;
+    const restantes = posicao
+      ? todas.filter(
+          (linha) =>
+            linha.effectiveAt.getTime() > posicao.at ||
+            (linha.effectiveAt.getTime() === posicao.at && linha.id > posicao.id),
+        )
+      : todas;
+
+    const tamanho = clampLimit(limite);
+    const pagina = restantes.slice(0, tamanho);
+    const temMais = restantes.length > pagina.length;
+    const ultima = pagina.at(-1);
 
     return {
-      dados: this.payments.list(id, start, end).map((payment) => ({
-        id: payment.id,
-        tipo: payment.direction === 'in' ? 'CREDITO' : 'DEBITO',
-        valor: Money.of(payment.amountCents).toDecimalString(),
-        tarifa: Money.of(payment.feeCents).toDecimalString(),
-        situacao: payment.status,
-        end_to_end_id: payment.endToEndId ?? null,
-        id_devolucao: payment.returnId ?? null,
-        txid: payment.txid ?? null,
-        contraparte: payment.counterparty,
-        descricao: payment.description ?? null,
-        data_movimento: payment.createdAt.toISOString(),
-        data_liquidacao: payment.settledAt?.toISOString() ?? null,
-      })),
+      dados: pagina.map((linha) => serializeStatementLine(linha)),
+      // Os saldos sao da JANELA e vao em toda pagina: o consumidor le da
+      // primeira que receber, sem precisar chegar ao fim para saber o saldo.
+      saldo_inicial: Money.of(
+        // Abertura e o saldo IMEDIATAMENTE ANTES da janela.
+        this.ledger.balanceAsOf(account.availableLedgerAccountId, new Date(start.getTime() - 1)),
+      ).toDecimalString(),
+      saldo_final: Money.of(
+        this.ledger.balanceAsOf(account.availableLedgerAccountId, end),
+      ).toDecimalString(),
+      moeda: 'BRL',
+      proximo_cursor:
+        temMais && ultima
+          ? encodeStatementCursor({ at: ultima.effectiveAt.getTime(), id: ultima.id })
+          : null,
+      tem_mais: temMais,
     };
   }
 
@@ -278,5 +309,68 @@ export function serializeOnboarding(onboarding: {
     motivo_recusa: onboarding.rejectionCode ?? null,
     mensagem_recusa: onboarding.rejectionMessage ?? null,
     atualizado_em: onboarding.updatedAt.toISOString(),
+  };
+}
+
+/** Teto de pagina. Sem teto, um cliente pede 10^6 e derruba o processo. */
+const MAX_LIMIT = 200;
+const DEFAULT_LIMIT = 50;
+
+function clampLimit(raw?: string): number {
+  const pedido = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(pedido) || pedido <= 0) return DEFAULT_LIMIT;
+  return Math.min(pedido, MAX_LIMIT);
+}
+
+interface StatementPosition {
+  at: number;
+  id: string;
+}
+
+/**
+ * Cursor opaco de keyset, nunca offset.
+ *
+ * Offset sobre uma tabela que recebe insert constante produz duplicata e
+ * buraco; num extrato financeiro isso e defeito de correcao, nao de estilo.
+ * Opaco de proposito: cliente que decodifica o cursor passa a depender do
+ * formato, e o formato deixa de ser nosso.
+ */
+function encodeStatementCursor(position: StatementPosition): string {
+  return Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
+}
+
+function decodeStatementCursor(raw: string): StatementPosition | undefined {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+    const { at, id } = parsed as StatementPosition;
+    if (typeof at !== 'number' || typeof id !== 'string') return undefined;
+    return { at, id };
+  } catch {
+    // Cursor ilegivel vira "primeira pagina" e nao 500: o cliente reabre a
+    // consulta em vez de ver um erro que nao sabe tratar.
+    return undefined;
+  }
+}
+
+function serializeStatementLine(linha: StatementLine): Record<string, unknown> {
+  const { payment } = linha;
+  return {
+    id: linha.id,
+    categoria: linha.categoria,
+    tipo: linha.direction === 'in' ? 'CREDITO' : 'DEBITO',
+    valor: Money.of(linha.amountCents).toDecimalString(),
+    tarifa: Money.of(linha.categoria === 'TARIFA' ? 0n : payment.feeCents).toDecimalString(),
+    situacao: payment.status,
+    // A linha de tarifa NAO carrega o E2EID do pagamento: sao globalmente
+    // unicos, e repeti-lo faria a chave forte da conciliacao casar duas
+    // linhas diferentes com a mesma transacao.
+    end_to_end_id: linha.categoria === 'TARIFA' ? null : (payment.endToEndId ?? null),
+    id_devolucao: payment.returnId ?? null,
+    txid: payment.txid ?? null,
+    contraparte: linha.categoria === 'TARIFA' ? null : payment.counterparty,
+    descricao: linha.categoria === 'TARIFA' ? 'Tarifa de PIX' : (payment.description ?? null),
+    data_movimento: payment.createdAt.toISOString(),
+    data_liquidacao: linha.effectiveAt.toISOString(),
   };
 }

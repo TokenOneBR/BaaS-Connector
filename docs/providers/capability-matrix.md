@@ -76,7 +76,7 @@ declarada como nao suportada precisa devolver `CapabilityNotSupportedError`.
 
 | Capacidade | Mock Bank |
 |---|:---:|
-| `statement.list` | parcial[^statement.list-MOCK_BANK] |
+| `statement.list` | sim[^statement.list-MOCK_BANK] |
 | `statement.export` | - |
 
 ### Infraestrutura
@@ -94,6 +94,6 @@ declarada como nao suportada precisa devolver `CapabilityNotSupportedError`.
 [^onboarding.requirements.fulfill-MOCK_BANK]: **Mock Bank** — A pendencia e cumprida pelo envio do documento; nao ha rota dedicada. A chamada apenas rele o caso.
 [^pix.charge.list-MOCK_BANK]: **Mock Bank** — Sem cursor e sem filtro de periodo: devolve todas as cobrancas da conta.
 [^pix.out.send-MOCK_BANK]: **Mock Bank** — Aceita destino por chave PIX ou por dados bancarios. Copia e cola precisa ser parseado antes; o Mock Bank nao recebe EMV no envio.
-[^statement.list-MOCK_BANK]: **Mock Bank** — Devolve a janela inteira de uma vez, sem cursor. Sintetizar paginacao mentiria sobre o custo: o provedor recarrega tudo a cada pagina.
+[^statement.list-MOCK_BANK]: **Mock Bank** — Cursor de keyset por (liquidacao, id). Devolve saldo de abertura e de fechamento.
 [^webhooks.signature.verify-MOCK_BANK]: **Mock Bank** — HMAC-SHA256 sobre "<timestamp>.<corpo cru>", no esquema da Stripe.
-[^reconciliation.statement.pull-MOCK_BANK]: **Mock Bank** — Usa a mesma rota de extrato, sem paginacao.
+[^reconciliation.statement.pull-MOCK_BANK]: **Mock Bank** — Mesma rota de extrato, com os saldos que fecham o passe de conferencia de saldo.

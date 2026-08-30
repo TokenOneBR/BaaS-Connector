@@ -469,6 +469,12 @@ describe('Mock Bank', () => {
     });
 
     it('recusa acima do saldo, sem lancamento no razao', async () => {
+      // Relogio cravado no meio da tarde de Brasilia. Sem isto o teste
+      // dependia da HORA em que rodava: o limite noturno de R$ 1.000 e igual
+      // ao saldo semeado, entao entre 20h e 6h o pedido era recusado por
+      // limite (422) antes de chegar ao saldo (400). Ficava verde 14 horas
+      // por dia, e o cache do Turbo escondia as outras 10.
+      clock.freezeAt(new Date('2026-08-28T18:00:00.000Z'));
       const { payer } = await fundedAccountPair();
       await authed()
         .post(`/api/v1/contas/${payer.id}/pix/enviar`)
@@ -479,6 +485,32 @@ describe('Mock Bank', () => {
       const balance = await authed().get(`/api/v1/contas/${payer.id}/saldo`).set(bearer());
       expect(balance.body.saldo_disponivel).toBe('1000.00');
       expect(ledger.verifyInvariants()).toEqual({ ok: true });
+      clock.unfreeze();
+    });
+
+    it('a janela noturna do PIX segue Brasilia, nao o fuso do processo', async () => {
+      // A regra e do BACEN em horario de Brasilia. Lendo a hora crua, o mesmo
+      // pagamento passava na maquina do desenvolvedor e era recusado no CI.
+      const { payer } = await fundedAccountPair();
+      const enviar = () =>
+        authed()
+          .post(`/api/v1/contas/${payer.id}/pix/enviar`)
+          .set(bearer())
+          .send({ valor: '900.00', chave: CPF_APROVA });
+
+      // 02:00 UTC = 23:00 em Brasilia: noturno, limite de R$ 1.000 nao pega
+      // os R$ 900, mas 15:00 UTC = 12:00 la, e diurno.
+      clock.freezeAt(new Date('2026-08-28T15:00:00.000Z'));
+      await enviar().expect(201);
+
+      clock.freezeAt(new Date('2026-08-29T02:00:00.000Z'));
+      const noturno = await authed()
+        .post(`/api/v1/contas/${payer.id}/pix/enviar`)
+        .set(bearer())
+        .send({ valor: '1500.00', chave: CPF_APROVA })
+        .expect(422);
+      expect(noturno.body.error.code).toBe('MB-LIMITE-001');
+      clock.unfreeze();
     });
 
     it('valor terminado em ,13 forca saldo insuficiente mesmo havendo saldo', async () => {
@@ -656,6 +688,93 @@ describe('Mock Bank', () => {
         .set(bearer())
         .expect(200);
       expect(extrato.body.dados).toHaveLength(0);
+    });
+
+    it('o extrato pagina por cursor, sem duplicata nem buraco', async () => {
+      const account = await createAccount();
+      for (const valor of ['10.00', '20.00', '30.00', '40.00', '50.00']) {
+        await authed()
+          .post('/_control/pix/inbound')
+          .send({ account_id: account.id, amount: valor });
+      }
+
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      let paginas = 0;
+
+      do {
+        const url = `/api/v1/contas/${account.id}/extrato?limite=2${
+          cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''
+        }`;
+        const pagina = await authed().get(url).set(bearer()).expect(200);
+        ids.push(...pagina.body.dados.map((linha: { id: string }) => linha.id));
+        cursor = pagina.body.proximo_cursor ?? undefined;
+        paginas += 1;
+        if (!pagina.body.tem_mais) break;
+      } while (cursor && paginas < 10);
+
+      expect(paginas).toBe(3);
+      expect(ids).toHaveLength(5);
+      expect(new Set(ids).size).toBe(5);
+    });
+
+    it('os saldos do extrato fecham com as linhas da janela', async () => {
+      // A conta abre zerada, entao abertura 0 + Σ linhas = fechamento. E a
+      // mesma identidade que a conformidade cobra do adapter, aqui provada no
+      // servidor que a produz.
+      const account = await createAccount();
+      await authed()
+        .post('/_control/pix/inbound')
+        .send({ account_id: account.id, amount: '75.00' });
+      await authed()
+        .post('/_control/pix/inbound')
+        .send({ account_id: account.id, amount: '25.00' });
+
+      const extrato = await authed()
+        .get(`/api/v1/contas/${account.id}/extrato`)
+        .set(bearer())
+        .expect(200);
+
+      const movimento = extrato.body.dados.reduce(
+        (total: number, linha: { tipo: string; valor: string }) =>
+          total + (linha.tipo === 'CREDITO' ? Number(linha.valor) : -Number(linha.valor)),
+        0,
+      );
+      expect(Number(extrato.body.saldo_inicial) + movimento).toBe(Number(extrato.body.saldo_final));
+      expect(extrato.body.saldo_final).toBe('100.00');
+    });
+
+    it('o extrato nao mostra pagamento que nao liquidou', async () => {
+      // Um extrato que lista pagamento em PROCESSING nao e extrato — e nada
+      // se moveu no razao, entao os saldos deixariam de fechar com as linhas.
+      const payer = await createAccount(CNPJ_APROVA, 'PJ');
+      const payee = await createAccount(CPF_APROVA, 'PF');
+      await authed()
+        .post(`/api/v1/contas/${payee.id}/chaves`)
+        .set(bearer())
+        .send({ tipo: PixKeyType.CPF, chave: CPF_APROVA });
+      await fund(payer.id, '500.00');
+
+      // Centavos `,29`: o servidor grava o pagamento em PROCESSING e NUNCA
+      // responde. O `abort` e obrigatorio — sem ele a requisicao fica em voo,
+      // o socket nao fecha, e o `app.close()` do teardown estoura o prazo do
+      // hook. O pagamento ja foi gravado quando abortamos.
+      const pendente = authed()
+        .post(`/api/v1/contas/${payer.id}/pix/enviar`)
+        .set(bearer())
+        .send({ valor: '100.29', chave: CPF_APROVA });
+      void pendente.catch(() => undefined);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      pendente.abort();
+
+      const extrato = await authed()
+        .get(`/api/v1/contas/${payer.id}/extrato`)
+        .set(bearer())
+        .expect(200);
+
+      expect(
+        extrato.body.dados.some((linha: { situacao: string }) => linha.situacao === 'PROCESSING'),
+      ).toBe(false);
     });
 
     it('documenta os valores magicos', async () => {

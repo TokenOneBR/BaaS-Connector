@@ -21,6 +21,15 @@ const ACCOUNT_ID = 'conformance-account';
 /** A suite reinicia o harness por grupo; cada reinicio refaz estas chamadas. */
 const REUSABLE = 1000;
 
+/** Cursor opaco da segunda pagina, como o Mock Bank o emite (base64url). */
+const CURSOR_PAGINA_2 = Buffer.from(
+  JSON.stringify({
+    at: Date.parse('2026-08-28T10:30:01.000Z'),
+    id: 'txn_01JBQ8Z2K3M4N5P6Q7R8S9T0V3',
+  }),
+  'utf8',
+).toString('base64url');
+
 export const happyPath: readonly Cassette[] = [
   {
     provider: 'MOCK_BANK',
@@ -259,10 +268,15 @@ export const happyPath: readonly Cassette[] = [
     scenario: 'statement-list',
     source: 'sandbox',
     interactions: [
+      // Duas paginas, e nao uma. A primeira devolve `tem_mais: true` e um
+      // cursor; a segunda fecha. E o unico jeito de o laco de paginacao do
+      // conector ser exercitado contra HTTP de verdade — com uma pagina so,
+      // um adapter que ignorasse `tem_mais` passaria na conformidade e
+      // truncaria a janela em silencio no primeiro provedor que paginasse.
       {
         request: {
           method: 'GET',
-          path: `/api/v1/contas/${ACCOUNT_ID}/extrato?data_inicio=2026-08-01&data_fim=2026-08-28`,
+          path: `/api/v1/contas/${ACCOUNT_ID}/extrato?data_inicio=2026-08-01&data_fim=2026-08-28&limite=10`,
         },
         response: {
           status: 200,
@@ -270,6 +284,7 @@ export const happyPath: readonly Cassette[] = [
             dados: [
               {
                 id: 'txn_01JBQ8Z2K3M4N5P6Q7R8S9T0V3',
+                categoria: 'PAGAMENTO',
                 tipo: 'CREDITO',
                 valor: '1500.00',
                 tarifa: '0.00',
@@ -283,6 +298,65 @@ export const happyPath: readonly Cassette[] = [
                 data_liquidacao: '2026-08-28T10:30:01.000Z',
               },
             ],
+            // Abertura 100,00 + credito 1.500,00 − debito 250,00 − tarifa
+            // 1,90 = 1.348,10. A conformidade confere esta conta.
+            saldo_inicial: '100.00',
+            saldo_final: '1348.10',
+            moeda: 'BRL',
+            proximo_cursor: CURSOR_PAGINA_2,
+            tem_mais: true,
+          },
+        },
+        maxUses: REUSABLE,
+      },
+      {
+        request: {
+          method: 'GET',
+          path: `/api/v1/contas/${ACCOUNT_ID}/extrato?data_inicio=2026-08-01&data_fim=2026-08-28&limite=10&cursor=${CURSOR_PAGINA_2}`,
+        },
+        response: {
+          status: 200,
+          body: {
+            dados: [
+              {
+                id: 'txn_01JBQ8Z2K3M4N5P6Q7R8S9T0V4',
+                categoria: 'PAGAMENTO',
+                tipo: 'DEBITO',
+                valor: '250.00',
+                tarifa: '1.90',
+                situacao: 'SETTLED',
+                end_to_end_id: 'E99999002202608281130LMNOPQRSTUV',
+                id_devolucao: null,
+                txid: null,
+                contraparte: { name: 'Recebedor Conformidade', taxId: '99999999000199' },
+                descricao: null,
+                data_movimento: '2026-08-28T11:30:00.000Z',
+                data_liquidacao: '2026-08-28T11:30:01.000Z',
+              },
+              {
+                // A tarifa e linha PROPRIA. Sem ela a soma das linhas nao
+                // bate com a variacao de saldo, e a conferencia acusaria
+                // diferenca em toda conta que paga tarifa.
+                id: 'txn_01JBQ8Z2K3M4N5P6Q7R8S9T0V4-tarifa',
+                categoria: 'TARIFA',
+                tipo: 'DEBITO',
+                valor: '1.90',
+                tarifa: '0.00',
+                situacao: 'SETTLED',
+                end_to_end_id: null,
+                id_devolucao: null,
+                txid: null,
+                contraparte: null,
+                descricao: 'Tarifa de PIX',
+                data_movimento: '2026-08-28T11:30:00.000Z',
+                data_liquidacao: '2026-08-28T11:30:01.000Z',
+              },
+            ],
+            saldo_inicial: '100.00',
+            saldo_final: '1348.10',
+            moeda: 'BRL',
+            proximo_cursor: null,
+            tem_mais: false,
           },
         },
         maxUses: REUSABLE,

@@ -232,7 +232,7 @@ runConformanceSuite({
 });
 ```
 
-Dez grupos de asserção, cada um matando uma classe de bug que já custou
+Onze grupos de asserção, cada um matando uma classe de bug que já custou
 dinheiro em integração com BaaS:
 
 1. **Honestidade de capacidade** — declarado suportado precisa funcionar;
@@ -250,6 +250,10 @@ dinheiro em integração com BaaS:
 9. **Redação** — nenhum documento ou credencial em log ou registro de chamada.
 10. **Isolamento de rede** — todas as chamadas vão para o cassette server.
     Pega adapter com URL fixa no código.
+11. **Extrato** — paginar termina, não repete cursor nem linha, e os saldos de
+    abertura e fechamento (opcionais) precisam fechar com as linhas da janela.
+    Pega o adapter que ignora `hasMore` e trunca a janela em silêncio, e o que
+    devolve dois saldos plausíveis e incoerentes entre si.
 
 O servidor de fixtures é **HTTP real** e não `nock`/MSW de propósito:
 interceptação mocka exatamente a camada que mais queremos testar (timeout,

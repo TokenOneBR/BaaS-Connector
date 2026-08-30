@@ -119,7 +119,11 @@ export function toPixRefund(payment: MbPayment): PixRefund {
 }
 
 function entryTypeOf(payment: MbPayment): StatementEntryType {
-  if (payment.id_devolucao) return StatementEntryType.REFUND;
+  // `categoria` quando o provedor a manda; o fallback pelo `id_devolucao`
+  // continua porque nem toda rota do Mock Bank a carrega.
+  const categoria = (payment as { categoria?: string }).categoria;
+  if (categoria === 'TARIFA') return StatementEntryType.FEE;
+  if (categoria === 'DEVOLUCAO' || payment.id_devolucao) return StatementEntryType.REFUND;
   return payment.tipo === 'CREDITO' ? StatementEntryType.PIX_IN : StatementEntryType.PIX_OUT;
 }
 

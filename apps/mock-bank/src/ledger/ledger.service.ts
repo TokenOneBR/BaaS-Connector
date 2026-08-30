@@ -240,6 +240,31 @@ export class LedgerService implements OnModuleInit {
     );
   }
 
+  /**
+   * Saldo POSTADO de uma conta num instante.
+   *
+   * Postado, e nao disponivel: extrato e sobre o que liquidou. Uma reserva
+   * pendente reduz o disponivel e nao aparece em lancamento nenhum — se
+   * entrasse aqui, o saldo do extrato nao fecharia com as linhas dele.
+   *
+   * Le o `resultingPostedCents` do ULTIMO lancamento ate o instante, que o
+   * motor ja grava por lancamento. Recomputar a soma aqui seria uma segunda
+   * verdade sobre o mesmo numero.
+   */
+  balanceAsOf(ledgerAccountId: string, at: Date): bigint {
+    const anteriores = this.store
+      .allEntries()
+      .filter(
+        (entry) =>
+          entry.accountId === ledgerAccountId &&
+          entry.phase !== EntryPhase.PENDING &&
+          entry.effectiveAt <= at,
+      )
+      .sort((a, b) => a.effectiveAt.getTime() - b.effectiveAt.getTime() || a.sequence - b.sequence);
+
+    return anteriores.at(-1)?.resultingPostedCents ?? 0n;
+  }
+
   /** Lancamentos de uma conta, ordenados, para montar o extrato. */
   statement(ledgerAccountId: string, from: Date, to: Date) {
     return this.store

@@ -126,6 +126,21 @@ export interface MbList<T> {
   dados: T[];
 }
 
+/** Uma linha de extrato. Um pagamento com tarifa produz DUAS. */
+export interface MbStatementLine extends MbPayment {
+  categoria: 'PAGAMENTO' | 'TARIFA' | 'DEVOLUCAO';
+}
+
+export interface MbStatementPage {
+  dados: MbStatementLine[];
+  /** Saldos da JANELA, repetidos em toda pagina. Decimal string. */
+  saldo_inicial: string;
+  saldo_final: string;
+  moeda: string;
+  proximo_cursor: string | null;
+  tem_mais: boolean;
+}
+
 export interface MbEnvelope<T> {
   dados: T | null;
 }

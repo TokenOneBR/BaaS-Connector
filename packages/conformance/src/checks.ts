@@ -222,6 +222,78 @@ export function checkUsedInjectedBaseUrl(receivedCalls: number): CheckFailure[] 
   ];
 }
 
+/**
+ * 11. Os saldos do extrato fecham com as linhas dele.
+ *
+ * So roda quando o adapter informa os dois saldos — sao opcionais no SPI de
+ * proposito. O que esta assercao mata e o modo de falha real: um adapter que
+ * devolve dois numeros plausiveis e INCOERENTES entre si. A conciliacao
+ * acredita nesses numeros; um saldo ausente ela declara pulado, um saldo
+ * errado ela transforma em quebra de saldo sobre ficcao, e alguem passa a
+ * tarde investigando um numero que nunca existiu.
+ */
+export function checkStatementBalancesClose(input: {
+  openingCents?: bigint;
+  closingCents?: bigint;
+  movementCents: bigint;
+}): CheckFailure[] {
+  if (input.openingCents === undefined || input.closingCents === undefined) return ok;
+
+  const esperado = input.openingCents + input.movementCents;
+  if (esperado === input.closingCents) return ok;
+  return [
+    {
+      check: 'statement_balances_close',
+      message:
+        `abertura ${input.openingCents} + movimento ${input.movementCents} = ${esperado}, ` +
+        `mas o fechamento informado e ${input.closingCents}; os dois saldos nao podem ` +
+        'ser calculados de fontes que discordam',
+    },
+  ];
+}
+
+/**
+ * 11. A paginacao termina, nao repete pagina e nao repete linha.
+ *
+ * Cursor que se repete e laco infinito; linha que se repete e movimento
+ * contado duas vezes na conciliacao.
+ */
+export function checkPaginationTerminates(input: {
+  cursors: readonly string[];
+  entryIds: readonly string[];
+  danglingHasMore?: boolean;
+}): CheckFailure[] {
+  const falhas: CheckFailure[] = [];
+
+  if (input.danglingHasMore) {
+    // `hasMore` sem cursor e beco sem saida: quem consome sabe que falta
+    // pagina e nao tem como pedi-la, entao trunca a janela sabendo que esta
+    // truncando — pior do que truncar por engano.
+    falhas.push({
+      check: 'pagination_has_more_without_cursor',
+      message: 'a pagina diz `hasMore: true` e nao devolve `nextCursor`; nao ha como continuar',
+    });
+  }
+
+  const cursoresUnicos = new Set(input.cursors);
+  if (cursoresUnicos.size !== input.cursors.length) {
+    falhas.push({
+      check: 'pagination_terminates',
+      message: 'o mesmo cursor foi devolvido duas vezes; paginar entraria em laco infinito',
+    });
+  }
+
+  const idsUnicos = new Set(input.entryIds);
+  if (idsUnicos.size !== input.entryIds.length) {
+    falhas.push({
+      check: 'pagination_no_duplicates',
+      message: 'a mesma linha apareceu em mais de uma pagina; o movimento seria contado duas vezes',
+    });
+  }
+
+  return falhas;
+}
+
 /** Facetas que precisam existir para as capacidades declaradas. */
 export function requiredFacets(manifest: CapabilityDescriptor): Array<{
   capability: CapabilityKey;

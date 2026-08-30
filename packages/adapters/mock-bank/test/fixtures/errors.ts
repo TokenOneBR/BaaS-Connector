@@ -115,7 +115,7 @@ export const errors: readonly Cassette[] = [
       {
         request: {
           method: 'GET',
-          path: `/api/v1/contas/${ACCOUNT_ID}/extrato?data_inicio=2026-08-01&data_fim=2026-08-28`,
+          path: `/api/v1/contas/${ACCOUNT_ID}/extrato?data_inicio=2026-08-01&data_fim=2026-08-28&limite=10`,
         },
         response: {
           status: 503,

@@ -19,6 +19,31 @@ import { WebhookService } from '../webhooks/webhook.service.js';
 import { ChargesService } from './charges.service.js';
 import { PixKeysService } from './pix-keys.service.js';
 
+/**
+ * Estados que pertencem ao extrato.
+ *
+ * Mesma lista que o conector usa em `STATEMENT_STATUSES`, e de proposito: se
+ * as duas divergirem, a conciliacao abre quebra sobre uma linha que so um dos
+ * lados considera existente.
+ */
+const SETTLED_FOR_STATEMENT: ReadonlySet<TransactionStatus> = new Set([
+  TransactionStatus.SETTLED,
+  TransactionStatus.REVERSED,
+  TransactionStatus.PARTIALLY_REVERSED,
+]);
+
+export type StatementCategory = 'PAGAMENTO' | 'TARIFA' | 'DEVOLUCAO';
+
+/** Uma linha de extrato. Um pagamento com tarifa produz DUAS. */
+export interface StatementLine {
+  id: string;
+  payment: MockPayment;
+  categoria: StatementCategory;
+  direction: 'in' | 'out';
+  amountCents: bigint;
+  effectiveAt: Date;
+}
+
 export interface SendPixInput {
   accountId: string;
   amountCents: bigint;
@@ -394,6 +419,63 @@ export class PaymentsService {
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 
+  /**
+   * Linhas de extrato.
+   *
+   * Diferente de `list` em tres pontos, e cada um deles e o que faz o extrato
+   * fechar com o razao:
+   *
+   * 1. **So o que liquidou.** `PROCESSING` e `FAILED` nao pertencem a um
+   *    extrato — nada se moveu. `list` devolve tudo porque serve a outros
+   *    usos; um extrato que mostra pagamento que falhou nao e extrato.
+   * 2. **Janela por LIQUIDACAO, nao por criacao.** Um PIX criado 23h59 e
+   *    liquidado 00h01 pertence ao dia seguinte, e e ai que o razao o lancou.
+   * 3. **A tarifa e uma LINHA propria.** O razao debita `valor + tarifa` da
+   *    conta do cliente; o `valor` da linha e so o pagamento. Sem a linha de
+   *    tarifa, a soma das linhas nao bate com a variacao de saldo — e a
+   *    conferencia de saldo passaria a acusar diferenca em toda conta que
+   *    paga tarifa.
+   */
+  statementLines(accountId: string, from: Date, to: Date): StatementLine[] {
+    const linhas: StatementLine[] = [];
+
+    for (const payment of this.store.payments.values()) {
+      if (payment.accountId !== accountId) continue;
+      if (!SETTLED_FOR_STATEMENT.has(payment.status)) continue;
+      const effectiveAt = payment.settledAt ?? payment.createdAt;
+      if (effectiveAt < from || effectiveAt > to) continue;
+
+      linhas.push({
+        id: payment.id,
+        payment,
+        categoria: payment.returnId ? 'DEVOLUCAO' : 'PAGAMENTO',
+        direction: payment.direction,
+        amountCents: payment.amountCents,
+        effectiveAt,
+      });
+
+      if (payment.feeCents > 0n) {
+        linhas.push({
+          // Sufixo estavel: reconsultar a mesma janela devolve o mesmo id, e
+          // a conciliacao depende disso para nao abrir quebra duplicada.
+          id: `${payment.id}-tarifa`,
+          payment,
+          categoria: 'TARIFA',
+          direction: 'out',
+          amountCents: payment.feeCents,
+          effectiveAt,
+        });
+      }
+    }
+
+    // Keyset determinista: o cursor navega por (instante, id), e o desempate
+    // por id impede que duas linhas do mesmo instante troquem de lugar entre
+    // duas paginas — que e como paginacao produz duplicata e buraco.
+    return linhas.sort(
+      (a, b) => a.effectiveAt.getTime() - b.effectiveAt.getTime() || a.id.localeCompare(b.id),
+    );
+  }
+
   // -----------------------------------------------------------------------
 
   private persist(payment: MockPayment): void {
@@ -434,7 +516,17 @@ export class PaymentsService {
   }
 
   private assertWithinLimits(amountCents: bigint): void {
-    const hour = this.clock.now().getHours();
+    // Hora de BRASILIA, e nao a do processo. A janela noturna do PIX e regra
+    // do BACEN em horario de Brasilia; ler `getHours()` cru fazia o limite
+    // depender do fuso do container — o mesmo pagamento passava na maquina do
+    // desenvolvedor e era recusado no CI, que roda em UTC.
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        hour12: false,
+      }).format(this.clock.now()),
+    );
     const nightly = hour >= 20 || hour < 6;
     const limit = nightly ? this.config.nightlyPixOutLimitCents : this.config.dailyPixOutLimitCents;
     if (amountCents > limit) throw MockBankError.limitExceeded(limit);

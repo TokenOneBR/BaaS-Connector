@@ -1,33 +1,47 @@
 import type { HttpClient } from '@baasconn/adapter-kit';
 import type {
   AccountRef,
-  Page,
   Pagination,
-  StatementEntry,
   StatementFacet,
+  StatementPage,
   StatementQuery,
 } from '@baasconn/provider-spi';
 
-import type { MbList, MbPayment } from '../dto/index.js';
+import type { MbStatementPage } from '../dto/index.js';
+import { fromDecimal } from '../mappers/money.js';
 import { toStatementEntry } from '../mappers/pix.js';
 
 /**
- * Extrato — PARTIAL no manifesto, e a nota diz por que.
+ * Extrato — paginado de verdade, com os saldos da janela.
  *
- * O Mock Bank devolve a janela inteira de uma vez, sem cursor. Sintetizar um
- * cursor sobre a lista completa mentiria sobre o custo da chamada: o cliente
- * pensaria estar paginando enquanto o provedor recarrega tudo a cada pagina.
+ * O Mock Bank pagina por cursor de keyset e informa abertura e fechamento
+ * porque tem o razao autoritativo e pode responder a verdade. Provedor que nao
+ * informa saldo simplesmente omite os campos, e a conciliacao declara o passe
+ * de saldo como pulado — o que ela NAO faz e acreditar num numero inventado.
  */
 export function buildStatementFacet(client: HttpClient): StatementFacet {
   return {
-    async list(ref: AccountRef, query: StatementQuery & Pagination): Promise<Page<StatementEntry>> {
-      const response = await client.request<MbList<MbPayment>>({
+    async list(ref: AccountRef, query: StatementQuery & Pagination): Promise<StatementPage> {
+      const response = await client.request<MbStatementPage>({
         method: 'GET',
         path: `/api/v1/contas/${encodeURIComponent(ref.providerAccountId)}/extrato`,
-        query: { data_inicio: query.from, data_fim: query.to },
+        query: {
+          data_inicio: query.from,
+          data_fim: query.to,
+          limite: query.limit,
+          cursor: query.cursor,
+        },
         endpointClass: 'read',
       });
-      return { data: response.body.dados.map(toStatementEntry), hasMore: false };
+
+      const body = response.body;
+      return {
+        data: body.dados.map(toStatementEntry),
+        nextCursor: body.proximo_cursor ?? undefined,
+        hasMore: body.tem_mais,
+        openingBalance: fromDecimal(body.saldo_inicial),
+        closingBalance: fromDecimal(body.saldo_final),
+      };
     },
   };
 }

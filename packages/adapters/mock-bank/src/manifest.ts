@@ -88,14 +88,12 @@ export const mockbankManifest = defineManifest({
   'pix.refund.get': { level: SupportLevel.SUPPORTED },
 
   'statement.list': {
-    level: SupportLevel.PARTIAL,
-    note:
-      'Devolve a janela inteira de uma vez, sem cursor. Sintetizar paginacao mentiria ' +
-      'sobre o custo: o provedor recarrega tudo a cada pagina.',
+    level: SupportLevel.SUPPORTED,
+    note: 'Cursor de keyset por (liquidacao, id). Devolve saldo de abertura e de fechamento.',
   },
   'reconciliation.statement.pull': {
-    level: SupportLevel.PARTIAL,
-    note: 'Usa a mesma rota de extrato, sem paginacao.',
+    level: SupportLevel.SUPPORTED,
+    note: 'Mesma rota de extrato, com os saldos que fecham o passe de conferencia de saldo.',
   },
 
   'webhooks.inbound': { level: SupportLevel.SUPPORTED },

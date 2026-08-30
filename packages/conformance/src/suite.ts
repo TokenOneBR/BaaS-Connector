@@ -13,7 +13,9 @@ import {
   checkManifestMatchesFacets,
   checkMoneyPrecision,
   checkNoLeaks,
+  checkPaginationTerminates,
   checkPartialHasNote,
+  checkStatementBalancesClose,
   checkUsedInjectedBaseUrl,
 } from './checks.js';
 import { createHarness, LEAK_CANARIES, type Harness } from './harness.js';
@@ -21,10 +23,16 @@ import type { ConformanceConfig } from './types.js';
 
 const DEFAULT_ACCOUNT_REF = { providerAccountId: 'conformance-account' };
 
+/** A janela que toda fixture de extrato precisa servir. */
+const STATEMENT_FROM = '2026-08-01';
+const STATEMENT_TO = '2026-08-28';
+const STATEMENT_LIMIT = 10;
+const MAX_STATEMENT_PAGES = 20;
+
 /**
  * A suite que todo adapter precisa passar.
  *
- * Dez grupos de assercao, cada um matando uma classe de bug que ja custou
+ * Onze grupos de assercao, cada um matando uma classe de bug que ja custou
  * dinheiro em integracao com BaaS. Um adapter e considerado correto quando
  * passa por inteiro, nao quando tem cobertura de linha alta: cobertura de
  * linha num mapper diz que o codigo rodou, nao que o mapeamento esta certo.
@@ -58,6 +66,10 @@ export function runConformanceSuite(config: ConformanceConfig): void {
       await harness.stop();
     }
   };
+
+  /** Capacidade declarada e nao pulada pela configuracao do adapter. */
+  const has = (key: CapabilityKey) =>
+    factory.manifest[key].level !== SupportLevel.UNSUPPORTED && !config.skip?.[key];
 
   describe(`conformidade: ${factory.displayName}`, () => {
     // ---------------------------------------------------------------------
@@ -131,9 +143,6 @@ export function runConformanceSuite(config: ConformanceConfig): void {
     // 4. Mapeamento canonico
     // ---------------------------------------------------------------------
     describe('4. mapeamento canonico', () => {
-      const has = (key: CapabilityKey) =>
-        factory.manifest[key].level !== SupportLevel.UNSUPPORTED && !config.skip?.[key];
-
       it.runIf(has('balance.get'))('saldo mapeia para o formato canonico', async () => {
         await withHarness(async ({ adapter }) => {
           const balance = await adapter.balance!.get(accountRef);
@@ -403,7 +412,91 @@ export function runConformanceSuite(config: ConformanceConfig): void {
         });
       });
     });
+
+    // ---------------------------------------------------------------------
+    // 11. Extrato: paginacao e saldos
+    // ---------------------------------------------------------------------
+    describe('11. extrato', () => {
+      const temExtrato = has('statement.list') || has('reconciliation.statement.pull');
+
+      it.runIf(temExtrato)('paginar termina, sem repetir cursor nem linha', async () => {
+        await withHarness(async ({ adapter }) => {
+          const { cursors, entryIds, danglingHasMore } = await drainStatement(adapter, accountRef);
+          expect(entryIds.length).toBeGreaterThan(0);
+          assertNoFailures(checkPaginationTerminates({ cursors, entryIds, danglingHasMore }));
+        });
+      });
+
+      it.runIf(temExtrato)('os saldos informados fecham com as linhas da janela', async () => {
+        await withHarness(async ({ adapter }) => {
+          const { openingCents, closingCents, movementCents } = await drainStatement(
+            adapter,
+            accountRef,
+          );
+          assertNoFailures(
+            checkStatementBalancesClose({ openingCents, closingCents, movementCents }),
+          );
+        });
+      });
+    });
   });
+}
+
+/**
+ * Percorre o extrato inteiro seguindo o cursor.
+ *
+ * O teto de paginas nao e paranoia: sem ele, um adapter que devolvesse sempre
+ * `hasMore: true` travaria a suite em vez de reprova-la, e um teste que trava
+ * e pior que um teste que falha.
+ */
+async function drainStatement(
+  adapter: ProviderAdapter,
+  ref: { providerAccountId: string },
+): Promise<{
+  cursors: string[];
+  entryIds: string[];
+  movementCents: bigint;
+  openingCents?: bigint;
+  closingCents?: bigint;
+  danglingHasMore: boolean;
+}> {
+  const cursors: string[] = [];
+  const entryIds: string[] = [];
+  let danglingHasMore = false;
+  let movementCents = 0n;
+  let openingCents: bigint | undefined;
+  let closingCents: bigint | undefined;
+
+  let cursor: string | undefined;
+  for (let pagina = 0; pagina < MAX_STATEMENT_PAGES; pagina += 1) {
+    const page = await adapter.statement?.list(ref, {
+      from: STATEMENT_FROM,
+      to: STATEMENT_TO,
+      limit: STATEMENT_LIMIT,
+      cursor,
+    });
+    if (!page) break;
+
+    // Os saldos sao da JANELA: a primeira pagina que os traz manda.
+    openingCents ??= page.openingBalance ? BigInt(page.openingBalance.amount) : undefined;
+    closingCents ??= page.closingBalance ? BigInt(page.closingBalance.amount) : undefined;
+
+    for (const entry of page.data) {
+      entryIds.push(entry.providerEntryId);
+      const cents = BigInt(entry.amount.amount);
+      movementCents += entry.direction === 'credit' ? cents : -cents;
+    }
+
+    if (!page.hasMore) break;
+    if (!page.nextCursor) {
+      danglingHasMore = true;
+      break;
+    }
+    cursors.push(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+
+  return { cursors, entryIds, movementCents, openingCents, closingCents, danglingHasMore };
 }
 
 /**
@@ -438,7 +531,11 @@ async function invokeCapability(
       return adapter.pixCharges?.get(ref, 'conformance-txid');
     case 'statement.list':
     case 'reconciliation.statement.pull':
-      return adapter.statement?.list(ref, { from: '2026-08-01', to: '2026-08-28', limit: 10 });
+      return adapter.statement?.list(ref, {
+        from: STATEMENT_FROM,
+        to: STATEMENT_TO,
+        limit: STATEMENT_LIMIT,
+      });
     case 'onboarding.status.get':
       return adapter.onboarding?.getStatus('conformance-case');
     default:
@@ -457,7 +554,11 @@ async function invokeForCassette(
   if (scenario.includes('key')) return adapter.pixKeys?.list(ref);
   if (scenario.includes('charge')) return adapter.pixCharges?.get(ref, 'conformance-txid');
   if (scenario.includes('statement')) {
-    return adapter.statement?.list(ref, { from: '2026-08-01', to: '2026-08-28', limit: 10 });
+    return adapter.statement?.list(ref, {
+      from: STATEMENT_FROM,
+      to: STATEMENT_TO,
+      limit: STATEMENT_LIMIT,
+    });
   }
   if (scenario.includes('onboarding')) return adapter.onboarding?.getStatus('conformance-case');
   return adapter.pixTransfers?.get(ref, 'conformance-tx');

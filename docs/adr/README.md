@@ -24,5 +24,6 @@ de implementacao. Ver [GOVERNANCE.md](../../GOVERNANCE.md).
 | [0013](0013-console-session-model.md) | Sessao do console: JWT assimetrico e refresh rotativo |
 | [0014](0014-shadow-ledger-customer-side-only.md) | Ledger sombra espelha so o lado do cliente |
 | [0015](0015-unknown-outcome-holds-the-reserve.md) | Desfecho desconhecido mantem a reserva e devolve 202 |
+| [0016](0016-statement-balances-and-real-pagination.md) | Extrato com saldos opcionais no SPI e paginacao de verdade no Mock Bank |
 
 Novo ADR: copie [0000-template.md](0000-template.md).

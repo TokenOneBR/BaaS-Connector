@@ -17,6 +17,7 @@ import type {
   PixRefund,
   PixTransaction,
   PldScreeningInput,
+  MoneyJSON,
   PldScreeningResult,
   ProviderAccount,
   ProviderBalance,
@@ -102,8 +103,28 @@ export interface PixTransfersFacet {
   findByIdempotencyKey?(ref: AccountRef, key: string): Promise<PixTransaction | null>;
 }
 
+/**
+ * Pagina de extrato, com os saldos da JANELA.
+ *
+ * Os saldos sao da consulta, nao da pagina: identicos em toda pagina da mesma
+ * janela, e quem consome le da primeira que receber. Sao OPCIONAIS porque a
+ * maioria dos provedores nao os informa — e exigi-los obrigaria todo adapter a
+ * inventar um numero. Um saldo ausente a conciliacao declara (`skippedReason`);
+ * um saldo inventado ela acredita, e passa a abrir quebra de saldo em cima de
+ * ficcao.
+ *
+ * Quem os informa precisa que fechem: `abertura + Σ(creditos − debitos da
+ * janela) = fechamento`. A suite de conformidade verifica isso.
+ */
+export interface StatementPage extends Page<StatementEntry> {
+  /** Saldo postado imediatamente ANTES do inicio da janela. */
+  openingBalance?: MoneyJSON;
+  /** Saldo postado ao FIM da janela. */
+  closingBalance?: MoneyJSON;
+}
+
 export interface StatementFacet {
-  list(ref: AccountRef, query: StatementQuery & Pagination): Promise<Page<StatementEntry>>;
+  list(ref: AccountRef, query: StatementQuery & Pagination): Promise<StatementPage>;
   /** Exportacao assincrona, mais barata para janelas grandes. */
   export?(ref: AccountRef, query: StatementQuery): Promise<{ handle: string; readyAt?: string }>;
 }
