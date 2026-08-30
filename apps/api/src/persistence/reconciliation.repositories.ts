@@ -6,6 +6,8 @@ import type {
   Environment,
   ReconciliationRunStatus,
   ReconciliationScope,
+  ReconciliationSide,
+  ResolutionAction,
 } from '@baasconn/taxonomy';
 import { Injectable } from '@nestjs/common';
 
@@ -15,6 +17,7 @@ import type {
 } from '../reconciliation/poll-cursor.types.js';
 import type {
   BreakUpsertRow,
+  ReconciliationBreakRecord,
   MatchLinkRow,
   ReconciliationBreakRepository,
   ReconciliationItemRow,
@@ -65,6 +68,28 @@ export class PrismaReconciliationRunRepository implements ReconciliationRunRepos
       where: { id, environment },
     });
     return row ? toRun(row) : undefined;
+  }
+
+  async findItemById(id: string): Promise<ReconciliationItemRow | undefined> {
+    const row = await this.prisma.client.reconciliationItem.findUnique({ where: { id } });
+    if (!row) return undefined;
+
+    return {
+      id: row.id,
+      runId: row.runId,
+      side: row.side as ReconciliationSide,
+      externalId: row.externalId ?? undefined,
+      endToEndId: row.endToEndId ?? undefined,
+      postedAt: row.postedAt,
+      effectiveDate: row.effectiveDate.toISOString().slice(0, 10),
+      direction: row.direction,
+      amountCents: row.amountCents,
+      type: row.type,
+      counterpartyTaxIdIndex: row.counterpartyTaxIdIndex ?? undefined,
+      matchKeyStrong: row.matchKeyStrong ?? undefined,
+      matchKeyFuzzy: row.matchKeyFuzzy,
+      raw: (row.raw ?? {}) as Record<string, unknown>,
+    };
   }
 
   async markRunning(id: string, at: Date): Promise<void> {
@@ -227,6 +252,38 @@ export class PrismaReconciliationBreakRepository implements ReconciliationBreakR
     return result.count;
   }
 
+  async findById(
+    environment: Environment,
+    id: string,
+  ): Promise<ReconciliationBreakRecord | undefined> {
+    const row = await this.prisma.client.reconciliationBreak.findFirst({
+      where: { id, environment },
+    });
+    return row ? toBreak(row) : undefined;
+  }
+
+  async resolveManually(
+    input: Parameters<ReconciliationBreakRepository['resolveManually']>[0],
+  ): Promise<ReconciliationBreakRecord | undefined> {
+    // `updateMany` com o ambiente no `where`: um `update` por id sozinho
+    // resolveria uma quebra de PRODUCAO a partir de uma sessao de
+    // homologacao, e o id nao carrega o ambiente.
+    const alterado = await this.prisma.client.reconciliationBreak.updateMany({
+      where: { id: input.id, environment: input.environment },
+      data: {
+        status: input.status,
+        resolution: input.resolution,
+        resolutionNote: input.note,
+        resolvedBy: input.resolvedBy,
+        resolvedAt: input.at,
+        adjustmentTransactionId: input.adjustmentTransactionId,
+        assignedTo: input.assignedTo,
+      },
+    });
+    if (alterado.count === 0) return undefined;
+    return this.findById(input.environment, input.id);
+  }
+
   async countOpenHighSeverity(environment: Environment, accountId: string): Promise<number> {
     return this.prisma.client.reconciliationBreak.count({
       where: {
@@ -238,27 +295,63 @@ export class PrismaReconciliationBreakRepository implements ReconciliationBreakR
     });
   }
 
-  async listOpen(
-    environment: Environment,
-    filter: { accountId?: string; status?: BreakStatus; limit: number },
-  ): Promise<Array<{ id: string; type: BreakType; severity: BreakSeverity; status: BreakStatus }>> {
+  async list(
+    input: Parameters<ReconciliationBreakRepository['list']>[0],
+  ): Promise<{ data: ReconciliationBreakRecord[]; nextCursor?: string }> {
     const rows = await this.prisma.client.reconciliationBreak.findMany({
       where: {
-        environment,
-        accountId: filter.accountId,
-        status: filter.status ?? { in: ['OPEN', 'INVESTIGATING'] },
+        environment: input.environment,
+        status: input.status ?? { in: ['OPEN', 'INVESTIGATING'] },
+        severity: input.severity,
+        type: input.type,
+        connectionId: input.connectionId,
+        accountId: input.accountId,
+        ageDays: input.minAgeDays === undefined ? undefined : { gte: input.minAgeDays },
+        id: input.cursor ? { lt: input.cursor } : undefined,
       },
+      // Keyset por id: o id e ULID, ordenado no tempo, e offset sobre tabela
+      // que recebe insert constante produz duplicata e buraco.
       orderBy: { id: 'desc' },
-      take: filter.limit,
-      select: { id: true, type: true, severity: true, status: true },
+      take: input.limit + 1,
     });
-    return rows as Array<{
-      id: string;
-      type: BreakType;
-      severity: BreakSeverity;
-      status: BreakStatus;
-    }>;
+
+    const data = rows.slice(0, input.limit).map((row) => toBreak(row));
+    return {
+      data,
+      nextCursor: rows.length > input.limit ? data.at(-1)?.id : undefined,
+    };
   }
+}
+
+function toBreak(row: Record<string, unknown>): ReconciliationBreakRecord {
+  return {
+    id: row.id as string,
+    environment: row.environment as Environment,
+    runId: row.runId as string,
+    firstSeenRunId: row.firstSeenRunId as string,
+    connectionId: row.connectionId as string,
+    accountId: (row.accountId as string | null) ?? undefined,
+    type: row.type as BreakType,
+    severity: row.severity as BreakSeverity,
+    status: row.status as BreakStatus,
+    dedupeKey: row.dedupeKey as string,
+    effectiveDate: (row.effectiveDate as Date).toISOString().slice(0, 10),
+    endToEndId: (row.endToEndId as string | null) ?? undefined,
+    amountCents: (row.amountCents as bigint | null) ?? undefined,
+    deltaCents: (row.deltaCents as bigint | null) ?? undefined,
+    providerItemId: (row.providerItemId as string | null) ?? undefined,
+    localItemId: (row.localItemId as string | null) ?? undefined,
+    ledgerItemId: (row.ledgerItemId as string | null) ?? undefined,
+    description: row.description as string,
+    ageDays: Number(row.ageDays ?? 0),
+    resolution: (row.resolution as ResolutionAction | null) ?? undefined,
+    resolutionNote: (row.resolutionNote as string | null) ?? undefined,
+    resolvedBy: (row.resolvedBy as string | null) ?? undefined,
+    resolvedAt: (row.resolvedAt as Date | null) ?? undefined,
+    adjustmentTransactionId: (row.adjustmentTransactionId as string | null) ?? undefined,
+    assignedTo: (row.assignedTo as string | null) ?? undefined,
+    createdAt: row.createdAt as Date,
+  };
 }
 
 function toRun(row: {

@@ -86,14 +86,22 @@ export class BalanceService {
 
     const cached = await this.cache.get<ProviderBalanceSnapshot>(key);
 
+    // Em paralelo: sao independentes, e ambos entram no caminho quente da
+    // leitura mais batida da API. Em serie, cada consulta de saldo pagaria as
+    // duas idas ao banco somadas.
+    const [hasHighSeverityBreak, lastKnownMovementAt] = await Promise.all([
+      this.signals.hasHighSeverityBreak(actor.environment, accountId),
+      this.signals.lastKnownMovementAt(actor.environment, accountId),
+    ]);
+
     const bypass = bypassReason({
       consistency: query.consistency,
       authorizationPath: options.authorizationPath ?? false,
       lastLocalMovementAt: account.lastEventAt,
       hasInboundWebhooks: this.registry.supports(account.provider, 'webhooks.inbound'),
-      hasHighSeverityBreak: await this.signals.hasHighSeverityBreak(actor.environment, accountId),
+      hasHighSeverityBreak,
       cachedAsOf: cached?.asOf,
-      lastKnownMovementAt: await this.signals.lastKnownMovementAt(actor.environment, accountId),
+      lastKnownMovementAt,
       now: this.clock.now(),
       postMutationWindowSeconds: this.config.postMutationBypassSeconds,
     });

@@ -27,6 +27,7 @@ import { PrismaService } from './persistence/prisma.service.js';
 import { REDIS } from './persistence/redis.provider.js';
 import { PixModule } from './pix/pix.module.js';
 import { ProvidersModule } from './providers/providers.module.js';
+import { ReconciliationModule } from './reconciliation/reconciliation.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 
 @Module({
@@ -42,6 +43,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     AccountsModule,
     BalanceModule,
     PixModule,
+    ReconciliationModule,
     InProcessQueueModule,
     WebhooksModule,
   ],

@@ -245,6 +245,52 @@ export class ShadowLedgerService {
     });
   }
 
+  /**
+   * Ajuste de conciliacao.
+   *
+   * O UNICO caminho do sistema em que um clique de operador credita ou debita
+   * a conta de um cliente. Transacao NOVA e balanceada, nunca edicao de
+   * historico — e isso nao depende de disciplina: `ledger_entry_no_mutation` e
+   * o `REVOKE` das colunas de contador recusam qualquer outra coisa.
+   *
+   * A chave de idempotencia e do QUEBRA, e nao do clique. Duplo clique, retry
+   * de rede ou dois operadores na mesma quebra postam UMA vez: o motor resolve
+   * por `findByIdempotencyKey` antes de lancar. E o que impede o conserto de
+   * um erro de dinheiro de virar um segundo erro de dinheiro.
+   */
+  async adjust(input: {
+    environment: Environment;
+    availableId: string;
+    /** Sempre positivo. O sinal vive em `direction`. */
+    amountCents: bigint;
+    /** Do ponto de vista do CLIENTE: `CREDIT` devolve dinheiro a ele. */
+    direction: 'CREDIT' | 'DEBIT';
+    idempotencyKey: string;
+    externalRef?: string;
+  }): Promise<PostTransactionResult> {
+    const externo = await this.externalId(input.environment);
+    const aoCliente = input.direction === 'CREDIT';
+
+    return this.post(input.environment, {
+      type: LedgerTransactionType.RECONCILIATION_ADJUSTMENT,
+      phase: EntryPhase.POSTED,
+      idempotencyKey: input.idempotencyKey,
+      externalRef: input.externalRef,
+      entries: [
+        {
+          accountId: aoCliente ? externo : input.availableId,
+          direction: EntryDirection.DEBIT,
+          amountCents: input.amountCents,
+        },
+        {
+          accountId: aoCliente ? input.availableId : externo,
+          direction: EntryDirection.CREDIT,
+          amountCents: input.amountCents,
+        },
+      ],
+    });
+  }
+
   /** Bloqueio e desbloqueio movem entre as duas contas do proprio cliente. */
   async moveBlocked(input: {
     environment: Environment;

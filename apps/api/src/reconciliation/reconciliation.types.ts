@@ -7,6 +7,7 @@ import type {
   ReconciliationRunStatus,
   ReconciliationScope,
   ReconciliationSide,
+  ResolutionAction,
 } from '@baasconn/taxonomy';
 
 export const RECONCILIATION_RUN_REPOSITORY = Symbol('BAAS_RECONCILIATION_RUN_REPOSITORY');
@@ -92,6 +93,17 @@ export interface ReconciliationRunRepository {
     triggeredBy: string;
   }): Promise<{ run: ReconciliationRunRecord; created: boolean }>;
   findById(environment: Environment, id: string): Promise<ReconciliationRunRecord | undefined>;
+  /**
+   * Le um item pelo id de `reconciliation_item`.
+   *
+   * A quebra guarda `localItemId`/`providerItemId`/`ledgerItemId`, que sao ids
+   * de ITEM (`rci_`), nunca de transacao. Quem precisa agir sobre o registro
+   * local — a resolucao manual, a tela lado a lado — passa por aqui para
+   * chegar ao `externalId`, que no lado LOCAL e o id da transacao. Tratar o
+   * id do item como id de transacao acharia zero linhas e o cancelamento
+   * falharia com "transicao ilegal" em vez de agir.
+   */
+  findItemById(id: string): Promise<ReconciliationItemRow | undefined>;
   markRunning(id: string, at: Date): Promise<void>;
   insertItems(rows: readonly ReconciliationItemRow[]): Promise<void>;
   /** Grava o par casado nos DOIS lados, para a tela ler de qualquer um. */
@@ -133,6 +145,35 @@ export interface UpsertedBreak {
   inserted: boolean;
 }
 
+export interface ReconciliationBreakRecord {
+  id: string;
+  environment: Environment;
+  runId: string;
+  firstSeenRunId: string;
+  connectionId: string;
+  accountId?: string;
+  type: BreakType;
+  severity: BreakSeverity;
+  status: BreakStatus;
+  dedupeKey: string;
+  effectiveDate: string;
+  endToEndId?: string;
+  amountCents?: bigint;
+  deltaCents?: bigint;
+  providerItemId?: string;
+  localItemId?: string;
+  ledgerItemId?: string;
+  description: string;
+  ageDays: number;
+  resolution?: ResolutionAction;
+  resolutionNote?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  adjustmentTransactionId?: string;
+  assignedTo?: string;
+  createdAt: Date;
+}
+
 export interface ReconciliationBreakRepository {
   /**
    * Insere ou reabre, pela chave derivada de dedup.
@@ -157,10 +198,44 @@ export interface ReconciliationBreakRepository {
     keepDedupeKeys: readonly string[];
     at: Date;
   }): Promise<number>;
+  findById(environment: Environment, id: string): Promise<ReconciliationBreakRecord | undefined>;
+  /**
+   * Resolucao manual.
+   *
+   * APENAS ANEXA: grava quem resolveu, com que acao, com que justificativa e —
+   * quando houve — o id do lancamento de ajuste. Nao existe metodo para editar
+   * a quebra original nem o lancamento, porque nao existe permissao para isso:
+   * `ledger_entry_no_mutation` e o `REVOKE` recusam.
+   */
+  resolveManually(input: {
+    environment: Environment;
+    id: string;
+    status: BreakStatus;
+    resolution: ResolutionAction;
+    note: string;
+    resolvedBy: string;
+    adjustmentTransactionId?: string;
+    assignedTo?: string;
+    at: Date;
+  }): Promise<ReconciliationBreakRecord | undefined>;
   /** Alimenta a regra 5 de bypass do cache de saldo. */
   countOpenHighSeverity(environment: Environment, accountId: string): Promise<number>;
-  listOpen(
-    environment: Environment,
-    filter: { accountId?: string; status?: BreakStatus; limit: number },
-  ): Promise<Array<{ id: string; type: BreakType; severity: BreakSeverity; status: BreakStatus }>>;
+  /**
+   * Listagem para o painel.
+   *
+   * Os filtros sao os que `zListBreaksQuery` ja declara — filtrar em memoria o
+   * que o indice `[environment, status, severity, effectiveDate]` resolve
+   * seria trazer a tabela inteira para descartar quase tudo.
+   */
+  list(input: {
+    environment: Environment;
+    status?: BreakStatus;
+    severity?: BreakSeverity;
+    type?: BreakType;
+    connectionId?: string;
+    accountId?: string;
+    minAgeDays?: number;
+    limit: number;
+    cursor?: string;
+  }): Promise<{ data: ReconciliationBreakRecord[]; nextCursor?: string }>;
 }

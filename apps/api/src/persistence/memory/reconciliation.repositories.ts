@@ -1,9 +1,9 @@
 import type {
-  BreakSeverity,
   BreakStatus,
   BreakType,
   Environment,
   ReconciliationRunStatus,
+  ResolutionAction,
 } from '@baasconn/taxonomy';
 
 import type {
@@ -12,6 +12,7 @@ import type {
 } from '../../reconciliation/poll-cursor.types.js';
 import type {
   BreakUpsertRow,
+  ReconciliationBreakRecord,
   MatchLinkRow,
   ReconciliationBreakRepository,
   ReconciliationItemRow,
@@ -77,6 +78,10 @@ export class MemoryReconciliationRunRepository implements ReconciliationRunRepos
     return run?.environment === environment ? run : undefined;
   }
 
+  async findItemById(id: string): Promise<ReconciliationItemRow | undefined> {
+    return this.items.get(id);
+  }
+
   async markRunning(id: string): Promise<void> {
     const run = this.runs.get(id);
     if (run) run.status = 'RUNNING' as ReconciliationRunStatus;
@@ -114,7 +119,16 @@ interface StoredBreak extends BreakUpsertRow {
   firstSeenRunId: string;
   ageDays: number;
   createdAt: Date;
+  resolution?: ResolutionAction;
+  resolutionNote?: string;
+  resolvedBy?: string;
   resolvedAt?: Date;
+  adjustmentTransactionId?: string;
+  assignedTo?: string;
+}
+
+function toRecord(row: StoredBreak): ReconciliationBreakRecord {
+  return { ...row };
 }
 
 export class MemoryReconciliationBreakRepository implements ReconciliationBreakRepository {
@@ -197,6 +211,34 @@ export class MemoryReconciliationBreakRepository implements ReconciliationBreakR
     return fechadas;
   }
 
+  async findById(
+    environment: Environment,
+    id: string,
+  ): Promise<ReconciliationBreakRecord | undefined> {
+    const row = [...this.rows.values()].find(
+      (candidata) => candidata.id === id && candidata.environment === environment,
+    );
+    return row ? toRecord(row) : undefined;
+  }
+
+  async resolveManually(
+    input: Parameters<ReconciliationBreakRepository['resolveManually']>[0],
+  ): Promise<ReconciliationBreakRecord | undefined> {
+    const row = [...this.rows.values()].find(
+      (candidata) => candidata.id === input.id && candidata.environment === input.environment,
+    );
+    if (!row) return undefined;
+
+    row.status = input.status;
+    row.resolution = input.resolution;
+    row.resolutionNote = input.note;
+    row.resolvedBy = input.resolvedBy;
+    row.resolvedAt = input.at;
+    row.adjustmentTransactionId = input.adjustmentTransactionId;
+    row.assignedTo = input.assignedTo;
+    return toRecord(row);
+  }
+
   async countOpenHighSeverity(environment: Environment, accountId: string): Promise<number> {
     return [...this.rows.values()].filter(
       (row) =>
@@ -207,20 +249,29 @@ export class MemoryReconciliationBreakRepository implements ReconciliationBreakR
     ).length;
   }
 
-  async listOpen(
-    environment: Environment,
-    filter: { accountId?: string; status?: BreakStatus; limit: number },
-  ): Promise<Array<{ id: string; type: BreakType; severity: BreakSeverity; status: BreakStatus }>> {
-    return [...this.rows.values()]
-      .filter((row) => row.environment === environment)
-      .filter((row) => !filter.accountId || row.accountId === filter.accountId)
+  async list(
+    input: Parameters<ReconciliationBreakRepository['list']>[0],
+  ): Promise<{ data: ReconciliationBreakRecord[]; nextCursor?: string }> {
+    const filtradas = [...this.rows.values()]
+      .filter((row) => row.environment === input.environment)
       .filter((row) =>
-        filter.status
-          ? row.status === filter.status
+        input.status
+          ? row.status === input.status
           : row.status === 'OPEN' || row.status === 'INVESTIGATING',
       )
-      .slice(0, filter.limit)
-      .map((row) => ({ id: row.id, type: row.type, severity: row.severity, status: row.status }));
+      .filter((row) => !input.severity || row.severity === input.severity)
+      .filter((row) => !input.type || row.type === input.type)
+      .filter((row) => !input.connectionId || row.connectionId === input.connectionId)
+      .filter((row) => !input.accountId || row.accountId === input.accountId)
+      .filter((row) => input.minAgeDays === undefined || row.ageDays >= input.minAgeDays)
+      .sort((a, b) => b.id.localeCompare(a.id))
+      .filter((row) => !input.cursor || row.id < input.cursor);
+
+    const data = filtradas.slice(0, input.limit).map(toRecord);
+    return {
+      data,
+      nextCursor: filtradas.length > input.limit ? data.at(-1)?.id : undefined,
+    };
   }
 }
 
