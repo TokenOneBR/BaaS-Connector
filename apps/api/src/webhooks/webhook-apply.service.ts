@@ -48,11 +48,7 @@ import {
 } from '../pix/pix.types.js';
 import { ProviderResolver } from '../providers/provider.resolver.js';
 
-import {
-  INBOUND_EVENT_REPOSITORY,
-  type InboundEventRecord,
-  type InboundEventRepository,
-} from './webhooks.types.js';
+import { INBOUND_EVENT_REPOSITORY, type InboundEventRepository } from './webhooks.types.js';
 
 /**
  * Desfecho de um rascunho.
@@ -62,6 +58,48 @@ import {
  * generico no fim do processamento.
  */
 type DraftOutcome = 'applied' | 'recorded' | 'ignored';
+
+/**
+ * De onde o rascunho veio, e o que fazer com o que nao e "aplicou".
+ *
+ * Existe porque o caminho de dominio — criar a transacao de um credito Pix,
+ * lancar no razao, emitir o evento — e o MESMO para um webhook, para a
+ * conciliacao e para o poller, e so a borda difere. Sem esta seam, a
+ * conciliacao precisaria de uma segunda copia de `receiveInbound`, e as duas
+ * divergiriam na primeira correcao.
+ */
+export interface ApplyContext {
+  environment: Environment;
+  connectionId: string;
+  provider: string;
+  /** Vai para `TransactionStatusChange.source`. */
+  source: string;
+  /** Base do `occurredAt` quando o rascunho nao traz um. */
+  receivedAt: Date;
+  providerEventId?: string;
+  /**
+   * Rascunho sem efeito porque ja era conhecido.
+   *
+   * O webhook marca o evento `DISCARDED` com o motivo; a conciliacao nao tem
+   * evento nenhum para marcar.
+   */
+  onDuplicate?(reason: string): Promise<void>;
+  /** Transicao ilegal, ja auditada. O webhook da o evento por processado. */
+  onAnomaly?(): Promise<void>;
+}
+
+export interface ApplyDraftsResult {
+  outcomes: DraftOutcome[];
+  /**
+   * O lock do agregado foi perdido.
+   *
+   * Retorno e nao excecao porque as duas origens reagem diferente: o webhook
+   * reenfileira em 250 ms, a conciliacao deixa o item para a proxima
+   * execucao. Lancar obrigaria as duas a tratar excecao para um desfecho que
+   * nao e erro.
+   */
+  lockLost: boolean;
+}
 
 /** Tentativas antes de mandar para a dead-letter. */
 const MAX_ATTEMPTS = 2;
@@ -145,24 +183,30 @@ export class WebhookApplyService {
         return;
       }
 
-      const outcomes: DraftOutcome[] = [];
-      for (const draft of drafts) {
-        // Exclusao por agregado, paralelo entre agregados. Quem NAO consegue o
-        // lock reenfileira em vez de esperar: o evento continua no Postgres,
-        // perder a vez custa 250 ms, e a correcao nunca dependeu deste lock —
-        // ela vem do `SELECT ... FOR UPDATE` e do guard monotonico.
-        const key = aggregateKey(event.environment, draft.subject.kind, draft.subject.providerId);
-        const held = await this.lock.run(key, () => this.applyDraft(event, bound.slug, draft));
+      const { outcomes, lockLost } = await this.applyDrafts(
+        {
+          environment: event.environment,
+          connectionId: event.connectionId,
+          provider: bound.slug,
+          source: 'PROVIDER_WEBHOOK',
+          receivedAt: event.receivedAt,
+          providerEventId: event.providerEventId ?? undefined,
+          onDuplicate: async (reason) => {
+            await this.events.markDiscarded(eventId, reason);
+          },
+          onAnomaly: async () => {
+            await this.events.markProcessed(eventId, this.clock.now());
+          },
+        },
+        drafts,
+      );
 
-        if (!held.acquired) {
-          await this.queue.enqueue({ kind: 'inbound_webhook', eventId }, { delayMs: 250 });
-          // Sai sem marcar: o evento fica em PROCESSING, e o varredor — que
-          // desde este marco tambem olha PROCESSING — o resgata se o
-          // reenfileiramento se perder.
-          return;
-        }
-
-        outcomes.push(held.value);
+      if (lockLost) {
+        await this.queue.enqueue({ kind: 'inbound_webhook', eventId }, { delayMs: 250 });
+        // Sai sem marcar: o evento fica em PROCESSING, e o varredor — que
+        // desde este marco tambem olha PROCESSING — o resgata se o
+        // reenfileiramento se perder.
+        return;
       }
 
       if (outcomes.includes('applied')) {
@@ -189,54 +233,76 @@ export class WebhookApplyService {
     }
   }
 
-  private async applyDraft(
-    event: InboundEventRecord,
-    provider: string,
-    draft: CanonicalEventDraft,
-  ): Promise<DraftOutcome> {
+  /**
+   * Aplica rascunhos canonicos ao dominio.
+   *
+   * PUBLICO e sem nocao de webhook: quem chama e o `apply` daqui, a
+   * conciliacao ao importar um credito que so o provedor tem, e o poller. Os
+   * tres precisam do MESMO caminho — guard monotonico, lock por agregado,
+   * lancamento no razao, outbox — e um segundo caminho divergiria na primeira
+   * correcao feita so num deles.
+   */
+  async applyDrafts(
+    ctx: ApplyContext,
+    drafts: readonly CanonicalEventDraft[],
+  ): Promise<ApplyDraftsResult> {
+    const outcomes: DraftOutcome[] = [];
+
+    for (const draft of drafts) {
+      // Exclusao por agregado, paralelo entre agregados. Quem NAO consegue o
+      // lock devolve em vez de esperar: o trabalho continua no Postgres,
+      // perder a vez e barato, e a correcao nunca dependeu deste lock — ela
+      // vem do `SELECT ... FOR UPDATE` e do guard monotonico.
+      const key = aggregateKey(ctx.environment, draft.subject.kind, draft.subject.providerId);
+      const held = await this.lock.run(key, () => this.applyDraft(ctx, draft));
+
+      if (!held.acquired) return { outcomes, lockLost: true };
+      outcomes.push(held.value);
+    }
+
+    return { outcomes, lockLost: false };
+  }
+
+  private async applyDraft(ctx: ApplyContext, draft: CanonicalEventDraft): Promise<DraftOutcome> {
     switch (draft.subject.kind) {
       case 'account':
-        return this.applyAccount(event, provider, draft);
+        return this.applyAccount(ctx, draft);
       case 'onboarding':
-        return this.applyOnboarding(event, provider, draft);
+        return this.applyOnboarding(ctx, draft);
       case 'transaction':
-        return this.applyTransaction(event, provider, draft);
+        return this.applyTransaction(ctx, draft);
       case 'charge':
-        return this.applyCharge(event, provider, draft);
+        return this.applyCharge(ctx, draft);
       default:
         // Tipo de agregado que nao conhecemos: registrado, nao perdido.
         return 'ignored';
     }
   }
 
-  private async applyAccount(
-    event: InboundEventRecord,
-    provider: string,
-    draft: CanonicalEventDraft,
-  ): Promise<DraftOutcome> {
+  private async applyAccount(ctx: ApplyContext, draft: CanonicalEventDraft): Promise<DraftOutcome> {
     const account = await this.accounts.findByProviderAccountId(
-      event.environment,
-      provider,
+      ctx.environment,
+      ctx.provider,
       draft.subject.providerId,
     );
     if (!account) return 'ignored';
 
     const incoming = draft.transitionTo as AccountStatus;
-    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : event.receivedAt;
+    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : ctx.receivedAt;
 
     const result = await this.accounts.applyStatusChange({
-      environment: event.environment,
+      environment: ctx.environment,
       accountId: account.id,
       toStatus: incoming,
       occurredAt,
-      source: 'PROVIDER_WEBHOOK',
-      providerEventId: event.providerEventId ?? undefined,
+      source: ctx.source,
+      providerEventId: ctx.providerEventId ?? undefined,
       withinTransaction: async (accountId) => {
         await this.outbox.append({
-          environment: event.environment,
+          environment: ctx.environment,
           type: draft.type as EventType,
-          provider,
-          connectionId: event.connectionId,
+          provider: ctx.provider,
+          connectionId: ctx.connectionId,
           subjectKind: 'account',
           subjectId: accountId,
           payload: { status: incoming },
@@ -244,15 +310,15 @@ export class WebhookApplyService {
           occurredAt,
         });
         await this.audit.record({
-          environment: event.environment,
+          environment: ctx.environment,
           actorType: ActorType.PROVIDER,
-          actorId: provider,
+          actorId: ctx.provider,
           action: 'account.status_changed',
           outcome: 'SUCCESS',
           resourceType: 'account',
           resourceId: accountId,
-          connectionId: event.connectionId,
-          provider,
+          connectionId: ctx.connectionId,
+          provider: ctx.provider,
           before: { status: account.status },
           after: { status: incoming },
           changedFields: ['status'],
@@ -262,7 +328,7 @@ export class WebhookApplyService {
     });
 
     if (!result.applied) {
-      await this.handleRejection(event, provider, 'account', account.id, {
+      await this.handleRejection(ctx, 'account', account.id, {
         reason: result.reason,
         from: result.currentStatus ?? account.status,
         to: incoming,
@@ -274,8 +340,7 @@ export class WebhookApplyService {
   }
 
   private async applyOnboarding(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     draft: CanonicalEventDraft,
   ): Promise<DraftOutcome> {
     const data = draft.data as {
@@ -285,18 +350,18 @@ export class WebhookApplyService {
       pendingRequirements?: string[];
     };
 
-    const record = await this.findCase(event, provider, draft, data.providerAccountId);
+    const record = await this.findCase(ctx, draft, data.providerAccountId);
     if (!record) return 'ignored';
 
     const incoming = (data.status ?? draft.transitionTo) as OnboardingStatus;
-    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : event.receivedAt;
+    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : ctx.receivedAt;
 
     const requirements = (data.pendingRequirements ?? [])
       .filter((code): code is keyof typeof RequirementCode => code in RequirementCode)
       .map((code) => ({ code: RequirementCode[code], label: code }));
 
     const result = await this.cases.applyStatusChange({
-      environment: event.environment,
+      environment: ctx.environment,
       caseId: record.id,
       toStatus: incoming,
       rejectionCode: data.rejectionCode,
@@ -305,10 +370,10 @@ export class WebhookApplyService {
       occurredAt,
       withinTransaction: async (caseId) => {
         await this.outbox.append({
-          environment: event.environment,
+          environment: ctx.environment,
           type: draft.type as EventType,
-          provider,
-          connectionId: event.connectionId,
+          provider: ctx.provider,
+          connectionId: ctx.connectionId,
           subjectKind: 'onboarding',
           subjectId: caseId,
           payload: { status: incoming, pending: requirements.map((r) => r.code) },
@@ -316,15 +381,15 @@ export class WebhookApplyService {
           occurredAt,
         });
         await this.audit.record({
-          environment: event.environment,
+          environment: ctx.environment,
           actorType: ActorType.PROVIDER,
-          actorId: provider,
+          actorId: ctx.provider,
           action: 'onboarding.status_changed',
           outcome: 'SUCCESS',
           resourceType: 'onboarding',
           resourceId: caseId,
-          connectionId: event.connectionId,
-          provider,
+          connectionId: ctx.connectionId,
+          provider: ctx.provider,
           before: { status: record.status },
           after: { status: incoming, rejection_code: data.rejectionCode },
           changedFields: ['status'],
@@ -334,7 +399,7 @@ export class WebhookApplyService {
     });
 
     if (!result.applied) {
-      await this.handleRejection(event, provider, 'onboarding', record.id, {
+      await this.handleRejection(ctx, 'onboarding', record.id, {
         reason: result.reason,
         from: result.currentStatus ?? record.status,
         to: incoming,
@@ -358,27 +423,26 @@ export class WebhookApplyService {
    * registro, e e por ele que o dinheiro que entra aparece para o cliente.
    */
   private async applyTransaction(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     draft: CanonicalEventDraft,
   ): Promise<DraftOutcome> {
     const data = draft.data as PaymentEventData;
-    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : event.receivedAt;
+    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : ctx.receivedAt;
     const incoming = (data.status ?? draft.transitionTo) as TransactionStatus;
 
-    const existing = await this.findTransaction(event, provider, draft, data);
+    const existing = await this.findTransaction(ctx, draft, data);
 
     if (!existing) {
       if (data.direction !== 'in') {
         // Saida que nao conhecemos e anomalia, nao rotina: significa que o
         // provedor pagou algo que nao pedimos, ou que perdemos a escrita.
         this.logger.warn(
-          { provider, provider_transaction_id: draft.subject.providerId },
+          { provider: ctx.provider, provider_transaction_id: draft.subject.providerId },
           'Evento de saida para transacao desconhecida',
         );
         return 'ignored';
       }
-      return this.receiveInbound(event, provider, draft, data, occurredAt);
+      return this.receiveInbound(ctx, draft, data, occurredAt);
     }
 
     // O E2EID quase sempre chega SO agora: e gerado pelo PSP do pagador e nao
@@ -391,12 +455,12 @@ export class WebhookApplyService {
     if (existing.ledgerPendingTransactionId && (settled || failed)) {
       const resolved = settled
         ? await this.ledger.settleOut(
-            event.environment,
+            ctx.environment,
             existing.ledgerPendingTransactionId,
             `pix-out-settle:${existing.id}`,
           )
         : await this.ledger.voidOut(
-            event.environment,
+            ctx.environment,
             existing.ledgerPendingTransactionId,
             `pix-out-void:${existing.id}`,
           );
@@ -404,21 +468,21 @@ export class WebhookApplyService {
     }
 
     const result = await this.transactions.applyStatusChange({
-      environment: event.environment,
+      environment: ctx.environment,
       transactionId: existing.id,
       toStatus: incoming,
       endToEndId: data.endToEndId,
       settledAt: data.settledAt ? new Date(data.settledAt) : settled ? occurredAt : undefined,
       ledgerPostedTransactionId,
       occurredAt,
-      source: 'PROVIDER_WEBHOOK',
-      providerEventId: event.providerEventId ?? undefined,
+      source: ctx.source,
+      providerEventId: ctx.providerEventId ?? undefined,
       withinTransaction: async (transactionId) => {
         await this.outbox.append({
-          environment: event.environment,
+          environment: ctx.environment,
           type: draft.type as EventType,
-          provider,
-          connectionId: event.connectionId,
+          provider: ctx.provider,
+          connectionId: ctx.connectionId,
           subjectKind: 'transaction',
           subjectId: transactionId,
           payload: { status: incoming, end_to_end_id: data.endToEndId ?? null },
@@ -429,7 +493,7 @@ export class WebhookApplyService {
     });
 
     if (!result.applied) {
-      await this.handleRejection(event, provider, 'transaction', existing.id, {
+      await this.handleRejection(ctx, 'transaction', existing.id, {
         reason: result.reason,
         from: result.currentStatus ?? existing.status,
         to: incoming,
@@ -437,7 +501,7 @@ export class WebhookApplyService {
       return 'recorded';
     }
 
-    await this.invalidateBalance(event.environment, existing.accountId);
+    await this.invalidateBalance(ctx.environment, existing.accountId);
     return 'applied';
   }
 
@@ -450,8 +514,7 @@ export class WebhookApplyService {
    * achar, e produzi-lo de proposito seria absurdo.
    */
   private async receiveInbound(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     draft: CanonicalEventDraft,
     data: PaymentEventData,
     occurredAt: Date,
@@ -459,8 +522,8 @@ export class WebhookApplyService {
     if (!data.providerAccountId) return 'ignored';
 
     const account = await this.accounts.findByProviderAccountId(
-      event.environment,
-      provider,
+      ctx.environment,
+      ctx.provider,
       data.providerAccountId,
     );
     if (!account?.ledgerAvailableAccountId) return 'ignored';
@@ -468,16 +531,16 @@ export class WebhookApplyService {
     // Dedupe de ultimo recurso pelo E2EID: e globalmente unico no Pix, e e o
     // que salva quando o provedor reentrega com um id de evento novo.
     if (data.endToEndId) {
-      const byE2e = await this.transactions.findByEndToEndId(event.environment, data.endToEndId);
+      const byE2e = await this.transactions.findByEndToEndId(ctx.environment, data.endToEndId);
       if (byE2e) {
-        await this.events.markDiscarded(event.id, 'e2eid ja registrado');
+        await ctx.onDuplicate?.('e2eid ja registrado');
         return 'recorded';
       }
     }
 
     const amountCents = data.amount ? Money.fromJSON(data.amount).cents : 0n;
     const posted = await this.ledger.creditIn({
-      environment: event.environment,
+      environment: ctx.environment,
       availableId: account.ledgerAvailableAccountId,
       amountCents,
       idempotencyKey: `pix-in:${draft.subject.providerId}`,
@@ -487,7 +550,7 @@ export class WebhookApplyService {
     const isRefund = draft.type === EventType.PIX_REFUND_SETTLED;
     const transaction = await this.transactions.create({
       id: newId('transaction'),
-      environment: event.environment,
+      environment: ctx.environment,
       accountId: account.id,
       type: isRefund ? TransactionType.PIX_REFUND_IN : TransactionType.PIX_IN,
       direction: TransactionDirection.CREDIT,
@@ -499,8 +562,8 @@ export class WebhookApplyService {
       refundedAmountCents: 0n,
       currency: 'BRL',
       description: null,
-      provider,
-      providerConnectionId: event.connectionId,
+      provider: ctx.provider,
+      providerConnectionId: ctx.connectionId,
       providerTransactionId: draft.subject.providerId,
       idempotencyKey: null,
       effectiveDate: toEffectiveDate(occurredAt),
@@ -529,10 +592,10 @@ export class WebhookApplyService {
     });
 
     await this.outbox.append({
-      environment: event.environment,
+      environment: ctx.environment,
       type: draft.type as EventType,
-      provider,
-      connectionId: event.connectionId,
+      provider: ctx.provider,
+      connectionId: ctx.connectionId,
       subjectKind: 'transaction',
       subjectId: transaction.id,
       payload: {
@@ -543,7 +606,7 @@ export class WebhookApplyService {
       occurredAt,
     });
 
-    await this.invalidateBalance(event.environment, account.id);
+    await this.invalidateBalance(ctx.environment, account.id);
     return 'applied';
   }
 
@@ -554,24 +617,20 @@ export class WebhookApplyService {
    * e o `status` vem como texto cru do provedor. O mapeamento acontece aqui,
    * antes do guard, e o guard usa a tabela de transicao de cobranca.
    */
-  private async applyCharge(
-    event: InboundEventRecord,
-    provider: string,
-    draft: CanonicalEventDraft,
-  ): Promise<DraftOutcome> {
+  private async applyCharge(ctx: ApplyContext, draft: CanonicalEventDraft): Promise<DraftOutcome> {
     const data = draft.data as {
       status?: string;
       paidAmount?: MoneyJSON;
     };
 
-    const charge = await this.charges.findByTxid(event.environment, draft.subject.providerId);
+    const charge = await this.charges.findByTxid(ctx.environment, draft.subject.providerId);
     if (!charge) return 'ignored';
 
     const incoming = toChargeStatus(data.status) ?? PixChargeStatus.COMPLETED;
-    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : event.receivedAt;
+    const occurredAt = draft.occurredAt ? new Date(draft.occurredAt) : ctx.receivedAt;
 
     const result = await this.charges.applyStatusChange({
-      environment: event.environment,
+      environment: ctx.environment,
       txid: charge.txid,
       toStatus: incoming,
       paidAmountCents: data.paidAmount ? Money.fromJSON(data.paidAmount).cents : undefined,
@@ -579,10 +638,10 @@ export class WebhookApplyService {
       occurredAt,
       withinTransaction: async (chargeId) => {
         await this.outbox.append({
-          environment: event.environment,
+          environment: ctx.environment,
           type: draft.type as EventType,
-          provider,
-          connectionId: event.connectionId,
+          provider: ctx.provider,
+          connectionId: ctx.connectionId,
           subjectKind: 'pix_charge',
           subjectId: chargeId,
           payload: { status: incoming, txid: charge.txid },
@@ -593,7 +652,7 @@ export class WebhookApplyService {
     });
 
     if (!result.applied) {
-      await this.handleRejection(event, provider, 'pix_charge', charge.id, {
+      await this.handleRejection(ctx, 'pix_charge', charge.id, {
         reason: result.reason,
         from: result.currentStatus ?? charge.status,
         to: incoming,
@@ -611,20 +670,19 @@ export class WebhookApplyService {
    * a liquidacao, e o E2EID e a unica referencia estavel de ponta a ponta.
    */
   private async findTransaction(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     draft: CanonicalEventDraft,
     data: PaymentEventData,
   ) {
     const byProvider = await this.transactions.findByProviderTransactionId(
-      event.environment,
-      provider,
+      ctx.environment,
+      ctx.provider,
       draft.subject.providerId,
     );
     if (byProvider) return byProvider;
 
     return data.endToEndId
-      ? this.transactions.findByEndToEndId(event.environment, data.endToEndId)
+      ? this.transactions.findByEndToEndId(ctx.environment, data.endToEndId)
       : undefined;
   }
 
@@ -640,25 +698,24 @@ export class WebhookApplyService {
    * o `account_id` no evento, e e por ele que chegamos ao caso.
    */
   private async findCase(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     draft: CanonicalEventDraft,
     providerAccountId?: string,
   ) {
     const byCase = await this.cases.findByProviderCaseId(
-      event.environment,
-      provider,
+      ctx.environment,
+      ctx.provider,
       draft.subject.providerId,
     );
     if (byCase) return byCase;
 
     if (!providerAccountId) return undefined;
     const account = await this.accounts.findByProviderAccountId(
-      event.environment,
-      provider,
+      ctx.environment,
+      ctx.provider,
       providerAccountId,
     );
-    return account ? this.cases.findByAccountId(event.environment, account.id) : undefined;
+    return account ? this.cases.findByAccountId(ctx.environment, account.id) : undefined;
   }
 
   /**
@@ -675,65 +732,72 @@ export class WebhookApplyService {
    *   divergir sem ninguem saber; aplicar faria a maquina nao significar nada.
    */
   private async handleRejection(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     resourceType: string,
     resourceId: string,
     rejection: { reason?: StatusChangeRejection; from: string; to: string },
   ): Promise<void> {
     if (rejection.reason !== 'illegal_transition') {
-      this.metrics.webhookDuplicates.inc({ provider });
-      await this.events.markDiscarded(event.id, rejection.reason ?? 'desconhecido');
+      this.metrics.webhookDuplicates.inc({ provider: ctx.provider });
+      await ctx.onDuplicate?.(rejection.reason ?? 'desconhecido');
       return;
     }
 
-    await this.recordAnomaly(event, provider, resourceType, resourceId, rejection);
+    await this.recordAnomaly(ctx, resourceType, resourceId, rejection);
   }
 
   private async recordAnomaly(
-    event: InboundEventRecord,
-    provider: string,
+    ctx: ApplyContext,
     resourceType: string,
     resourceId: string,
     transition: { from: string; to: string },
   ): Promise<void> {
-    this.metrics.webhookEvents.inc({ provider, type: 'anomaly', outcome: 'illegal_transition' });
+    this.metrics.webhookEvents.inc({
+      provider: ctx.provider,
+      type: 'anomaly',
+      outcome: 'illegal_transition',
+    });
 
     await this.audit.record({
-      environment: event.environment,
+      environment: ctx.environment,
       actorType: ActorType.PROVIDER,
-      actorId: provider,
+      actorId: ctx.provider,
       action: 'webhook.anomaly.illegal_transition',
       outcome: 'FAILURE',
       errorCode: 'INVALID_STATE_TRANSITION',
       resourceType,
       resourceId,
-      connectionId: event.connectionId,
-      provider,
+      connectionId: ctx.connectionId,
+      provider: ctx.provider,
       before: { status: transition.from },
       after: { status: transition.to },
       occurredAt: this.clock.now(),
     });
 
     await this.outbox.append({
-      environment: event.environment,
+      environment: ctx.environment,
       type: EventType.COMPLIANCE_ALERT_RAISED,
-      provider,
-      connectionId: event.connectionId,
+      provider: ctx.provider,
+      connectionId: ctx.connectionId,
       subjectKind: resourceType,
       subjectId: resourceId,
       payload: {
         kind: 'illegal_transition',
         from: transition.from,
         to: transition.to,
-        provider_event_id: event.providerEventId,
+        provider_event_id: ctx.providerEventId,
       },
       occurredAt: this.clock.now(),
     });
 
-    await this.events.markProcessed(event.id, this.clock.now());
+    await ctx.onAnomaly?.();
     this.logger.warn(
-      { provider, resource_type: resourceType, resource_id: resourceId, ...transition },
+      {
+        provider: ctx.provider,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        ...transition,
+      },
       'Transicao ilegal vinda do provedor registrada como anomalia',
     );
   }

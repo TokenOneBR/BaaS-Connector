@@ -51,6 +51,7 @@ export { PrismaService } from './persistence/prisma.service.js';
 export { ProviderResolver } from './providers/provider.resolver.js';
 export { ShadowLedgerService } from './ledger/shadow-ledger.service.js';
 export { WebhookApplyService } from './webhooks/webhook-apply.service.js';
+export type { ApplyContext, ApplyDraftsResult } from './webhooks/webhook-apply.service.js';
 export type { BoundProvider } from './providers/provider.resolver.js';
 export type { ReconcileOutcome } from './pix/operation-reconciler.js';
 
