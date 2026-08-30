@@ -17,6 +17,7 @@ import {
   checkPartialHasNote,
   checkStatementBalancesClose,
   checkUsedInjectedBaseUrl,
+  declaresAnyCapability,
 } from './checks.js';
 import { createHarness, LEAK_CANARIES, type Harness } from './harness.js';
 import type { ConformanceConfig } from './types.js';
@@ -70,6 +71,9 @@ export function runConformanceSuite(config: ConformanceConfig): void {
   /** Capacidade declarada e nao pulada pela configuracao do adapter. */
   const has = (key: CapabilityKey) =>
     factory.manifest[key].level !== SupportLevel.UNSUPPORTED && !config.skip?.[key];
+
+  /** Ver `declaresAnyCapability`: a regra e pura e tem teste proprio. */
+  const declaresAnything = declaresAnyCapability(factory.manifest, config.skip);
 
   describe(`conformidade: ${factory.displayName}`, () => {
     // ---------------------------------------------------------------------
@@ -235,7 +239,7 @@ export function runConformanceSuite(config: ConformanceConfig): void {
     // 7. Matriz de erros
     // ---------------------------------------------------------------------
     describe('7. matriz de erros', () => {
-      it('ha ao menos uma fixture de erro', () => {
+      it.runIf(declaresAnything)('ha ao menos uma fixture de erro', () => {
         // Sem fixture de erro, a tabela de mapeamento nunca e exercitada e
         // apodrece silenciosamente ate um incidente em producao.
         expect(fixtures.errors.length).toBeGreaterThan(0);
@@ -398,19 +402,22 @@ export function runConformanceSuite(config: ConformanceConfig): void {
     // 10. Isolamento de rede
     // ---------------------------------------------------------------------
     describe('10. isolamento de rede', () => {
-      it('todas as chamadas vao para o cassette server, nenhuma para a internet', async () => {
-        await withHarness(async ({ adapter, server }) => {
-          for (const key of supportedKeys(factory.manifest)) {
-            if (config.skip?.[key]) continue;
-            try {
-              await invokeCapability(adapter, key, accountRef);
-            } catch {
-              // Idem.
+      it.runIf(declaresAnything)(
+        'todas as chamadas vao para o cassette server, nenhuma para a internet',
+        async () => {
+          await withHarness(async ({ adapter, server }) => {
+            for (const key of supportedKeys(factory.manifest)) {
+              if (config.skip?.[key]) continue;
+              try {
+                await invokeCapability(adapter, key, accountRef);
+              } catch {
+                // Idem.
+              }
             }
-          }
-          assertNoFailures(checkUsedInjectedBaseUrl(server.received.length));
-        });
-      });
+            assertNoFailures(checkUsedInjectedBaseUrl(server.received.length));
+          });
+        },
+      );
     });
 
     // ---------------------------------------------------------------------

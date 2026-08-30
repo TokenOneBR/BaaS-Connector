@@ -54,12 +54,17 @@ const files: Record<string, string> = {
   },
   "devDependencies": {
     "@baasconn/conformance": "workspace:*",
+    "@baasconn/eslint-config": "workspace:*",
     "@baasconn/tsconfig": "workspace:*",
     "@baasconn/vitest-config": "workspace:*",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }
 }
+`,
+  'eslint.config.mjs': `import adapter from "@baasconn/eslint-config/adapter";
+
+export default adapter;
 `,
   'tsconfig.json': `{
   "extends": "@baasconn/tsconfig/node22.json",
@@ -147,6 +152,36 @@ export const redaction = extendRedaction(BASE_REDACTION, {
   maskPaths: [],
 });
 `,
+  'src/auth.ts': `import { NoAuthStrategy, type AuthStrategy } from '@baasconn/adapter-kit';
+import type { ProviderContext } from '@baasconn/provider-spi';
+
+import type { ${pascal}Credentials } from './credentials.js';
+
+/**
+ * Estrategia de autenticacao do provedor.
+ *
+ * O kit ja traz as quatro formas comuns; escolha a que a documentacao
+ * descreve, nao a que parece mais simples:
+ *
+ *   StaticApiKeyStrategy          header fixo (Asaas: \`access_token\`,
+ *                                 Woovi: \`Authorization: <AppID>\`)
+ *   OAuth2ClientCredentialsStrategy  \`client_credentials\`, com o segredo em
+ *                                 Basic ou no corpo form-encoded
+ *   HmacSignatureStrategy         assinatura SIMETRICA por requisicao
+ *   AsymmetricJwtStrategy         assinatura ASSIMETRICA (ECDSA/RSA)
+ *   CompositeStrategy             combina as anteriores (ex.: mTLS + OAuth2)
+ *
+ * ATENCAO: esta funcao roda no construtor do adapter, que o registro de
+ * provedores chama no BOOT com credenciais VAZIAS para validar o manifesto.
+ * Ela precisa ser barata e nao pode fazer I/O nem buscar token.
+ */
+export function buildAuthStrategy(
+  _ctx: ProviderContext,
+  _credentials: ${pascal}Credentials,
+): AuthStrategy {
+  return new NoAuthStrategy();
+}
+`,
   'src/adapter.ts': `import type { HealthReport, ProviderAdapter, ProviderContext } from '@baasconn/provider-spi';
 
 export class ${pascal}Adapter implements ProviderAdapter {
@@ -187,7 +222,18 @@ export { ${slug.replace(/-/g, '')}Manifest } from './manifest.js';
 
 export const happyPath: readonly Cassette[] = [];
 
-/** Sem fixture de erro, a tabela de mapeamento nunca e exercitada. */
+/**
+ * Vazio enquanto o manifesto tambem estiver vazio.
+ *
+ * A suite so exige fixture de erro de quem DECLARA capacidade: um esqueleto
+ * que nao promete nada nao tem caminho de erro para mapear. Na primeira
+ * capacidade declarada isto passa a ser obrigatorio, e a suite cobra.
+ *
+ * Toda fixture precisa de \`source\`: \`'sandbox'\` so quando foi gravada contra
+ * execucao real; caso contrario \`'handcrafted-from-docs'\` mais \`docsRef\`. O
+ * relatorio de conformidade publica a diferenca, e confundir as duas e como
+ * uma fixture inventada vira "comportamento verificado".
+ */
 export const errors: readonly Cassette[] = [];
 `,
   'test/conformance.spec.ts': `import { runConformanceSuite } from '@baasconn/conformance';

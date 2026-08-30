@@ -86,6 +86,12 @@ declarada como nao suportada precisa devolver `CapabilityNotSupportedError`.
 | `webhooks.inbound` | sim |
 | `webhooks.signature.verify` | sim[^webhooks.signature.verify-MOCK_BANK] |
 
+### Conciliacao
+
+| Capacidade | Mock Bank |
+|---|:---:|
+| `reconciliation.statement.pull` | sim[^reconciliation.statement.pull-MOCK_BANK] |
+
 ## Notas
 
 [^accounts.list-MOCK_BANK]: **Mock Bank** — Devolve todas as contas do cliente de uma vez, sem cursor. hasMore e sempre false.

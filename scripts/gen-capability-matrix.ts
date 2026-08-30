@@ -32,6 +32,11 @@ const GROUPS: Array<{ title: string; prefix: string }> = [
   { title: 'Movimentacao PIX', prefix: 'pix.' },
   { title: 'Extrato', prefix: 'statement.' },
   { title: 'Infraestrutura', prefix: 'webhooks.' },
+  // Sem este grupo, `reconciliation.statement.pull` caia em 'Outros' e nao
+  // aparecia em tabela nenhuma — mas a nota de rodape era emitida assim mesmo,
+  // deixando uma referencia orfa no documento publicado. Com seis adapters
+  // seriam seis orfas.
+  { title: 'Conciliacao', prefix: 'reconciliation.' },
 ];
 
 async function loadFactories(): Promise<ProviderAdapterFactory[]> {

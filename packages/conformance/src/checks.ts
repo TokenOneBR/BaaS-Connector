@@ -311,3 +311,26 @@ export function assertNoFailures(failures: readonly CheckFailure[]): void {
     `Conformidade falhou:\n${failures.map((f) => `  [${f.check}] ${f.message}`).join('\n')}`,
   );
 }
+
+/**
+ * O adapter promete alguma capacidade?
+ *
+ * Duas verificacoes da suite sao sobre PROMESSAS: exigir fixture de erro e
+ * exigir que alguma chamada tenha ido ao cassette server. Um esqueleto
+ * recem-gerado declara ZERO capacidades — a postura honesta que o gerador
+ * incentiva — e portanto nao tem caminho de erro para mapear nem chamada para
+ * vazar. Cobra-las dele tornaria o gerador incapaz de produzir um pacote
+ * verde, e a saida obvia de quem esbarrasse nisso seria declarar uma
+ * capacidade inexistente so para calar a suite: exatamente o que a suite
+ * existe para impedir.
+ *
+ * Isto e uma funcao pura, e nao um `if` dentro do `describe`, porque a regra
+ * decide QUANDO duas garantias valem. Enterrada no arquivo da suite ela seria
+ * mutavel sem que nenhum teste percebesse.
+ */
+export function declaresAnyCapability(
+  manifest: CapabilityDescriptor,
+  skip?: Partial<Record<CapabilityKey, string>>,
+): boolean {
+  return supportedKeys(manifest).some((key) => !skip?.[key]);
+}

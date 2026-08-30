@@ -19,6 +19,7 @@ import {
   checkNoLeaks,
   checkPartialHasNote,
   checkUsedInjectedBaseUrl,
+  declaresAnyCapability,
 } from './checks.js';
 import { LEAK_CANARIES } from './harness.js';
 
@@ -259,5 +260,48 @@ describe('assertNoFailures', () => {
         { check: 'b', message: 'segunda' },
       ]),
     ).toThrow(/\[a\] primeira[\s\S]*\[b\] segunda/);
+  });
+});
+
+describe('declaresAnyCapability', () => {
+  it('esqueleto recem-gerado nao promete nada', () => {
+    // O gerador produz manifesto vazio de proposito. Se esta funcao passar a
+    // devolver `true` aqui, `pnpm new:adapter` volta a produzir um pacote que
+    // reprova a propria suite, e o autor e empurrado a declarar capacidade
+    // falsa para calar o teste.
+    expect(declaresAnyCapability(defineManifest({}))).toBe(false);
+  });
+
+  it('uma capacidade declarada ja liga as garantias', () => {
+    expect(declaresAnyCapability(defineManifest({ 'balance.get': SupportLevel.SUPPORTED }))).toBe(
+      true,
+    );
+  });
+
+  it('EMULATED e PARTIAL tambem sao promessas', () => {
+    // Nao sao "meio suportado" para efeito de cobranca: o cliente chama, o
+    // adapter responde, e o caminho de erro precisa estar mapeado igual.
+    expect(declaresAnyCapability(defineManifest({ 'balance.get': SupportLevel.EMULATED }))).toBe(
+      true,
+    );
+    expect(declaresAnyCapability(defineManifest({ 'balance.get': SupportLevel.PARTIAL }))).toBe(
+      true,
+    );
+  });
+
+  it('capacidade pulada pela configuracao nao conta como promessa', () => {
+    // `skip` e o adapter dizendo "declarei, mas a suite nao consegue exercitar
+    // isto ainda". Contar como promessa exigiria fixture para o que foi
+    // explicitamente adiado.
+    const manifest = defineManifest({ 'balance.get': SupportLevel.SUPPORTED });
+    expect(declaresAnyCapability(manifest, { 'balance.get': 'sem sandbox' })).toBe(false);
+  });
+
+  it('basta uma nao pulada', () => {
+    const manifest = defineManifest({
+      'balance.get': SupportLevel.SUPPORTED,
+      'accounts.get': SupportLevel.SUPPORTED,
+    });
+    expect(declaresAnyCapability(manifest, { 'balance.get': 'sem sandbox' })).toBe(true);
   });
 });
