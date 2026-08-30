@@ -1,0 +1,43 @@
+{{- if .Values.ingress.enabled }}
+{{- $fullname := include "baas.fullname" . }}
+{{- $values := .Values }}
+#
+# `/admin/v1` NAO aparece em `hosts[].paths` de proposito.
+#
+# O console fala com a API pela rede do cluster (`API_INTERNAL_URL`), entao a
+# superficie administrativa nao precisa existir no ingress. Expo-la seria
+# aumentar o raio de exposicao sem ganho nenhum — e e metade da razao de o
+# Next ser BFF em vez de portador de token.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- $service := .service }}
+          {{- range .paths }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullname }}-{{ $service }}
+                port:
+                  number: {{ if eq $service "api" }}{{ $values.api.port }}{{ else }}{{ $values.web.port }}{{ end }}
+          {{- end }}
+    {{- end }}
+{{- end }}

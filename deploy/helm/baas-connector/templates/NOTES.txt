@@ -1,0 +1,46 @@
+{{ .Chart.Name }} {{ .Chart.Version }} instalado como {{ .Release.Name }}.
+
+{{ if .Values.migrations.enabled -}}
+As migracoes rodaram como Job de hook `pre-upgrade` — ANTES de qualquer pod
+novo subir. Se o release falhou aqui, nenhum pod novo entrou em servico:
+  kubectl logs -n {{ .Release.Namespace }} job/{{ include "baas.fullname" . }}-migrate
+{{ end }}
+Componentes:
+{{- if .Values.api.enabled }}
+  api        {{ .Values.api.replicaCount }} replica(s)  ·  http :{{ .Values.api.port }}  ·  metricas :{{ .Values.api.metricsPort }}
+{{- end }}
+{{- if .Values.worker.enabled }}
+  worker     {{ .Values.worker.replicaCount }} replica(s)  ·  metricas :{{ .Values.worker.metricsPort }}
+{{- end }}
+{{- if .Values.web.enabled }}
+  web        {{ .Values.web.replicaCount }} replica(s)  ·  http :{{ .Values.web.port }}
+{{- end }}
+{{- if .Values.mockBank.enabled }}
+  mock-bank  {{ .Values.mockBank.replicaCount }} replica(s)  ·  http :{{ .Values.mockBank.port }}
+
+  ATENCAO: o Mock Bank esta HABILITADO. E um banco falso; `/_control` nao tem
+  autenticacao e injeta credito em conta. A NetworkPolicy so deixa a api e o
+  console alcanca-lo{{ if not .Values.networkPolicy.enabled }} — mas voce
+  DESABILITOU a NetworkPolicy, entao nao ha nada entre este pod e o resto do
+  cluster{{ end }}.
+{{- end }}
+
+Nenhuma credencial de provedor vive neste chart. Elas sao linhas
+envelope-encrypted no Postgres, gravadas pelo console em
+`/admin/v1/connections`, com a data key envolvida pelo KMS. Adicionar um
+provedor nao exige redeploy.
+
+{{ if eq .Values.kms.driver "local" -}}
+AVISO: `kms.driver=local` guarda a chave mestra numa variavel de ambiente. A
+API SE RECUSA a subir com ele quando `NODE_ENV=production`. Use `aws`, `gcp`
+ou `azure` e aponte a identidade em `serviceAccount.annotations`.
+{{ end }}
+{{- if and .Values.secrets.create (not .Values.secrets.existingSecret) -}}
+AVISO: `secrets.create=true` poe os segredos no `values.yaml`. Em producao use
+`secrets.existingSecret` — um `JWT_PRIVATE_KEY` versionado e um token de ADMIN
+forjavel por quem clonar o repositorio.
+{{ end }}
+Proximos passos:
+  1. Entre no console e habilite um provedor em HOMOLOGACAO
+  2. Cunhe uma API key com os escopos minimos
+  3. Confira `/admin/v1/audit/verify`: a cadeia de hash comeca aqui

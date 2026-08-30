@@ -22,14 +22,17 @@
     "e2e": "pnpm --filter @baasconn/e2e test",
     "db:generate": "pnpm --filter @baasconn/db db:generate",
     "db:migrate": "pnpm --filter @baasconn/db migrate:dev",
-    "up": "docker compose up -d --wait",
+    "up": "pnpm dev:env && docker compose up -d --wait",
     "down": "docker compose down -v",
     "new:adapter": "tsx scripts/new-adapter.ts",
     "gen:capability-matrix": "tsx scripts/gen-capability-matrix.ts",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build --filter='./packages/*' && changeset publish",
-    "worker": "pnpm --filter @baasconn/worker dev"
+    "worker": "pnpm --filter @baasconn/worker dev",
+    "dev:env": "tsx scripts/dev-env.ts",
+    "up:observability": "pnpm dev:env && docker compose -f compose.yaml -f compose.observability.yaml up -d --wait",
+    "check:helm": "tsx scripts/check-helm-templates.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

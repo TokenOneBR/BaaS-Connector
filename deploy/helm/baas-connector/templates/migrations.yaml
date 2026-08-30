@@ -1,0 +1,59 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "baas.fullname" . }}-migrate
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # Hook `pre-install`/`pre-upgrade`, e NAO initContainer.
+    #
+    # Com duas ou mais replicas os initContainers correm entre si. O advisory
+    # lock do Prisma evita corrupcao, mas cada pod fica bloqueado pela
+    # migracao inteira e o timing das probes fica feio. O hook roda
+    # EXATAMENTE uma vez, e uma migracao que falha aborta o release ANTES de
+    # qualquer pod novo subir — que e a diferenca entre um upgrade que nao
+    # aconteceu e um upgrade pela metade.
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: '-5'
+    # `before-hook-creation` mantem o Job da ultima execucao ate a proxima
+    # comecar: os logs continuam disponiveis para quem investiga a falha.
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  # ZERO tentativas. Uma migracao que falhou provavelmente falha de novo, e
+  # repetir agrava: a segunda tentativa pega o banco no estado deixado pela
+  # primeira. A resposta certa e um humano olhando o log.
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "baas.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "baas.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        {{- include "baas.tmpVolume" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "baas.image" (dict "Values" .Values "Chart" .Chart "component" "migrate") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ include "baas.secretName" . }}, key: DATABASE_URL }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+{{- end }}

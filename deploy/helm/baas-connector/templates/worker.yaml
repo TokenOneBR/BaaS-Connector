@@ -1,0 +1,77 @@
+{{- if .Values.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "baas.fullname" . }}-worker
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  # `Recreate` e nao `RollingUpdate`: com o rolling, o pod velho e o novo
+  # coexistem, e os dois rodam os varredores e os jobs repetiveis. O
+  # `SKIP LOCKED` e o lock por agregado tornam isso CORRETO, mas nao ha ganho
+  # de disponibilidade num consumidor de fila que justifique a sobreposicao —
+  # a fila espera, e a fila e durável.
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "baas.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      {{- include "baas.podCommon" (dict "root" . "component" "worker") | nindent 6 }}
+      volumes:
+        {{- include "baas.tmpVolume" . | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "baas.image" (dict "Values" .Values "Chart" .Chart "component" "worker") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - { name: metrics, containerPort: {{ .Values.worker.metricsPort }} }
+          env:
+            - { name: METRICS_PORT, value: {{ .Values.worker.metricsPort | quote }} }
+            {{- include "baas.commonEnv" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          # NAO ha readinessProbe: o worker nao atende trafego, e um endpoint
+          # de readiness aqui so criaria a chance de o Kubernetes tirar de
+          # servico um pod que esta processando fila perfeitamente.
+          livenessProbe:
+            httpGet: { path: /healthz, port: metrics }
+            periodSeconds: 15
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      # Generoso de proposito: um job de conciliacao no meio de uma janela
+      # precisa terminar. O `SIGTERM` faz o BullMQ parar de aceitar job novo e
+      # esperar os em voo; matar no meio deixaria um run em RUNNING para o
+      # varredor limpar depois.
+      terminationGracePeriodSeconds: 120
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "baas.fullname" . }}-worker
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  type: ClusterIP
+  # Sem IP de servico: nada chama o worker. O Service existe SO para o
+  # ServiceMonitor ter o que descobrir.
+  clusterIP: None
+  ports:
+    - { name: metrics, port: {{ .Values.worker.metricsPort }}, targetPort: metrics }
+  selector:
+    app.kubernetes.io/name: {{ include "baas.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: worker
+{{- end }}

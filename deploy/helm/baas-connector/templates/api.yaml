@@ -1,0 +1,132 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "baas.fullname" . }}-api
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "baas.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      {{- include "baas.podCommon" (dict "root" . "component" "api") | nindent 6 }}
+      volumes:
+        {{- include "baas.tmpVolume" . | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "baas.image" (dict "Values" .Values "Chart" .Chart "component" "api") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - { name: http, containerPort: {{ .Values.api.port }} }
+            - { name: metrics, containerPort: {{ .Values.api.metricsPort }} }
+          env:
+            - { name: PORT, value: {{ .Values.api.port | quote }} }
+            - { name: METRICS_PORT, value: {{ .Values.api.metricsPort | quote }} }
+            {{- include "baas.commonEnv" . | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+
+          # Liveness do PROCESSO, e so dele: `/healthz` NAO toca o Postgres.
+          # Se tocasse, uma oscilacao do banco reiniciaria todos os pods de
+          # uma vez e transformaria degradacao em outage.
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # Readiness OLHA Postgres e Redis (resultado cacheado por 5s), e
+          # NUNCA um provedor terceiro: a Celcoin ter uma tarde ruim nao pode
+          # tirar nossos pods de servico. Saude de provedor e metrica e rota
+          # administrativa, nao sinal de escalonamento.
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+
+          # 30 falhas × 2s = ate 60s para o primeiro boot, que cobre uma
+          # partida fria com pool de conexao vazio sem afrouxar a liveness.
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+
+          lifecycle:
+            preStop:
+              # Cinco segundos entre a saida do endpoint e o SIGTERM: sem
+              # isso, o kube-proxy de alguns nos ainda manda requisicao para
+              # um pod que ja fechou o listener, e o cliente ve um reset.
+              exec: { command: ['sleep', '5'] }
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      terminationGracePeriodSeconds: 40
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "baas.fullname" . }}-api
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - { name: http, port: {{ .Values.api.port }}, targetPort: http }
+    - { name: metrics, port: {{ .Values.api.metricsPort }}, targetPort: metrics }
+  selector:
+    app.kubernetes.io/name: {{ include "baas.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api
+{{- if .Values.api.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "baas.fullname" . }}-api
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "baas.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if .Values.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "baas.fullname" . }}-api
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+{{- end }}
+{{- end }}

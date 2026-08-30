@@ -1,0 +1,46 @@
+{{- if .Values.serviceMonitor.enabled }}
+# Atras de flag porque exige CRD do Prometheus Operator.
+#
+# Um chart que assume CRD de terceiro falha na instalacao de quem nao o tem,
+# com uma mensagem que nao explica nada — e o primeiro contato de alguem com
+# o projeto nao deveria ser esse.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "baas.fullname" . }}-api
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- if .Values.worker.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "baas.fullname" . }}-worker
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: worker
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- end }}

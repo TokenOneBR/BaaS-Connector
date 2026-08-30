@@ -1,0 +1,22 @@
+# Raspa a porta 9464 dos dois processos.
+#
+# Porta separada da publica de proposito: `/metrics` num listener exposto
+# vaza nomes de conexao e volumes, e e vetor de DoS barato. No Kubernetes a
+# NetworkPolicy do chart so deixa o Prometheus chegar nela.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: baas-api
+    static_configs:
+      - targets: ['api:9464']
+        labels: { component: api }
+
+  - job_name: baas-worker
+    static_configs:
+      # Porta diferente da API SO no compose, onde os dois compartilham a
+      # mesma rede sem namespace. No Kubernetes cada pod tem seu proprio IP e
+      # os dois usam 9464.
+      - targets: ['worker:9465']
+        labels: { component: worker }

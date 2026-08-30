@@ -1,0 +1,60 @@
+# Valores do exemplo renderizado.
+#
+# Deliberadamente NAO representativos de producao em dois pontos, e os dois
+# estao marcados: `secrets.create` e `kms.driver: local`. O exemplo precisa
+# ser aplicavel de ponta a ponta num `kind`, e um exemplo que exige um KMS de
+# nuvem para renderizar nao seria exemplo de nada.
+image:
+  registry: ghcr.io
+  repository: tokenonebr/baas-connector
+  tag: '0.1.0'
+
+api:
+  replicaCount: 2
+worker:
+  replicaCount: 1
+web:
+  replicaCount: 2
+
+# Habilitado no exemplo para o manifest e a NetworkPolicy dele aparecerem
+# renderizados — e para quem le ver o que o chart faz quando alguem o liga.
+mockBank:
+  enabled: true
+
+config:
+  publicBaseUrl: https://api.example.com
+  consoleOrigin: https://console.example.com
+
+# NAO faca isto em producao: os valores acabam num arquivo versionado.
+secrets:
+  create: true
+  databaseUrl: postgresql://baas:baas@postgres:5432/baas?schema=public
+  redisUrl: redis://redis:6379
+  jwtPrivateKey: SUBSTITUA-POR-UMA-CHAVE-RSA-PKCS8
+  jwtPublicKey: SUBSTITUA-POR-A-CHAVE-PUBLICA-SPKI
+  kmsMasterSecret: substitua-este-segredo-mestre-de-exemplo
+  blindIndexPepper: substitua-este-pepper-com-ao-menos-32-caracteres
+
+# `local` so no exemplo. A API SE RECUSA a subir com ele em producao.
+kms:
+  driver: local
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: api.example.com
+      service: api
+      paths: [/v1, /webhooks, /docs]
+    - host: console.example.com
+      service: web
+      paths: [/]
+
+networkPolicy:
+  enabled: true
+  monitoringNamespace: monitoring
+
+serviceMonitor:
+  enabled: false
+prometheusRule:
+  enabled: false

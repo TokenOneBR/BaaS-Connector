@@ -1,0 +1,109 @@
+{{- if .Values.prometheusRule.enabled }}
+# Alertas DESABILITADOS por padrao.
+#
+# Um chart que instala nove alertas em quem so queria subir o servico produz
+# ruido no canal de plantao de outra equipe, e o desfecho previsivel e alguem
+# silenciar o grupo inteiro — inclusive o alerta de ledger desbalanceado.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "baas.fullname" . }}
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: baas-connector.invariantes
+      rules:
+        - alert: BaasLedgerDesbalanceado
+          # SEM `for:`. Este e o unico alerta do arquivo que dispara na
+          # primeira amostra: debitos deixaram de igualar creditos, o que
+          # significa dinheiro errado em algum lugar. Esperar cinco minutos
+          # para confirmar nao torna a informacao mais util, e o incidente ja
+          # comecou.
+          expr: increase(baas_ledger_imbalance_detected_total[5m]) > 0
+          labels: { severity: critical }
+          annotations:
+            summary: Razao desbalanceado detectado
+            description: >-
+              `baas_ledger_imbalance_detected_total` incrementou. O invariante
+              de partidas dobradas foi violado. Pare escritas na conta
+              afetada antes de investigar.
+
+        - alert: BaasConciliacaoObsoleta
+          # 26h e nao 24h: a diaria roda as 03:00 BRT, e uma janela de exatos
+          # 24h dispararia todo dia por alguns minutos de atraso.
+          expr: (time() - max(baas_reconciliation_last_success_timestamp_seconds)) > 26 * 3600
+          for: 30m
+          labels: { severity: critical }
+          annotations:
+            summary: Conciliacao sem sucesso ha mais de 26h
+            description: >-
+              Deriva do TIMESTAMP da ultima execucao bem-sucedida, e nao de um
+              contador: um job que roda e falha sete vezes incrementaria o
+              contador e a obsolescencia passaria despercebida.
+
+        - alert: BaasQuebrasAbertas
+          expr: sum(baas_reconciliation_breaks_open) > 10
+          for: 1h
+          labels: { severity: warning }
+          annotations:
+            summary: Quebras de conciliacao acumulando
+
+    - name: baas-connector.dependencias
+      rules:
+        - alert: BaasProvedorComErro
+          expr: >-
+            sum by (provider) (rate(baas_provider_request_duration_seconds_count{outcome="error"}[10m]))
+            / sum by (provider) (rate(baas_provider_request_duration_seconds_count[10m])) > 0.05
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: '{{ "{{ $labels.provider }}" }} acima de 5% de erro'
+
+        - alert: BaasCircuitoAberto
+          expr: max by (provider, environment) (baas_provider_circuit_state) == 2
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: Circuito aberto em {{ "{{ $labels.provider }}" }}
+
+        - alert: BaasCredencialVencendo
+          # Certificado mTLS vencendo as 3 da manha e um outage classico, e
+          # duas semanas e o prazo em que ainda da para renovar sem correria.
+          expr: min by (provider) (baas_provider_credential_expiry_seconds) < 14 * 86400
+          for: 1h
+          labels: { severity: warning }
+          annotations:
+            summary: Credencial de {{ "{{ $labels.provider }}" }} vence em menos de 14 dias
+
+    - name: baas-connector.eventos
+      rules:
+        - alert: BaasFalhasDeAssinatura
+          expr: sum(increase(baas_webhook_signature_failures_total[5m])) > 10
+          labels: { severity: critical }
+          annotations:
+            summary: Pico de falhas de assinatura de webhook
+            description: >-
+              Evento de SEGURANCA, nao bug: alguem esta postando no endpoint
+              com segredo errado. Verifique a origem antes de rotacionar.
+
+        - alert: BaasOutboxAtrasado
+          expr: baas_outbox_oldest_age_seconds > 300
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: Outbox com evento parado ha mais de 5 minutos
+            description: >-
+              O cliente deixa de receber evento sem nenhum erro aparecer.
+
+        - alert: BaasLiquidacaoLenta
+          expr: >-
+            histogram_quantile(0.95, sum by (le) (rate(baas_pix_settlement_latency_seconds_bucket[15m]))) > 30
+          for: 15m
+          labels: { severity: warning }
+          annotations:
+            summary: p95 de liquidacao de PIX acima de 30s
+{{- end }}

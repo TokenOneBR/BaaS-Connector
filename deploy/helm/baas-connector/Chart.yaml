@@ -1,0 +1,31 @@
+apiVersion: v2
+name: baas-connector
+description: Conector padrao open source para Banking as a Service brasileiro
+type: application
+version: 0.1.0
+appVersion: '0.1.0'
+home: https://github.com/TokenOneBR/BaaS-Connector
+sources:
+  - https://github.com/TokenOneBR/BaaS-Connector
+maintainers:
+  - name: TokenOne
+    url: https://github.com/TokenOneBR
+keywords: [baas, pix, fintech, banking, brazil]
+annotations:
+  artifacthub.io/license: Apache-2.0
+
+# Postgres e Redis como subcharts OPCIONAIS, desabilitados por padrao.
+#
+# Um banco financeiro em StatefulSet dentro do mesmo chart da aplicacao e
+# conveniente na primeira semana e um problema para sempre: backup, failover e
+# upgrade de versao maior passam a ser seus. O padrao aponta para RDS, Cloud
+# SQL ou Azure Database; o subchart existe para `kind` e demonstracao.
+dependencies:
+  - name: postgresql
+    version: 16.4.5
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 20.6.1
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

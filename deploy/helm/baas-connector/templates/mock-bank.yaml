@@ -1,0 +1,77 @@
+{{- if .Values.mockBank.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "baas.fullname" . }}-mock-bank
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mock-bank
+  annotations:
+    # Deixado explicito no objeto, e nao so no `values.yaml`: quem faz
+    # `kubectl get deploy` num cluster e encontra isto precisa entender na
+    # hora o que esta olhando.
+    baas.tokenone.com.br/warning: >-
+      Banco FALSO para testes. `/_control` nao tem autenticacao e injeta
+      credito em conta. Nunca alcancavel de fora da rede do cluster.
+spec:
+  replicas: {{ .Values.mockBank.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: mock-bank
+  template:
+    metadata:
+      labels:
+        {{- include "baas.labels" . | nindent 8 }}
+        app.kubernetes.io/component: mock-bank
+    spec:
+      {{- include "baas.podCommon" (dict "root" . "component" "mock-bank") | nindent 6 }}
+      volumes:
+        {{- include "baas.tmpVolume" . | nindent 8 }}
+      containers:
+        - name: mock-bank
+          image: {{ include "baas.image" (dict "Values" .Values "Chart" .Chart "component" "mock-bank") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - { name: http, containerPort: {{ .Values.mockBank.port }} }
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: MOCK_BANK_PORT, value: {{ .Values.mockBank.port | quote }} }
+            - { name: MOCK_BANK_STORE, value: {{ .Values.mockBank.store | quote }} }
+            {{- if eq .Values.mockBank.store "prisma" }}
+            - name: MOCK_BANK_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "baas.secretName" . }}
+                  key: MOCK_BANK_DATABASE_URL
+            {{- end }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.mockBank.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "baas.fullname" . }}-mock-bank
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mock-bank
+spec:
+  type: ClusterIP
+  ports:
+    - { name: http, port: {{ .Values.mockBank.port }}, targetPort: http }
+  selector:
+    app.kubernetes.io/name: {{ include "baas.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mock-bank
+{{- end }}

@@ -1,0 +1,116 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $fullname := include "baas.fullname" . }}
+{{- $name := include "baas.name" . }}
+#
+# A porta de metricas so aceita o Prometheus.
+#
+# `metrics-server.ts` sempre documentou que a 9464 "fica atras da
+# NetworkPolicy" — ate este chart existir, essa era uma promessa sem nada por
+# tras. `/metrics` alcancavel de dentro do cluster vaza nomes de conexao,
+# volumes e contagem de contas, e e vetor de DoS barato.
+#
+# Uma policy que seleciona pods PRECISA listar TODO trafego que eles devem
+# aceitar: assim que existe uma `Ingress` para um pod, tudo que nao esta nela
+# passa a ser negado. Por isso as regras de aplicacao estao aqui junto.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  policyTypes: [Ingress]
+  ingress:
+    # Metricas: so do namespace de monitoramento.
+    - from:
+        {{- if .Values.networkPolicy.monitoringNamespace }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+        {{- else }}
+        - namespaceSelector: {}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: {{ .Values.api.metricsPort }} }
+    # HTTP: qualquer origem.
+    #
+    # Amplo de proposito, e a razao importa: alem do console e do ingress, o
+    # `/webhooks/:provider/:connectionId` recebe callback de PROVEDOR, que
+    # chega de fora do cluster por um caminho que a policy nao consegue
+    # nomear. Restringir aqui quebraria a ingestao de webhook em silencio —
+    # o provedor veria timeout e comecaria a fazer backoff no endpoint.
+    # A defesa da rota e a assinatura, que e verificada antes de qualquer
+    # trabalho, nao a topologia de rede.
+    - ports:
+        - { protocol: TCP, port: {{ .Values.api.port }} }
+{{- if .Values.worker.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-worker
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: worker
+  policyTypes: [Ingress]
+  # SO metricas. Nada chama o worker — ele consome fila. Uma porta aberta a
+  # mais aqui e superficie sem nenhum uso legitimo.
+  ingress:
+    - from:
+        {{- if .Values.networkPolicy.monitoringNamespace }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+        {{- else }}
+        - namespaceSelector: {}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: {{ .Values.worker.metricsPort }} }
+{{- end }}
+{{- if .Values.mockBank.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-mock-bank
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: mock-bank
+  policyTypes: [Ingress]
+  # A policy mais importante do chart.
+  #
+  # `/_control` injeta credito em conta e forca decisao de onboarding, SEM
+  # autenticacao nenhuma — de proposito, porque e um banco falso para teste.
+  # So a API e o console alcancam este pod, e e a unica coisa entre um Mock
+  # Bank habilitado por engano e um endpoint publico que cunha dinheiro.
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $name }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $name }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: web
+      ports:
+        - { protocol: TCP, port: {{ .Values.mockBank.port }} }
+{{- end }}
+{{- end }}

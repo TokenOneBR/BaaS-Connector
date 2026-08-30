@@ -1,0 +1,84 @@
+{{- if .Values.web.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "baas.fullname" . }}-web
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "baas.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "baas.labels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+    spec:
+      {{- include "baas.podCommon" (dict "root" . "component" "web") | nindent 6 }}
+      volumes:
+        {{- include "baas.tmpVolume" . | nindent 8 }}
+        # O Next escreve cache de imagem e de fetch em `.next/cache`, e a raiz
+        # e somente-leitura. Sem este volume o pod sobe e falha na primeira
+        # renderizacao — em runtime, que e a pior hora para descobrir.
+        - name: next-cache
+          emptyDir: {}
+      containers:
+        - name: web
+          image: {{ include "baas.image" (dict "Values" .Values "Chart" .Chart "component" "web") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - { name: http, containerPort: {{ .Values.web.port }} }
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PORT, value: {{ .Values.web.port | quote }} }
+            - { name: HOSTNAME, value: 0.0.0.0 }
+            # Endereco INTERNO, lido em RUNTIME: e o que permite a mesma
+            # imagem servir homologacao e producao, e o que mantem o
+            # `/admin/v1` fora do ingress.
+            - name: API_INTERNAL_URL
+              value: http://{{ include "baas.fullname" . }}-api:{{ .Values.api.port }}
+            {{- if .Values.mockBank.enabled }}
+            - name: MOCK_BANK_URL
+              value: http://{{ include "baas.fullname" . }}-mock-bank:{{ .Values.mockBank.port }}
+            {{- end }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: next-cache, mountPath: /app/apps/web/.next/cache }
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 15
+            failureThreshold: 3
+          # Readiness do console NAO chama a API: o console fora do ar por a
+          # API estar fora do ar tira a unica tela onde alguem veria o que
+          # esta acontecendo.
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "baas.fullname" . }}-web
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  ports:
+    - { name: http, port: {{ .Values.web.port }}, targetPort: http }
+  selector:
+    app.kubernetes.io/name: {{ include "baas.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: web
+{{- end }}

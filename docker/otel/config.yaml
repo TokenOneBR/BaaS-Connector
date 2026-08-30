@@ -1,0 +1,25 @@
+# Coletor OTLP. Recebe da API e do worker por HTTP (4318) e exporta para o
+# Jaeger, que fala OTLP nativamente desde a versao 1.35 — nao ha exportador
+# `jaeger` aqui de proposito: ele foi removido do coletor.
+receivers:
+  otlp:
+    protocols:
+      http: { endpoint: 0.0.0.0:4318 }
+      grpc: { endpoint: 0.0.0.0:4317 }
+
+processors:
+  # Lote antes de exportar: um span por requisicao HTTP ao Jaeger transforma
+  # o coletor no gargalo do proprio sistema que ele observa.
+  batch: { timeout: 5s, send_batch_size: 512 }
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls: { insecure: true }
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger]

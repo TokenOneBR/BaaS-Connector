@@ -1,0 +1,155 @@
+# Stack local completa: `pnpm up`.
+#
+# Quatro containers de aplicacao mais Postgres e Redis. A observabilidade fica
+# num arquivo SEPARADO (`compose.observability.yaml`), opt-in: um contribuidor
+# novo sobe seis containers e nao dez, e a diferenca entre "subiu" e "desistiu"
+# num primeiro contato costuma ser essa.
+name: baas-connector
+
+x-postgres-env: &postgres-env
+  POSTGRES_USER: baas
+  POSTGRES_PASSWORD: baas
+  POSTGRES_DB: baas
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: *postgres-env
+    ports: ['5432:5432']
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # `-d baas` explicito: sem a base, `pg_isready` responde ok assim que o
+      # postmaster aceita conexao, que e ANTES de os scripts de init rodarem —
+      # e o `migrate` comecaria contra um banco sem `baas_mockbank`.
+      test: ['CMD-SHELL', 'pg_isready -U baas -d baas']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    # `appendonly` porque a fila do BullMQ vive aqui. Perder o Redis custa
+    # latencia e nunca dados — o outbox e as entregas estao no Postgres, e os
+    # varredores reenfileiram — mas nao ha razao de perder de graca.
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['6379:6379']
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/migrate.Dockerfile
+    environment:
+      DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  mock-bank:
+    build:
+      context: .
+      dockerfile: docker/mock-bank.Dockerfile
+    environment:
+      NODE_ENV: production
+      MOCK_BANK_PORT: 3002
+      # `memory` no compose: a stack local existe para demonstrar e para o
+      # e2e, e um Mock Bank sem estado persistente e mais facil de repor do
+      # que de consertar. O modo Prisma continua existindo e tem teste proprio.
+      MOCK_BANK_STORE: memory
+      MOCK_APPROVAL_DELAY_MS: 0
+      MOCK_REVIEW_DELAY_MS: 0
+    ports: ['3002:3002']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3002/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      METRICS_PORT: 9464
+      DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
+      REDIS_URL: redis://redis:6379
+      KMS_DRIVER: local
+      KMS_MASTER_SECRET: ${KMS_MASTER_SECRET:-troque-este-segredo-mestre-de-desenvolvimento}
+      BLIND_INDEX_PEPPER: ${BLIND_INDEX_PEPPER:-troque-este-pepper-com-ao-menos-32-caracteres}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?defina JWT_PRIVATE_KEY no .env — gere com openssl genpkey}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?defina JWT_PUBLIC_KEY no .env — gere com openssl rsa -pubout}
+      PUBLIC_BASE_URL: http://localhost:3001
+      CONSOLE_ORIGIN: http://localhost:3000
+      LOG_PRETTY: 'false'
+    ports: ['3001:3001', '9464:9464']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    environment:
+      NODE_ENV: production
+      METRICS_PORT: 9465
+      DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
+      REDIS_URL: redis://redis:6379
+      KMS_DRIVER: local
+      KMS_MASTER_SECRET: ${KMS_MASTER_SECRET:-troque-este-segredo-mestre-de-desenvolvimento}
+      BLIND_INDEX_PEPPER: ${BLIND_INDEX_PEPPER:-troque-este-pepper-com-ao-menos-32-caracteres}
+      PUBLIC_BASE_URL: http://localhost:3001
+      LOG_PRETTY: 'false'
+    ports: ['9465:9465']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Endereco INTERNO: o console fala com a API pela rede do compose, e no
+      # Kubernetes o `/admin/v1` nem precisa ser exposto no ingress.
+      API_INTERNAL_URL: http://api:3001
+      # Sem isto a tela do Mock Bank nao existe — e e assim que ela some num
+      # deploy de producao, sem flag nenhuma para alguem ligar por engano.
+      MOCK_BANK_URL: http://mock-bank:3002
+    ports: ['3000:3000']
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  postgres-data:
+  redis-data:

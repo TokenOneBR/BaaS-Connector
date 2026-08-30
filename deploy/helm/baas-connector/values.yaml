@@ -1,0 +1,201 @@
+# Valores padrao do chart.
+#
+# O que NAO esta aqui e tao importante quanto o que esta: nao ha credencial de
+# provedor nenhuma. Elas sao linhas envelope-encrypted no Postgres, com a data
+# key envolvida pelo KMS da nuvem. E por isso que este chart e pequeno, que
+# adicionar um provedor nao exige redeploy, e que o mesmo chart roda em
+# EKS/GKE/AKS mudando so uma anotacao de ServiceAccount.
+
+nameOverride: ''
+fullnameOverride: ''
+
+image:
+  registry: ghcr.io
+  repository: tokenonebr/baas-connector
+  # Vazio usa `appVersion` do Chart. Cravar `latest` num chart de servico
+  # financeiro e como se faz um rollback virar um mistério.
+  tag: ''
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# --- Componentes -----------------------------------------------------------
+
+api:
+  enabled: true
+  replicaCount: 2
+  port: 3001
+  metricsPort: 9464
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { memory: 1Gi }
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  enabled: true
+  # UMA replica por padrao, e a escolha e deliberada: o `SKIP LOCKED` do
+  # outbox e o lock por agregado tornam N replicas seguras, mas quem sobe
+  # este chart pela primeira vez nao deveria descobrir isso pagando por ele.
+  replicaCount: 1
+  metricsPort: 9464
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 768Mi }
+
+web:
+  enabled: true
+  replicaCount: 2
+  port: 3000
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+mockBank:
+  # DESABILITADO por padrao. `/_control` nao tem autenticacao nenhuma, de
+  # proposito: e um banco falso para teste. Habilitar num cluster de producao
+  # e publicar um endpoint que injeta credito em conta de cliente.
+  enabled: false
+  replicaCount: 1
+  port: 3002
+  store: memory
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+# --- Migracao --------------------------------------------------------------
+
+migrations:
+  enabled: true
+  # Hook `pre-upgrade`/`pre-install`, e NAO initContainer. Com duas ou mais
+  # replicas os initContainers correm entre si; o advisory lock do Prisma
+  # evita corrupcao, mas um pod fica bloqueado pela migracao inteira e o
+  # timing das probes fica feio. O hook roda EXATAMENTE uma vez, e uma
+  # migracao que falha aborta o release antes de qualquer pod novo subir.
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+# --- Configuracao ----------------------------------------------------------
+
+config:
+  logLevel: info
+  publicBaseUrl: https://api.example.com
+  consoleOrigin: https://console.example.com
+  environments: [HOMOLOGACAO, PRODUCAO]
+  balanceCacheTtl: 30
+  postMutationBypass: 60
+  cacheVersion: 1
+  signatureTolerance: 300
+  # Mensagem crua do provedor no corpo do erro. Ligada facilita suporte e
+  # vaza detalhe de integracao para o cliente; a escolha e de quem opera.
+  exposeProviderMessages: false
+  otlpEndpoint: ''
+  tracesSamplerArg: '0.1'
+
+# Apenas quatro segredos vivem no Kubernetes. Todo o resto — credencial de
+# provedor, segredo de webhook, chave de API — e linha cifrada no Postgres.
+secrets:
+  # Nome de um Secret que ja existe (criado por External Secrets, SOPS, ...).
+  # Preferido: valores em `create` acabam num `values.yaml` versionado.
+  existingSecret: ''
+  create: false
+  databaseUrl: ''
+  redisUrl: ''
+  jwtPrivateKey: ''
+  jwtPublicKey: ''
+  kmsMasterSecret: ''
+  blindIndexPepper: ''
+
+kms:
+  # aws | gcp | azure | local. `local` guarda a chave mestra numa variavel de
+  # ambiente e a API SE RECUSA a subir com ele em producao.
+  driver: aws
+  keyId: ''
+
+serviceAccount:
+  create: true
+  name: ''
+  # A unica coisa que muda entre EKS, GKE e AKS: a anotacao de identidade.
+  #   eks.amazonaws.com/role-arn: arn:aws:iam::...
+  #   iam.gke.io/gcp-service-account: ...@....iam.gserviceaccount.com
+  #   azure.workload.identity/client-id: ...
+  annotations: {}
+
+# --- Rede ------------------------------------------------------------------
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  # `/admin/v1` NAO aparece aqui de proposito: o console fala com a API pela
+  # rede do cluster. Expo-lo no ingress aumenta a superficie sem ganho — e a
+  # razao de o Next ser BFF em vez de portador de token.
+  hosts:
+    - host: api.example.com
+      service: api
+      paths: [/v1, /webhooks, /docs]
+    - host: console.example.com
+      service: web
+      paths: [/]
+  tls: []
+
+networkPolicy:
+  # A porta 9464 fica atras dela: `/metrics` num listener alcancavel vaza
+  # nomes de conexao e volumes, e e vetor de DoS barato. O comentario em
+  # `metrics-server.ts` sempre pressupos esta policy.
+  enabled: true
+  # Namespace de onde o Prometheus raspa. Vazio permite qualquer namespace,
+  # que so faz sentido num cluster de uma equipe so.
+  monitoringNamespace: monitoring
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# --- Integracao com o Prometheus Operator ---------------------------------
+#
+# Atras de flag porque exigem CRDs. Um chart que assume CRDs de terceiro
+# falha na instalacao de quem nao os tem, com um erro que nao explica nada.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels: {}
+
+prometheusRule:
+  enabled: false
+  labels: {}
+
+# --- Postura de seguranca --------------------------------------------------
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile: { type: RuntimeDefault }
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  # Raiz somente-leitura mais um `emptyDir` em /tmp: o Next escreve cache la,
+  # e o Prisma extrai o engine para um temporario.
+  readOnlyRootFilesystem: true
+  capabilities: { drop: [ALL] }
+
+nodeSelector: {}
+tolerations: []
+# Espalhamento por zona: duas replicas na mesma zona nao sobrevivem a perda
+# dela, e `ScheduleAnyway` evita que um cluster de uma zona so fique sem pod.
+topologySpreadConstraints:
+  enabled: true
+  maxSkew: 1
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: ScheduleAnyway
+
+postgresql:
+  enabled: false
+redis:
+  enabled: false

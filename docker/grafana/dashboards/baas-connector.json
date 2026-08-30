@@ -1,0 +1,148 @@
+{
+  "uid": "baas-connector",
+  "title": "BaaS Connector",
+  "tags": ["baas"],
+  "timezone": "America/Sao_Paulo",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Desbalanceamento do razao (SEMPRE zero)",
+      "description": "Qualquer incremento aqui significa que debitos deixaram de igualar creditos. Nao e degradacao: e dinheiro errado, e alguem paga.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(increase(baas_ledger_imbalance_detected_total[24h]))",
+          "legendFormat": "24h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Obsolescencia da conciliacao",
+      "description": "Horas desde a ultima execucao bem-sucedida. Deriva do TIMESTAMP e nao de um contador de execucoes: um job que roda e falha sete vezes incrementaria o contador e a obsolescencia passaria despercebida.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "(time() - max(baas_reconciliation_last_success_timestamp_seconds)) / 3600",
+          "legendFormat": "horas"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 26 },
+              { "color": "red", "value": 48 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Quebras abertas por tipo",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (break_type) (baas_reconciliation_breaks_open)",
+          "legendFormat": "{{break_type}}"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Latencia de liquidacao do PIX out",
+      "description": "Aceite ate SETTLED. E o numero que o negocio pergunta.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(baas_pix_settlement_latency_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(baas_pix_settlement_latency_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(baas_pix_settlement_latency_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Taxa de erro por provedor",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(baas_provider_request_duration_seconds_count{outcome=\"error\"}[5m])) / sum by (provider) (rate(baas_provider_request_duration_seconds_count[5m]))",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Falhas de assinatura de webhook",
+      "description": "Um pico aqui e evento de SEGURANCA, nao bug: alguem esta postando no endpoint com segredo errado.",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "expr": "sum by (provider) (rate(baas_webhook_signature_failures_total[5m]))",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Idade do outbox mais antigo",
+      "description": "Cresce quando o despachante para. O cliente deixa de receber evento sem nenhum erro aparecer.",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 13 },
+      "targets": [{ "expr": "baas_outbox_oldest_age_seconds", "legendFormat": "segundos" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Estado do circuito por provedor",
+      "description": "0 fechado, 1 meio-aberto, 2 aberto.",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 13 },
+      "targets": [
+        {
+          "expr": "max by (provider, environment) (baas_provider_circuit_state)",
+          "legendFormat": "{{provider}} {{environment}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "max": 2, "min": 0 }, "overrides": [] }
+    }
+  ]
+}
