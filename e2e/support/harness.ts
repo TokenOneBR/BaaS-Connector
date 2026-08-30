@@ -1,5 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 
+import { mockbankManifest } from '@baasconn/adapter-mock-bank';
 import {
   ACCOUNT_REPOSITORY,
   API_KEY_REPOSITORY,
@@ -9,6 +10,11 @@ import {
   CLOCK,
   CONNECTION_LOOKUP,
   CONNECTION_REPOSITORY,
+  CONSOLE_SESSION_REPOSITORY,
+  CONSOLE_USER_REPOSITORY,
+  MemoryConnectionRepository,
+  MemoryConsoleSessionRepository,
+  MemoryConsoleUserRepository,
   INBOUND_EVENT_REPOSITORY,
   EVENT_QUEUE,
   LEDGER_STORE_FACTORY,
@@ -27,6 +33,7 @@ import {
   type EventQueue,
   type ReconciliationBreakRepository,
   type ReconciliationRunRepository,
+  type StoredConnection,
 } from '@baasconn/api/testing';
 import {
   EnvelopeCrypto,
@@ -38,7 +45,7 @@ import {
 import type { LedgerAccount, LedgerEntry } from '@baasconn/ledger';
 import { AppModule as MockBankModule } from '@baasconn/mock-bank/app';
 import { Metrics } from '@baasconn/observability';
-import { Environment, FixedClock, newId } from '@baasconn/taxonomy';
+import { Environment, FixedClock, newId, type ConsoleRole } from '@baasconn/taxonomy';
 import { AutoResolutionService, ReconciliationService } from '@baasconn/worker/testing';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -147,6 +154,23 @@ export interface HarnessOptions {
    * conciliacao comeca com um movimento recente.
    */
   postMutationBypassSeconds?: number;
+  /**
+   * Semeia um usuario de console, para o `/admin/v1` ser alcancavel.
+   *
+   * Os specs de API nao precisam: eles entram por API key. O Playwright do
+   * console precisa, porque o BFF comeca pelo login. Fica opcional para o
+   * caminho comum nao pagar por um hash Argon2id que ele nao usa.
+   */
+  consoleUser?: { email: string; password: string; role: ConsoleRole };
+  /**
+   * Portas fixas em vez de efemeras.
+   *
+   * Os specs de Vitest usam efemera, que e o certo: nao colidem entre si e
+   * nao dependem de nada estar livre. O Playwright precisa do oposto — ele
+   * inicia o servidor como PROCESSO e espera uma porta anunciada na config,
+   * e nao ha como ele descobrir uma porta escolhida depois.
+   */
+  ports?: { api: number; mockBank: number };
 }
 
 export async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
@@ -162,11 +186,11 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
   process.env.MOCK_SETTLEMENT_DELAY_MAX_MS = '0';
   process.env.DATABASE_URL ??= 'postgresql://baas:baas@127.0.0.1:5432/baas?schema=public';
 
-  const mockBank = await bootMockBank();
+  const mockBank = await bootMockBank(options.ports?.mockBank);
   const mockBankUrl = await mockBank.getUrl();
 
   const seeded = await seedFixtures(mockBankUrl);
-  const api = await bootApi(seeded);
+  const api = await bootApi(seeded, options);
   const apiUrl = await api.getUrl();
 
   // O Mock Bank precisa saber para onde mandar webhook. Numa instalacao real
@@ -288,10 +312,10 @@ function buildReconciliation(api: INestApplication, asOf?: Date): Reconciliation
   );
 }
 
-async function bootMockBank(): Promise<INestApplication> {
+async function bootMockBank(port = 0): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [MockBankModule] }).compile();
   const app = moduleRef.createNestApplication();
-  await app.listen(0, '127.0.0.1');
+  await app.listen(port, '127.0.0.1');
   return app;
 }
 
@@ -394,8 +418,65 @@ async function seedFixtures(mockBankUrl: string): Promise<Seed> {
   };
 }
 
-async function bootApi(seed: Seed): Promise<INestApplication> {
+/**
+ * Semeia a conexao do Mock Bank no dobro, com envelope e resumo.
+ *
+ * Escreve direto em `rows` em vez de chamar `create()`: `create()` cifraria de
+ * novo, e o envelope precisa ser exatamente o que o `CredentialResolver` vai
+ * decifrar com a chave mestra deste harness.
+ */
+function seedConnection(repo: MemoryConnectionRepository, seed: Seed): MemoryConnectionRepository {
+  const conexao = seed.connection as unknown as StoredConnection;
+  repo.rows.set(seed.connectionId, {
+    ...conexao,
+    summary: {
+      id: seed.connectionId,
+      environment: conexao.environment,
+      provider: conexao.provider,
+      label: 'mock-bank',
+      status: 'ACTIVE',
+      baseUrl: conexao.baseUrl,
+      config: conexao.config,
+      // O manifesto REAL do adapter, e nao um mapa vazio: a aba de
+      // capacidades do console o renderiza, e um dobro que devolvesse vazio
+      // faria a tela parecer certa mostrando "nada suportado".
+      capabilities: mockbankManifest as unknown as Record<string, unknown>,
+      credentials: {
+        set: true,
+        fingerprint: 'sha256:e2e',
+        last4: 'ient',
+        updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+      webhookSecretSet: true,
+      createdAt: new Date('2026-08-01T00:00:00.000Z'),
+    },
+  });
+  return repo;
+}
+
+async function bootApi(seed: Seed, options: HarnessOptions): Promise<INestApplication> {
+  const users = new MemoryConsoleUserRepository();
+  if (options.consoleUser) {
+    users.seed({
+      id: newId('user'),
+      email: options.consoleUser.email,
+      name: options.consoleUser.email,
+      passwordHash: await hashSecret(options.consoleUser.password),
+      role: options.consoleUser.role,
+      // Sem TOTP de proposito: o papel semeado pelo Playwright e `OPERATOR`,
+      // e ADMIN/OWNER — que EXIGEM segundo fator — ficam de fora justamente
+      // por isso. Um spec que quisesse cunhar API key precisaria do TOTP, e
+      // e essa a regra que estamos preservando ao nao contorna-la aqui.
+      mfaEnabled: false,
+      status: 'ACTIVE',
+    });
+  }
+
   const moduleRef = await Test.createTestingModule({ imports: [ApiModule] })
+    .overrideProvider(CONSOLE_USER_REPOSITORY)
+    .useValue(users)
+    .overrideProvider(CONSOLE_SESSION_REPOSITORY)
+    .useValue(new MemoryConsoleSessionRepository())
     .overrideProvider(API_KEY_REPOSITORY)
     .useValue({
       findByLookup: async (lookup: Buffer) =>
@@ -405,12 +486,14 @@ async function bootApi(seed: Seed): Promise<INestApplication> {
       touchLastUsed: async () => undefined,
     })
     .overrideProvider(CONNECTION_REPOSITORY)
-    .useValue({
-      findById: async (id: string) => (id === seed.connectionId ? seed.connection : undefined),
-      // O worker enumera conexoes para agendar conciliacao e polling; sem isto
-      // o dobro do harness mentiria sobre o formato da porta.
-      listActive: async () => [seed.connection],
-    })
+    // O dobro REAL, e nao um objeto literal com dois metodos.
+    //
+    // O literal anterior implementava `findById` e `listActive` e mais nada, e
+    // ficou verde enquanto so os specs de API entravam por API key. O console
+    // chama `listSummaries`, e a ausencia virava 500 numa tela — descoberto
+    // pelo Playwright, que e exatamente o que ele existe para pegar. Um dobro
+    // que implementa MENOS que a porta e uma mentira sobre a porta.
+    .useValue(seedConnection(new MemoryConnectionRepository(), seed))
     .overrideProvider(CONNECTION_LOOKUP)
     .useValue({
       slugOf: async (id: string) => (id === seed.connectionId ? 'MOCK_BANK' : undefined),
@@ -434,7 +517,7 @@ async function bootApi(seed: Seed): Promise<INestApplication> {
     return jsonParser(request, response, next);
   });
 
-  await app.listen(0, '127.0.0.1');
+  await app.listen(options.ports?.api ?? 0, '127.0.0.1');
   return app;
 }
 

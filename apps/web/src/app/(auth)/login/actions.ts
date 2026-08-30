@@ -3,7 +3,8 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { COOKIES, tokenCookieOptions } from '@/server/cookies';
+import { COOKIES, csrfCookieOptions, tokenCookieOptions } from '@/server/cookies';
+import { newCsrfToken } from '@/server/csrf';
 
 const API = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
 const REFRESH_TTL = Number(process.env.REFRESH_TOKEN_TTL ?? 2_592_000);
@@ -67,6 +68,20 @@ export async function login(_previous: LoginState, form: FormData): Promise<Logi
   const jar = await cookies();
   jar.set(COOKIES.access, body.access_token, tokenCookieOptions(body.expires_in));
   jar.set(COOKIES.refresh, body.refresh_token, tokenCookieOptions(REFRESH_TTL));
+
+  // O token de CSRF nasce AQUI, junto com a sessao.
+  //
+  // O middleware tambem o emite, e por muito tempo isso pareceu suficiente.
+  // Nao e: o `redirect` de uma Server Action vira navegacao RSC no cliente, e
+  // o cookie que o middleware grava naquela resposta nao chega ao navegador.
+  // O resultado e uma sessao inteira sem `baas_csrf` — e como `assertCsrf`
+  // LANCA quando o cookie falta, TODA Server Action falharia, incluindo as
+  // que resolvem divergencia de dinheiro. Um Playwright pegou isto lendo
+  // `document.cookie`; nenhum teste de unidade pegaria.
+  //
+  // A emissao no middleware fica como rede: cobre a sessao que perdeu o
+  // cookie e a que e anterior a esta linha.
+  jar.set(COOKIES.csrf, newCsrfToken(), csrfCookieOptions());
 
   redirect('/HOMOLOGACAO/dashboard');
 }

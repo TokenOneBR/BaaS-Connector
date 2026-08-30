@@ -21,3 +21,5 @@ blob-report/
 .pnpm-store/
 generated/
 prisma/generated/
+e2e/console/.harness.json
+test-results/

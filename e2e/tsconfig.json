@@ -10,6 +10,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
-  "include": ["api/**/*", "support/**/*"],
+  "include": ["api/**/*", "support/**/*", "console/**/*", "playwright.config.ts"],
   "exclude": ["node_modules"]
 }

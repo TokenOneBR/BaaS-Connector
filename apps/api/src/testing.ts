@@ -62,6 +62,17 @@ export {
   MemoryReconciliationRunRepository,
 } from './persistence/memory/reconciliation.repositories.js';
 export { MemoryPollCursorRepository } from './persistence/memory/reconciliation.repositories.js';
+export {
+  MemoryConsoleSessionRepository,
+  MemoryConsoleUserRepository,
+} from './persistence/memory/console.repository.js';
+export { MemoryConnectionRepository } from './persistence/memory/connection.repository.js';
+export type { StoredConnection } from './providers/credential.resolver.js';
+export {
+  CONSOLE_SESSION_REPOSITORY,
+  CONSOLE_USER_REPOSITORY,
+  type ConsoleUserRecord,
+} from './admin/admin.types.js';
 
 // Tokens e classes que a suite de ponta a ponta precisa para montar a
 // conciliacao a mao.

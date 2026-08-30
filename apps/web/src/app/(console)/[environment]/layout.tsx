@@ -106,10 +106,14 @@ export default async function ConsoleLayout({
             </ul>
           </div>
 
-          <p className="mt-6 text-xs text-text-muted">
-            {user.name}
+          {/* Sem `opacity-70`: opacidade sobre o secundario derruba o
+              contraste abaixo de 4,5:1, e o axe reprova como `serious`. A
+              hierarquia sai da COR, que e verificavel, e nao da transparencia,
+              que depende do que estiver atras. */}
+          <p className="mt-6 text-xs">
+            <span className="text-text">{user.name}</span>
             <br />
-            <span className="opacity-70">{user.role}</span>
+            <span className="text-text-muted">{user.role}</span>
           </p>
         </nav>
 
