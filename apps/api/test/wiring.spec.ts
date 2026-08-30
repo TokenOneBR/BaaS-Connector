@@ -1,7 +1,7 @@
-import { beforeAll, afterAll, describe, expect, it } from 'vitest';
-import { Test, type TestingModule } from '@nestjs/testing';
 import { BlindIndex, EnvelopeCrypto } from '@baasconn/crypto';
 import { Metrics } from '@baasconn/observability';
+import { Test, type TestingModule } from '@nestjs/testing';
+import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { ApiKeyService } from '../src/auth/api-key.service.js';
@@ -9,9 +9,9 @@ import { ApiConfig } from '../src/config/config.service.js';
 import { HealthController } from '../src/health/health.controller.js';
 import { PrismaService } from '../src/persistence/prisma.service.js';
 import { CredentialResolver } from '../src/providers/credential.resolver.js';
-import { PROVIDER_ADAPTERS } from '../src/providers/providers.module.js';
 import { ProviderRegistry } from '../src/providers/provider.registry.js';
 import { ProviderResolver } from '../src/providers/provider.resolver.js';
+import { PROVIDER_ADAPTERS } from '../src/providers/providers.module.js';
 
 /**
  * Compila o grafo de injecao inteiro.

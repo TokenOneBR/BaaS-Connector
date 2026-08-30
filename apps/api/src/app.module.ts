@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/c
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AccountsModule } from './accounts/accounts.module.js';
+import { AdminSurfaceGuard } from './admin/admin-surface.guard.js';
 import { AdminModule } from './admin/admin.module.js';
 import { ApiKeyGuard } from './auth/api-key.guard.js';
 import { ApiKeyService } from './auth/api-key.service.js';
@@ -69,6 +70,9 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     // O filtro vem antes dos guards: um erro de autenticacao tambem precisa
     // sair no envelope canonico.
     { provide: APP_FILTER, useClass: CanonicalErrorFilter },
+    // ANTES do ApiKeyGuard: `/admin/v1` inteiro exige sessao de console, por
+    // caminho e nao por decorator. Ver `admin-surface.guard.ts`.
+    { provide: APP_GUARD, useClass: AdminSurfaceGuard },
     { provide: APP_GUARD, useClass: ApiKeyGuard },
     { provide: APP_GUARD, useClass: CapabilityGuard },
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },

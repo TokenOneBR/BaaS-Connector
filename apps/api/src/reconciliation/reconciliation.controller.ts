@@ -6,10 +6,10 @@ import {
   Money,
   type ResolutionAction,
 } from '@baasconn/taxonomy';
-import { Body, Controller, Get, Inject, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Query, Req } from '@nestjs/common';
 import { z } from 'zod';
 
-import { AdminSessionGuard, MinRole, type AdminRequest } from '../admin/admin-session.guard.js';
+import { MinRole, type AdminRequest } from '../admin/admin-session.guard.js';
 import { Public } from '../auth/api-key.guard.js';
 import { ZodValidationPipe } from '../common/zod.pipe.js';
 import { ApiConfig } from '../config/config.service.js';
@@ -52,7 +52,6 @@ export class ReconciliationController {
    * dinheiro fora do painel.
    */
   @Get('breaks')
-  @UseGuards(AdminSessionGuard)
   @MinRole('COMPLIANCE')
   async list(
     @Query(new ZodValidationPipe(zListBreaksQuery.merge(zEnvironmentQuery)))
@@ -85,7 +84,6 @@ export class ReconciliationController {
   }
 
   @Get('breaks/:id')
-  @UseGuards(AdminSessionGuard)
   @MinRole('COMPLIANCE')
   async get(
     @Param('id') id: string,
@@ -110,7 +108,6 @@ export class ReconciliationController {
    * key, que ja exige papel alto.
    */
   @Post('breaks/:id/resolve')
-  @UseGuards(AdminSessionGuard)
   @MinRole('ADMIN')
   async resolve(
     @Param('id') id: string,

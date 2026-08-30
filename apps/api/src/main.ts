@@ -47,6 +47,12 @@ async function bootstrap(): Promise<void> {
     return jsonParser(request, response, next);
   });
 
+  // Sem isto, `request.ip` e o peer do socket — ou seja, o IP do pod do
+  // console, nao o do operador. `ConsoleSession.ipAddress` e `actorIp` da
+  // auditoria existem justamente para responder "de onde", e gravariam sempre
+  // o mesmo endereco. O `1` e o numero de proxies confiaveis a frente.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.enableCors({
     origin: config.consoleOrigin,
     credentials: true,

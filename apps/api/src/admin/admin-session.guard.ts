@@ -34,11 +34,17 @@ export class AdminSessionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AdminRequest>();
 
-    // O console e um BFF: o token chega em cookie httpOnly, nunca em JS do
-    // browser. O header existe para ferramentas de linha de comando.
+    // SO `Authorization: Bearer`. O ramo que aceitava um cookie `baas_session`
+    // saiu: nada no repositorio jamais escreveu esse cookie, entao era codigo
+    // morto — mas codigo morto que ANUNCIA "aceitamos cookie aqui", numa
+    // superficie que grava credencial de provedor e cunha API key e que nao
+    // tem CSRF nenhum. Com `enableCors({ credentials: true })` ja ligado, o
+    // dia em que alguem expusesse `/admin/v1` num ingress e algo passasse a
+    // escrever o cookie, toda rota admin viraria alvo de CSRF.
+    //
+    // O BFF do console manda Bearer, e ferramentas de linha de comando tambem.
     const header = request.headers.authorization;
-    const cookie = readCookie(request.headers.cookie, 'baas_session');
-    const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : cookie;
+    const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : undefined;
 
     if (!token) {
       throw new BaasError(BaasErrorCode.AUTHENTICATION_FAILED, {

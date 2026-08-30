@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
 import { z } from 'zod';
 
 import { Public } from '../auth/api-key.guard.js';
@@ -7,7 +7,7 @@ import { ApiConfig } from '../config/config.service.js';
 import { ProviderRegistry } from '../providers/provider.registry.js';
 
 import { AdminAuthService } from './admin-auth.service.js';
-import { AdminSessionGuard, MinRole, type AdminRequest } from './admin-session.guard.js';
+import { MinRole, type AdminRequest } from './admin-session.guard.js';
 
 const zLogin = z.object({
   email: z.string().email(),
@@ -64,13 +64,11 @@ export class AdminController {
 
   @Post('auth/logout')
   @HttpCode(204)
-  @UseGuards(AdminSessionGuard)
   async logout(@Req() request: AdminRequest): Promise<void> {
     await this.auth.logout(request.session!.sessionId);
   }
 
   @Get('me')
-  @UseGuards(AdminSessionGuard)
   me(@Req() request: AdminRequest) {
     const session = request.session!;
     return {
@@ -88,7 +86,6 @@ export class AdminController {
    * informacao comercial.
    */
   @Get('providers')
-  @UseGuards(AdminSessionGuard)
   @MinRole('OPERATOR')
   providers() {
     return {
@@ -111,7 +108,6 @@ export class AdminController {
    * ADMIN porque revela a postura de seguranca do deploy.
    */
   @Get('config')
-  @UseGuards(AdminSessionGuard)
   @MinRole('ADMIN')
   runtimeConfig() {
     return {
