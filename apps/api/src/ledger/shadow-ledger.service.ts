@@ -20,6 +20,22 @@ import { CLOCK } from '../common/clock.js';
 
 import { LEDGER_STORE_FACTORY, type LedgerStoreFactory } from './ledger.types.js';
 
+/**
+ * Uma transacao do razao, vista da conta do cliente.
+ *
+ * `amountCents` e o efeito LIQUIDO na conta, sempre positivo, com o sinal em
+ * `direction` — a mesma convencao do item normalizado da conciliacao.
+ */
+export interface LedgerMovement {
+  /** Id do lancamento representante. Vira o id do item de conciliacao. */
+  entryId: string;
+  transactionId: string;
+  type: LedgerTransactionType;
+  direction: 'CREDIT' | 'DEBIT';
+  amountCents: bigint;
+  effectiveAt: Date;
+}
+
 export interface CustomerAccounts {
   availableId: string;
   blockedId: string;
@@ -278,6 +294,64 @@ export class ShadowLedgerService {
     to: Date,
   ): Promise<LedgerEntry[]> {
     return this.stores.for(environment).entriesInWindow(ledgerAccountId, from, to);
+  }
+
+  /**
+   * Movimentos da janela, agregados POR TRANSACAO.
+   *
+   * Um `LedgerEntry` e meia transacao. Quem concilia precisa da transacao
+   * inteira — e do TIPO dela, que o lancamento nao carrega — senao contaria
+   * cada movimento duas vezes e a conferencia de saldo dobraria.
+   *
+   * `VOID` fica de fora, ao contrario de `entries`: uma reserva desfeita e um
+   * fato util para depurar, mas nao e movimento — o provedor nunca vai ter
+   * contraparte para ela, e ela viraria um lancamento orfao CRITICAL falso.
+   */
+  async movements(
+    environment: Environment,
+    ledgerAccountId: string,
+    from: Date,
+    to: Date,
+  ): Promise<LedgerMovement[]> {
+    const store = this.stores.for(environment);
+    const entries = await store.entriesInWindow(ledgerAccountId, from, to);
+
+    const porTransacao = new Map<string, LedgerEntry[]>();
+    for (const entry of entries) {
+      if (entry.phase !== EntryPhase.POSTED) continue;
+      porTransacao.set(entry.transactionId, [
+        ...(porTransacao.get(entry.transactionId) ?? []),
+        entry,
+      ]);
+    }
+
+    const movimentos: LedgerMovement[] = [];
+    for (const [transactionId, doGrupo] of porTransacao) {
+      const transaction = await store.findTransaction(transactionId);
+      if (!transaction) continue;
+
+      // Menor id primeiro: o representante nao pode depender da ordem em que
+      // o SELECT devolveu as linhas, senao duas execucoes da mesma janela
+      // produzem ids de item diferentes.
+      const ordenados = [...doGrupo].sort((a, b) => a.id.localeCompare(b.id));
+      const total = ordenados.reduce(
+        (soma, entry) =>
+          soma +
+          (entry.direction === EntryDirection.CREDIT ? entry.amountCents : -entry.amountCents),
+        0n,
+      );
+
+      movimentos.push({
+        entryId: ordenados[0]!.id,
+        transactionId,
+        type: transaction.type,
+        direction: total >= 0n ? 'CREDIT' : 'DEBIT',
+        amountCents: total < 0n ? -total : total,
+        effectiveAt: ordenados[0]!.effectiveAt,
+      });
+    }
+
+    return movimentos.sort((a, b) => a.entryId.localeCompare(b.entryId));
   }
 
   private async post(

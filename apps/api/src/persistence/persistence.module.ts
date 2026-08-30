@@ -27,6 +27,10 @@ import {
 import { CONNECTION_REPOSITORY } from '../providers/credential.resolver.js';
 import { CONNECTION_LOOKUP } from '../providers/provider.registry.js';
 import { PROVIDER_CALL_SINK } from '../providers/provider.resolver.js';
+import {
+  RECONCILIATION_BREAK_REPOSITORY,
+  RECONCILIATION_RUN_REPOSITORY,
+} from '../reconciliation/reconciliation.types.js';
 import { INBOUND_EVENT_REPOSITORY } from '../webhooks/webhooks.types.js';
 
 import { PrismaApiKeyRepository } from './api-key.repository.js';
@@ -64,6 +68,10 @@ import {
   MemoryPixKeyRepository,
   MemoryTransactionRepository,
 } from './memory/pix.repositories.js';
+import {
+  MemoryReconciliationBreakRepository,
+  MemoryReconciliationRunRepository,
+} from './memory/reconciliation.repositories.js';
 import { InMemoryNonceStore, RedisNonceStore } from './nonce.store.js';
 import {
   PrismaOutboxDispatchRepository,
@@ -78,6 +86,10 @@ import {
 } from './pix.repositories.js';
 import { PrismaService } from './prisma.service.js';
 import { NoopProviderCallSink, ProviderCallRecorder } from './provider-call.sink.js';
+import {
+  PrismaReconciliationBreakRepository,
+  PrismaReconciliationRunRepository,
+} from './reconciliation.repositories.js';
 import { REDIS, redisProvider } from './redis.provider.js';
 
 /**
@@ -111,6 +123,8 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PrismaOutboxDispatchRepository,
     PrismaWebhookEndpointRepository,
     PrismaWebhookDeliveryRepository,
+    PrismaReconciliationRunRepository,
+    PrismaReconciliationBreakRepository,
     ProviderCallRecorder,
     { provide: API_KEY_REPOSITORY, useExisting: PrismaApiKeyRepository },
     {
@@ -160,6 +174,16 @@ import { REDIS, redisProvider } from './redis.provider.js';
       WEBHOOK_ENDPOINT_REPOSITORY,
       PrismaWebhookEndpointRepository,
       MemoryWebhookEndpointRepository,
+    ),
+    domainProvider(
+      RECONCILIATION_RUN_REPOSITORY,
+      PrismaReconciliationRunRepository,
+      MemoryReconciliationRunRepository,
+    ),
+    domainProvider(
+      RECONCILIATION_BREAK_REPOSITORY,
+      PrismaReconciliationBreakRepository,
+      MemoryReconciliationBreakRepository,
     ),
     domainProvider(
       WEBHOOK_DELIVERY_REPOSITORY,
@@ -214,6 +238,8 @@ import { REDIS, redisProvider } from './redis.provider.js';
     OUTBOX_DISPATCH_REPOSITORY,
     WEBHOOK_ENDPOINT_REPOSITORY,
     WEBHOOK_DELIVERY_REPOSITORY,
+    RECONCILIATION_RUN_REPOSITORY,
+    RECONCILIATION_BREAK_REPOSITORY,
     PROVIDER_CALL_SINK,
     NONCE_STORE,
     AGGREGATE_LOCK,

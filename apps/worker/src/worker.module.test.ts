@@ -61,6 +61,15 @@ describe('grafo de injecao do worker', () => {
     expect(moduleRef.get(QueueHandlerRegistry).kinds).toContain('outbox_dispatch');
   });
 
+  it('a conciliacao esta registrada nas duas filas', () => {
+    // A varredura CRIA os runs e a execucao os roda. Sem as duas, o
+    // agendamento dispararia contra um registro vazio e o job morreria com
+    // "sem processador" — verde na suite, nada conciliado em producao.
+    const kinds = moduleRef.get(QueueHandlerRegistry).kinds;
+    expect(kinds).toContain('reconciliation_sweep');
+    expect(kinds).toContain('reconciliation');
+  });
+
   it('NAO tem o caminho de envio de dinheiro', async () => {
     // A regra da conciliacao e "nunca reenvia". A forma mais barata de
     // garanti-la e o worker nao ter `PixTransfersService` injetavel.

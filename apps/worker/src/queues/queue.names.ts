@@ -23,6 +23,7 @@ export const QUEUE_FOR_KIND: Readonly<Record<QueuedJob['kind'], QueueName>> = Ob
   inbound_webhook: QUEUE.inboundWebhook,
   outbox_dispatch: QUEUE.outboxDispatch,
   operation_resolve: QUEUE.operationResolve,
+  reconciliation_sweep: QUEUE.maintenance,
   reconciliation: QUEUE.reconciliation,
   poll: QUEUE.poll,
 });
@@ -49,6 +50,8 @@ export function jobIdOf(job: QueuedJob): string {
     // porque o degrau 2 ja existiu.
     case 'operation_resolve':
       return `opr-${job.operationId}-${job.step}`;
+    case 'reconciliation_sweep':
+      return `sweep-${job.scope}`;
     case 'reconciliation':
       return `rec-${job.runId}`;
     case 'poll':

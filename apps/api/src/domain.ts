@@ -49,7 +49,6 @@ export { ApiConfig } from './config/config.service.js';
 export { OperationReconciler } from './pix/operation-reconciler.js';
 export { PrismaService } from './persistence/prisma.service.js';
 export { ProviderResolver } from './providers/provider.resolver.js';
-export { ShadowLedgerService } from './ledger/shadow-ledger.service.js';
 export { WebhookApplyService } from './webhooks/webhook-apply.service.js';
 export type { ApplyContext, ApplyDraftsResult } from './webhooks/webhook-apply.service.js';
 export type { BoundProvider } from './providers/provider.resolver.js';
@@ -76,6 +75,8 @@ export {
   type EventQueue,
   type OutboxRepository,
   type OutboxDispatchJob,
+  type ReconciliationJob,
+  type ReconciliationSweepJob,
   type QueuedJob,
 } from './events/outbox.types.js';
 export {
@@ -108,6 +109,21 @@ export {
   type TransactionRecord,
   type TransactionRepository,
 } from './pix/pix.types.js';
+export {
+  RECONCILIATION_BREAK_REPOSITORY,
+  RECONCILIATION_RUN_REPOSITORY,
+  type BreakUpsertRow,
+  type MatchLinkRow,
+  type ReconciliationBreakRepository,
+  type ReconciliationItemRow,
+  type ReconciliationRunRecord,
+  type ReconciliationRunRepository,
+  type RunBalances,
+  type RunCounters,
+  type UpsertedBreak,
+} from './reconciliation/reconciliation.types.js';
+export { ShadowLedgerService } from './ledger/shadow-ledger.service.js';
+export type { LedgerMovement } from './ledger/shadow-ledger.service.js';
 export {
   CONNECTION_REPOSITORY,
   type ConnectionRepository,

@@ -1,4 +1,4 @@
-import type { ActorType, Environment, EventType } from '@baasconn/taxonomy';
+import type { ActorType, Environment, EventType, ReconciliationScope } from '@baasconn/taxonomy';
 
 export const OUTBOX_REPOSITORY = Symbol('BAAS_OUTBOX_REPOSITORY');
 export const AUDIT_REPOSITORY = Symbol('BAAS_AUDIT_REPOSITORY');
@@ -81,6 +81,22 @@ export interface OperationResolveJob {
   step: number;
 }
 
+/**
+ * Varredura que CRIA as execucoes do dia.
+ *
+ * Existe separado do `reconciliation` porque o job de execucao carrega um
+ * `runId` — o run precisa existir antes. Este e quem enumera as conexoes
+ * ativas e as contas de cada uma, cria um run por (conexao, conta) e
+ * enfileira a execucao.
+ *
+ * Vai para a fila `maintenance`, de concorrencia 1: uma varredura por vez no
+ * cluster inteiro e exatamente o que enumerar contas e criar runs precisa.
+ */
+export interface ReconciliationSweepJob {
+  kind: 'reconciliation_sweep';
+  scope: ReconciliationScope;
+}
+
 export interface ReconciliationJob {
   kind: 'reconciliation';
   environment: Environment;
@@ -102,7 +118,12 @@ export interface PollJob {
  * `kind`, entao os outros ramos viram no-op dentro do processo dela.
  */
 export type QueuedJob =
-  InboundWebhookJob | OutboxDispatchJob | OperationResolveJob | ReconciliationJob | PollJob;
+  | InboundWebhookJob
+  | OutboxDispatchJob
+  | OperationResolveJob
+  | ReconciliationSweepJob
+  | ReconciliationJob
+  | PollJob;
 
 /**
  * Fila de trabalho.

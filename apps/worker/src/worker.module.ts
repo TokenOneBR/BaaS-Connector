@@ -14,6 +14,7 @@ import { Module } from '@nestjs/common';
 import { MaintenanceModule } from './maintenance/maintenance.module.js';
 import { OutboxModule } from './outbox/outbox.module.js';
 import { BullMqModule } from './queues/bullmq.module.js';
+import { ReconciliationModule } from './reconciliation/reconciliation.module.js';
 
 /**
  * Raiz do worker.
@@ -38,6 +39,7 @@ import { BullMqModule } from './queues/bullmq.module.js';
     BullMqModule,
     OutboxModule,
     MaintenanceModule,
+    ReconciliationModule,
   ],
 })
 export class WorkerModule {}

@@ -226,6 +226,9 @@ importers:
       '@baasconn/provider-spi':
         specifier: workspace:*
         version: link:../../packages/provider-spi
+      '@baasconn/reconciliation':
+        specifier: workspace:*
+        version: link:../../packages/reconciliation
       '@baasconn/taxonomy':
         specifier: workspace:*
         version: link:../../packages/taxonomy

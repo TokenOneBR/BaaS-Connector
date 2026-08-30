@@ -33,17 +33,20 @@ export { LEDGER_STORE_FACTORY } from './ledger/ledger.types.js';
 export { buildSignature, generateNonce } from './auth/api-key.service.js';
 export type {
   MemoryAccountRepository,
-  MemoryAuditRepository,
   MemoryInboundEventRepository,
   MemoryOnboardingRepository,
-  MemoryOutboxRepository,
 } from './persistence/memory/domain.repositories.js';
 export type {
   MemoryOperationRepository,
   MemoryPixChargeRepository,
   MemoryPixKeyRepository,
-  MemoryTransactionRepository,
 } from './persistence/memory/pix.repositories.js';
+// Mesma razao dos dobros de despacho abaixo: o teste do worker os CONSTROI.
+export {
+  MemoryAuditRepository,
+  MemoryOutboxRepository,
+} from './persistence/memory/domain.repositories.js';
+export { MemoryTransactionRepository } from './persistence/memory/pix.repositories.js';
 export type { MemoryLedgerStoreFactory } from './ledger/memory-ledger-store.js';
 // Estes saem como VALOR, e nao so como tipo: o teste de integracao do worker
 // monta o despachante com eles. Sao dobros, que e exatamente o que este
@@ -54,3 +57,7 @@ export {
   MemoryWebhookDeliveryRepository,
   MemoryWebhookEndpointRepository,
 } from './persistence/memory/outbox-delivery.repositories.js';
+export {
+  MemoryReconciliationBreakRepository,
+  MemoryReconciliationRunRepository,
+} from './persistence/memory/reconciliation.repositories.js';
