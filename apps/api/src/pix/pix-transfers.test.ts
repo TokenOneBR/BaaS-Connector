@@ -44,6 +44,7 @@ describe('PIX out', () => {
   let service: PixTransfersService;
   let account: AccountRecord;
   let send: ReturnType<typeof vi.fn>;
+  let enfileirados: unknown[];
   let findByIdempotencyKey: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
@@ -100,6 +101,13 @@ describe('PIX out', () => {
       })),
     };
 
+    // A escada do desfecho desconhecido comeca pelo caminho quente.
+    enfileirados = [];
+    const fila = {
+      enqueue: async (job: unknown) => void enfileirados.push(job),
+      drain: async () => undefined,
+    } as never;
+
     service = new PixTransfersService(
       providers as never,
       ledger,
@@ -108,6 +116,7 @@ describe('PIX out', () => {
       transactions,
       operations,
       new MemoryOutboxRepository(),
+      fila,
       new InMemoryCacheStore(clock),
       clock,
     );
@@ -188,6 +197,17 @@ describe('PIX out', () => {
     expect(available().available).toBe(50_000n);
     expect(outcome.transaction.status).toBe(TransactionStatus.UNKNOWN);
     if (outcome.kind === 'accepted') expect(outcome.operation.status).toBe('UNKNOWN');
+  });
+
+  it('desfecho desconhecido enfileira o degrau 0 da escada', async () => {
+    // Sem o empurrao do caminho quente, o desfecho so seria consultado na
+    // proxima varredura do worker — com o saldo do cliente travado ate la.
+    send.mockRejectedValue(new ProviderOutcomeUnknownError('mock-bank', 'timeout na escrita'));
+    await service.send(actor(), account.id, dto(50_000n));
+
+    expect(enfileirados).toContainEqual(
+      expect.objectContaining({ kind: 'operation_resolve', step: 0 }),
+    );
   });
 
   it('desfecho desconhecido nao apaga a transacao', async () => {

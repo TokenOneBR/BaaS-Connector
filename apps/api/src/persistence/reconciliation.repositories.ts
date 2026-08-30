@@ -1,3 +1,4 @@
+import { Prisma } from '@baasconn/db';
 import type {
   BreakSeverity,
   BreakStatus,
@@ -8,6 +9,10 @@ import type {
 } from '@baasconn/taxonomy';
 import { Injectable } from '@nestjs/common';
 
+import type {
+  PollCursorRecord,
+  PollCursorRepository,
+} from '../reconciliation/poll-cursor.types.js';
 import type {
   BreakUpsertRow,
   MatchLinkRow,
@@ -279,5 +284,75 @@ function toRun(row: {
     status: row.status as ReconciliationRunStatus,
     triggeredBy: row.triggeredBy,
     createdAt: row.createdAt ?? row.windowStart,
+  };
+}
+
+@Injectable()
+export class PrismaPollCursorRepository implements PollCursorRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async ensure(input: Parameters<PollCursorRepository['ensure']>[0]): Promise<PollCursorRecord> {
+    await this.prisma.client.pollCursor.createMany({ data: [input], skipDuplicates: true });
+    const row = await this.prisma.client.pollCursor.findUniqueOrThrow({
+      where: {
+        connectionId_stream_scopeId: {
+          connectionId: input.connectionId,
+          stream: input.stream,
+          scopeId: input.scopeId,
+        },
+      },
+    });
+    return toCursor(row);
+  }
+
+  async advance(input: { id: string; watermark: Date; cursor?: string; at: Date }): Promise<void> {
+    await this.prisma.client.pollCursor.update({
+      where: { id: input.id },
+      data: {
+        watermark: input.watermark,
+        cursor: input.cursor ?? null,
+        lastRunAt: input.at,
+        // NULL do SQL, nao JSON null: sao coisas diferentes na coluna.
+        lastError: Prisma.DbNull,
+      },
+    });
+  }
+
+  async recordFailure(id: string, error: Record<string, unknown>, at: Date): Promise<void> {
+    await this.prisma.client.pollCursor.update({
+      where: { id },
+      // A marca d'agua NAO se move aqui: a proxima volta refaz a mesma janela.
+      data: { lastRunAt: at, lastError: error as never },
+    });
+  }
+
+  async listByStream(stream: string): Promise<PollCursorRecord[]> {
+    const rows = await this.prisma.client.pollCursor.findMany({
+      where: { stream },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map(toCursor);
+  }
+}
+
+function toCursor(row: {
+  id: string;
+  connectionId: string;
+  stream: string;
+  scopeId: string | null;
+  cursor: string | null;
+  watermark: Date;
+  lapSeconds: number;
+  lastRunAt: Date | null;
+}): PollCursorRecord {
+  return {
+    id: row.id,
+    connectionId: row.connectionId,
+    stream: row.stream,
+    scopeId: row.scopeId ?? '',
+    cursor: row.cursor ?? undefined,
+    watermark: row.watermark,
+    lapSeconds: row.lapSeconds,
+    lastRunAt: row.lastRunAt ?? undefined,
   };
 }

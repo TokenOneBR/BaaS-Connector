@@ -7,6 +7,10 @@ import type {
 } from '@baasconn/taxonomy';
 
 import type {
+  PollCursorRecord,
+  PollCursorRepository,
+} from '../../reconciliation/poll-cursor.types.js';
+import type {
   BreakUpsertRow,
   MatchLinkRow,
   ReconciliationBreakRepository,
@@ -217,5 +221,39 @@ export class MemoryReconciliationBreakRepository implements ReconciliationBreakR
       )
       .slice(0, filter.limit)
       .map((row) => ({ id: row.id, type: row.type, severity: row.severity, status: row.status }));
+  }
+}
+
+export class MemoryPollCursorRepository implements PollCursorRepository {
+  readonly rows = new Map<string, PollCursorRecord>();
+
+  async ensure(input: Parameters<PollCursorRepository['ensure']>[0]): Promise<PollCursorRecord> {
+    const chave = [input.connectionId, input.stream, input.scopeId].join('|');
+    const existente = [...this.rows.values()].find(
+      (row) => [row.connectionId, row.stream, row.scopeId].join('|') === chave,
+    );
+    if (existente) return existente;
+
+    const row: PollCursorRecord = { ...input };
+    this.rows.set(row.id, row);
+    return row;
+  }
+
+  async advance(input: { id: string; watermark: Date; cursor?: string; at: Date }): Promise<void> {
+    const row = this.rows.get(input.id);
+    if (!row) return;
+    row.watermark = input.watermark;
+    row.cursor = input.cursor;
+    row.lastRunAt = input.at;
+  }
+
+  async recordFailure(id: string, _error: Record<string, unknown>, at: Date): Promise<void> {
+    const row = this.rows.get(id);
+    // A marca d'agua NAO se move: a proxima volta refaz a mesma janela.
+    if (row) row.lastRunAt = at;
+  }
+
+  async listByStream(stream: string): Promise<PollCursorRecord[]> {
+    return [...this.rows.values()].filter((row) => row.stream === stream);
   }
 }

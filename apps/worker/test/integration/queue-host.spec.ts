@@ -145,6 +145,9 @@ describe.skipIf(!disponivel)('host de processadores sobre Redis real', () => {
       dispatcher,
       new Metrics(),
       eventQueue,
+      // A escada nao participa deste teste: o varredor dela e independente do
+      // de entregas, e um dobro vazio mantem o cenario no que se quer provar.
+      { sweepStuck: async () => 0 } as never,
       deliveries,
       eventQueue,
       clock,

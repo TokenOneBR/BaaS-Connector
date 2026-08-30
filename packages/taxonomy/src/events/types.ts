@@ -107,3 +107,22 @@ export const WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS = 300;
 export const WEBHOOK_RETRY_SCHEDULE_SECONDS: readonly number[] = Object.freeze([
   10, 30, 120, 600, 1_800, 3_600, 10_800, 21_600, 43_200, 86_400,
 ]);
+
+/**
+ * Escada do desfecho DESCONHECIDO: 7 consultas em ~8h.
+ *
+ * Mora aqui, ao lado da de webhook, porque e decisao de PRODUTO e nao detalhe
+ * do worker: a ADR 0015 a cita como parte do contrato de um `202`.
+ *
+ * Os primeiros degraus sao curtos de proposito. A maioria dos desfechos
+ * desconhecidos resolve em segundos — o POST chegou, a resposta e que se
+ * perdeu — e cada degrau que passa e saldo do cliente travado. Os ultimos sao
+ * longos porque, passada a primeira hora, o que resta e atraso de indexacao
+ * do provedor, e consultar de minuto em minuto so gasta rate limit.
+ *
+ * Esgotar NAO conclui que o pagamento falhou: conclui que nos nao
+ * conseguimos descobrir, o que e uma quebra para revisao humana.
+ */
+export const UNKNOWN_OUTCOME_LADDER_SECONDS: readonly number[] = Object.freeze([
+  5, 15, 60, 300, 900, 3_600, 21_600,
+]);

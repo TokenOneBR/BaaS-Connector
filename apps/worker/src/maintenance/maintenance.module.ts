@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { OperationsModule } from '../operations/operations.module.js';
 import { OutboxModule } from '../outbox/outbox.module.js';
 
 import { SweepersService } from './sweepers.service.js';
@@ -13,7 +14,7 @@ import { SweepersService } from './sweepers.service.js';
  * direto, sem timer nenhum.
  */
 @Module({
-  imports: [OutboxModule],
+  imports: [OutboxModule, OperationsModule],
   providers: [SweepersService],
   exports: [SweepersService],
 })

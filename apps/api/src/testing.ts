@@ -37,10 +37,10 @@ export type {
   MemoryOnboardingRepository,
 } from './persistence/memory/domain.repositories.js';
 export type {
-  MemoryOperationRepository,
   MemoryPixChargeRepository,
   MemoryPixKeyRepository,
 } from './persistence/memory/pix.repositories.js';
+export { MemoryOperationRepository } from './persistence/memory/pix.repositories.js';
 // Mesma razao dos dobros de despacho abaixo: o teste do worker os CONSTROI.
 export {
   MemoryAuditRepository,
@@ -61,3 +61,4 @@ export {
   MemoryReconciliationBreakRepository,
   MemoryReconciliationRunRepository,
 } from './persistence/memory/reconciliation.repositories.js';
+export { MemoryPollCursorRepository } from './persistence/memory/reconciliation.repositories.js';

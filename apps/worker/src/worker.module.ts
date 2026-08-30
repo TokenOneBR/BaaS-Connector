@@ -12,6 +12,7 @@ import {
 import { Module } from '@nestjs/common';
 
 import { MaintenanceModule } from './maintenance/maintenance.module.js';
+import { OperationsModule } from './operations/operations.module.js';
 import { OutboxModule } from './outbox/outbox.module.js';
 import { BullMqModule } from './queues/bullmq.module.js';
 import { ReconciliationModule } from './reconciliation/reconciliation.module.js';
@@ -40,6 +41,7 @@ import { ReconciliationModule } from './reconciliation/reconciliation.module.js'
     OutboxModule,
     MaintenanceModule,
     ReconciliationModule,
+    OperationsModule,
   ],
 })
 export class WorkerModule {}

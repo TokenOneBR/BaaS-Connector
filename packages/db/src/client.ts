@@ -1,6 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
 export type { PrismaClient } from '@prisma/client';
+// Como VALOR: `Prisma.DbNull` e `Prisma.JsonNull` sao sentinelas de runtime, e
+// zerar uma coluna Json exige o primeiro — `null` cru grava JSON null, que e
+// coisa diferente de NULL do SQL.
+export { Prisma } from '@prisma/client';
 export * from '@prisma/client';
 
 export interface PrismaOptions {

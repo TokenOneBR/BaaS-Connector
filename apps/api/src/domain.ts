@@ -74,7 +74,9 @@ export {
   type AuditRepository,
   type EventQueue,
   type OutboxRepository,
+  type OperationResolveJob,
   type OutboxDispatchJob,
+  type PollJob,
   type ReconciliationJob,
   type ReconciliationSweepJob,
   type QueuedJob,
@@ -109,6 +111,11 @@ export {
   type TransactionRecord,
   type TransactionRepository,
 } from './pix/pix.types.js';
+export {
+  POLL_CURSOR_REPOSITORY,
+  type PollCursorRecord,
+  type PollCursorRepository,
+} from './reconciliation/poll-cursor.types.js';
 export {
   RECONCILIATION_BREAK_REPOSITORY,
   RECONCILIATION_RUN_REPOSITORY,

@@ -8,6 +8,7 @@ import {
   type EventQueue,
   type WebhookDeliveryRepository,
 } from '@baasconn/api/domain';
+import { Environment } from '@baasconn/taxonomy';
 import {
   Inject,
   Injectable,
@@ -16,12 +17,15 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 
+import { UnknownOutcomeLadderService } from '../operations/ladder.service.js';
 import { OutboxDispatcherService } from '../outbox/outbox-dispatcher.service.js';
 import { BullMqEventQueue } from '../queues/bullmq-event-queue.js';
 
 /** Reivindicacao do outbox e entregas vencidas: sub-minuto, as duas. */
 const DISPATCH_INTERVAL_MS = 1_000;
 const METRICS_INTERVAL_MS = 15_000;
+/** Operacoes presas: 30 s. O saldo do cliente esta travado enquanto isso. */
+const STUCK_INTERVAL_MS = 30_000;
 const OUTBOX_BATCH = 500;
 const DELIVERY_BATCH = 200;
 
@@ -44,6 +48,7 @@ export class SweepersService implements OnModuleInit, OnModuleDestroy {
     private readonly dispatcher: OutboxDispatcherService,
     private readonly metrics: Metrics,
     private readonly bullQueue: BullMqEventQueue,
+    private readonly ladder: UnknownOutcomeLadderService,
     @Inject(WEBHOOK_DELIVERY_REPOSITORY) private readonly deliveries: WebhookDeliveryRepository,
     @Inject(EVENT_QUEUE) private readonly queue: EventQueue,
     @Inject(CLOCK) private readonly clock: Clock,
@@ -56,6 +61,7 @@ export class SweepersService implements OnModuleInit, OnModuleDestroy {
     this.schedule(() => this.sweepOutbox(), DISPATCH_INTERVAL_MS);
     this.schedule(() => this.sweepDeliveries(), DISPATCH_INTERVAL_MS);
     this.schedule(() => this.reportMetrics(), METRICS_INTERVAL_MS);
+    this.schedule(() => this.sweepStuckOperations(), STUCK_INTERVAL_MS);
     this.logger.log('Varredores ativos');
   }
 
@@ -91,6 +97,22 @@ export class SweepersService implements OnModuleInit, OnModuleDestroy {
       });
     }
     return vencidas.length;
+  }
+
+  /**
+   * Operacoes presas em desfecho desconhecido.
+   *
+   * O caminho quente enfileira o degrau 0 ao gravar `UNKNOWN`. Este varredor
+   * pega o que foi escrito com o Redis fora — sem ele, uma operacao gravada
+   * durante uma queda de fila ficaria presa para sempre com o saldo do cliente
+   * travado.
+   */
+  async sweepStuckOperations(): Promise<number> {
+    let total = 0;
+    for (const environment of [Environment.HOMOLOGACAO, Environment.PRODUCAO]) {
+      total += await this.ladder.sweepStuck(environment);
+    }
+    return total;
   }
 
   async reportMetrics(): Promise<void> {

@@ -27,6 +27,7 @@ import {
 import { CONNECTION_REPOSITORY } from '../providers/credential.resolver.js';
 import { CONNECTION_LOOKUP } from '../providers/provider.registry.js';
 import { PROVIDER_CALL_SINK } from '../providers/provider.resolver.js';
+import { POLL_CURSOR_REPOSITORY } from '../reconciliation/poll-cursor.types.js';
 import {
   RECONCILIATION_BREAK_REPOSITORY,
   RECONCILIATION_RUN_REPOSITORY,
@@ -69,6 +70,7 @@ import {
   MemoryTransactionRepository,
 } from './memory/pix.repositories.js';
 import {
+  MemoryPollCursorRepository,
   MemoryReconciliationBreakRepository,
   MemoryReconciliationRunRepository,
 } from './memory/reconciliation.repositories.js';
@@ -87,6 +89,7 @@ import {
 import { PrismaService } from './prisma.service.js';
 import { NoopProviderCallSink, ProviderCallRecorder } from './provider-call.sink.js';
 import {
+  PrismaPollCursorRepository,
   PrismaReconciliationBreakRepository,
   PrismaReconciliationRunRepository,
 } from './reconciliation.repositories.js';
@@ -125,6 +128,7 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PrismaWebhookDeliveryRepository,
     PrismaReconciliationRunRepository,
     PrismaReconciliationBreakRepository,
+    PrismaPollCursorRepository,
     ProviderCallRecorder,
     { provide: API_KEY_REPOSITORY, useExisting: PrismaApiKeyRepository },
     {
@@ -185,6 +189,7 @@ import { REDIS, redisProvider } from './redis.provider.js';
       PrismaReconciliationBreakRepository,
       MemoryReconciliationBreakRepository,
     ),
+    domainProvider(POLL_CURSOR_REPOSITORY, PrismaPollCursorRepository, MemoryPollCursorRepository),
     domainProvider(
       WEBHOOK_DELIVERY_REPOSITORY,
       PrismaWebhookDeliveryRepository,
@@ -240,6 +245,7 @@ import { REDIS, redisProvider } from './redis.provider.js';
     WEBHOOK_DELIVERY_REPOSITORY,
     RECONCILIATION_RUN_REPOSITORY,
     RECONCILIATION_BREAK_REPOSITORY,
+    POLL_CURSOR_REPOSITORY,
     PROVIDER_CALL_SINK,
     NONCE_STORE,
     AGGREGATE_LOCK,

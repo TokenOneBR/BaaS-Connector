@@ -32,7 +32,12 @@ import {
 } from '../accounts/accounts.types.js';
 import { CACHE_STORE, accountTag, type CacheStore } from '../cache/cache.types.js';
 import { CLOCK } from '../common/clock.js';
-import { OUTBOX_REPOSITORY, type OutboxRepository } from '../events/outbox.types.js';
+import {
+  EVENT_QUEUE,
+  OUTBOX_REPOSITORY,
+  type EventQueue,
+  type OutboxRepository,
+} from '../events/outbox.types.js';
 import { ShadowLedgerService } from '../ledger/shadow-ledger.service.js';
 import { ProviderResolver, type BoundProvider } from '../providers/provider.resolver.js';
 
@@ -71,6 +76,7 @@ export class PixTransfersService {
     @Inject(TRANSACTION_REPOSITORY) private readonly transactions: TransactionRepository,
     @Inject(OPERATION_REPOSITORY) private readonly operations: OperationRepository,
     @Inject(OUTBOX_REPOSITORY) private readonly outbox: OutboxRepository,
+    @Inject(EVENT_QUEUE) private readonly queue: EventQueue,
     @Inject(CACHE_STORE) private readonly cache: CacheStore,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
@@ -445,6 +451,17 @@ export class PixTransfersService {
       subjectId: transaction.id,
       payload: { status: TransactionStatus.UNKNOWN, operation_id: operation.id },
       occurredAt: now,
+    });
+
+    // Degrau 0 da escada, pelo caminho quente. O varredor do worker cobre o
+    // que for gravado com o Redis fora; enfileirar aqui e o que faz o caso
+    // normal resolver em segundos em vez de esperar a proxima varredura, com
+    // o saldo do cliente travado enquanto isso.
+    await this.queue.enqueue({
+      kind: 'operation_resolve',
+      environment: input.actor.environment,
+      operationId: operation.id,
+      step: 0,
     });
 
     this.logger.warn(
