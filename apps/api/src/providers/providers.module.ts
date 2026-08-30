@@ -1,5 +1,9 @@
+import { asaasFactory } from '@baasconn/adapter-asaas';
 import { celcoinFactory } from '@baasconn/adapter-celcoin';
+import { dockFactory } from '@baasconn/adapter-dock';
 import { mockbankFactory } from '@baasconn/adapter-mock-bank';
+import { qitechFactory } from '@baasconn/adapter-qitech';
+import { wooviFactory } from '@baasconn/adapter-woovi';
 import type { ProviderAdapterFactory } from '@baasconn/provider-spi';
 import { Module } from '@nestjs/common';
 
@@ -19,7 +23,14 @@ import { ProviderResolver } from './provider.resolver.js';
  * credencial de BaaS nenhuma, e `/v1/providers` responde lista vazia em vez de
  * o boot falhar.
  */
-export const PROVIDER_ADAPTERS: ProviderAdapterFactory[] = [mockbankFactory, celcoinFactory];
+export const PROVIDER_ADAPTERS: ProviderAdapterFactory[] = [
+  mockbankFactory,
+  celcoinFactory,
+  wooviFactory,
+  asaasFactory,
+  dockFactory,
+  qitechFactory,
+];
 
 @Module({
   providers: [

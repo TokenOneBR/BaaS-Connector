@@ -32,15 +32,27 @@ importers:
 
   apps/api:
     dependencies:
+      '@baasconn/adapter-asaas':
+        specifier: workspace:*
+        version: link:../../packages/adapters/asaas
       '@baasconn/adapter-celcoin':
         specifier: workspace:*
         version: link:../../packages/adapters/celcoin
+      '@baasconn/adapter-dock':
+        specifier: workspace:*
+        version: link:../../packages/adapters/dock
       '@baasconn/adapter-kit':
         specifier: workspace:*
         version: link:../../packages/adapter-kit
       '@baasconn/adapter-mock-bank':
         specifier: workspace:*
         version: link:../../packages/adapters/mock-bank
+      '@baasconn/adapter-qitech':
+        specifier: workspace:*
+        version: link:../../packages/adapters/qitech
+      '@baasconn/adapter-woovi':
+        specifier: workspace:*
+        version: link:../../packages/adapters/woovi
       '@baasconn/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -370,6 +382,40 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
 
+  packages/adapters/asaas:
+    dependencies:
+      '@baasconn/adapter-kit':
+        specifier: workspace:*
+        version: link:../../adapter-kit
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/conformance':
+        specifier: workspace:*
+        version: link:../../conformance
+      '@baasconn/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint-config
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
+
   packages/adapters/celcoin:
     dependencies:
       '@baasconn/adapter-kit':
@@ -404,7 +450,109 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
 
+  packages/adapters/dock:
+    dependencies:
+      '@baasconn/adapter-kit':
+        specifier: workspace:*
+        version: link:../../adapter-kit
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/conformance':
+        specifier: workspace:*
+        version: link:../../conformance
+      '@baasconn/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint-config
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
+
   packages/adapters/mock-bank:
+    dependencies:
+      '@baasconn/adapter-kit':
+        specifier: workspace:*
+        version: link:../../adapter-kit
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/conformance':
+        specifier: workspace:*
+        version: link:../../conformance
+      '@baasconn/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint-config
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
+
+  packages/adapters/qitech:
+    dependencies:
+      '@baasconn/adapter-kit':
+        specifier: workspace:*
+        version: link:../../adapter-kit
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/conformance':
+        specifier: workspace:*
+        version: link:../../conformance
+      '@baasconn/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint-config
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest-config
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
+
+  packages/adapters/woovi:
     dependencies:
       '@baasconn/adapter-kit':
         specifier: workspace:*

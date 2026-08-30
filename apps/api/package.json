@@ -14,9 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@baasconn/adapter-asaas": "workspace:*",
     "@baasconn/adapter-celcoin": "workspace:*",
+    "@baasconn/adapter-dock": "workspace:*",
     "@baasconn/adapter-kit": "workspace:*",
     "@baasconn/adapter-mock-bank": "workspace:*",
+    "@baasconn/adapter-qitech": "workspace:*",
+    "@baasconn/adapter-woovi": "workspace:*",
     "@baasconn/contracts": "workspace:*",
     "@baasconn/crypto": "workspace:*",
     "@baasconn/db": "workspace:*",
