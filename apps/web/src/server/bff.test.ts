@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -72,6 +72,38 @@ describe('fronteira do BFF', () => {
     // eco-lo. `lax` nos de token porque `strict` quebraria todo deep link.
     expect(cookies).toContain("sameSite: 'strict' as const");
     expect(cookies).toContain("sameSite: 'lax' as const");
+  });
+
+  it('toda Server Action passa por `defineAction`, com uma excecao nomeada', () => {
+    // `defineAction` e o unico lugar que chama `assertCsrf`. Uma acao escrita
+    // a mao com `export async function` num arquivo `'use server'` seria
+    // indistinguivel de uma acao sem protecao nenhuma — e as acoes deste
+    // console gravam credencial de provedor e injetam PIX.
+    //
+    // O LOGIN e a unica excecao, e ela e legitima: o token de CSRF nasce na
+    // primeira navegacao autenticada, entao exigi-lo no login seria ovo e
+    // galinha. Estar na lista aqui e o que impede a excecao de crescer — uma
+    // segunda acao sem `defineAction` reprova, ainda que copie o comentario.
+    const ISENTOS = ['(auth)/login/actions.ts'];
+
+    const acoes = walk(SRC_DIR).filter(
+      (file) => !file.includes('.test.') && readFileSync(file, 'utf8').startsWith("'use server'"),
+    );
+    expect(acoes.length).toBeGreaterThan(1);
+
+    for (const file of acoes) {
+      const conteudo = codigo(file);
+      if (ISENTOS.some((isento) => file.endsWith(isento.replace('/', sep)))) continue;
+
+      // Toda exportacao de um modulo `'use server'` VIRA um endpoint POST.
+      // Nao ha exportacao inocente ali.
+      const exportados = conteudo.match(/export (?:const|async function|function) \w+/g) ?? [];
+      expect(exportados.length, file).toBeGreaterThan(0);
+      for (const exportado of exportados) {
+        expect(exportado, `${file}: ${exportado}`).toMatch(/^export const /);
+      }
+      expect(conteudo, file).toContain('defineAction(');
+    }
   });
 
   it('a paleta so aparece no arquivo de tokens', () => {

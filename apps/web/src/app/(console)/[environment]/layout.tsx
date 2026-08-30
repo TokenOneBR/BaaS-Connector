@@ -3,19 +3,36 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { serverApi } from '@/server/api-client';
+import { mockBankEnabled } from '@/server/mock-bank';
 import { atLeast, requireSession, type ConsoleUser } from '@/server/session';
 
 const AMBIENTES = ['HOMOLOGACAO', 'PRODUCAO'] as const;
 type Ambiente = (typeof AMBIENTES)[number];
 
-const NAV: ReadonlyArray<{ href: string; label: string; minimo: ConsoleRole }> = [
+const NAV: ReadonlyArray<{
+  href: string;
+  label: string;
+  minimo: ConsoleRole;
+  quando?: (ambiente: string) => boolean;
+}> = [
   { href: 'dashboard', label: 'Painel', minimo: ConsoleRole.VIEWER },
   { href: 'accounts', label: 'Contas', minimo: ConsoleRole.VIEWER },
   { href: 'transactions', label: 'Transacoes', minimo: ConsoleRole.VIEWER },
   { href: 'reconciliation', label: 'Conciliacao', minimo: ConsoleRole.COMPLIANCE },
   { href: 'providers', label: 'Provedores', minimo: ConsoleRole.VIEWER },
   { href: 'api-keys', label: 'API keys', minimo: ConsoleRole.ADMIN },
+  { href: 'webhooks', label: 'Webhooks', minimo: ConsoleRole.COMPLIANCE },
   { href: 'audit', label: 'Auditoria', minimo: ConsoleRole.COMPLIANCE },
+  {
+    href: 'mock-bank',
+    label: 'Mock Bank',
+    minimo: ConsoleRole.OPERATOR,
+    // A tela injeta PIX e avanca o relogio: so existe onde ha um banco falso
+    // configurado, e nunca em PRODUCAO. A pagina tambem devolve 404 nos dois
+    // casos — o link some para nao oferecer o que nao ha, e o 404 e a regra.
+    quando: (ambiente: string) => mockBankEnabled && ambiente !== 'PRODUCAO',
+  },
+  { href: 'settings', label: 'Ajustes', minimo: ConsoleRole.VIEWER },
 ];
 
 /**
@@ -54,7 +71,9 @@ export default async function ConsoleLayout({
           <p className="mb-4 text-sm font-semibold">BaaS Connector</p>
 
           <ul className="space-y-1 text-sm">
-            {NAV.filter((item) => atLeast(user.role, item.minimo)).map((item) => (
+            {NAV.filter(
+              (item) => atLeast(user.role, item.minimo) && (item.quando?.(environment) ?? true),
+            ).map((item) => (
               <li key={item.href}>
                 <Link
                   href={`/${environment}/${item.href}`}

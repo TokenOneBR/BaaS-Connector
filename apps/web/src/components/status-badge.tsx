@@ -2,7 +2,10 @@ import {
   AccountStatus,
   BreakSeverity,
   BreakStatus,
+  DeliveryStatus,
+  InboundEventStatus,
   OnboardingStatus,
+  SubscriptionStatus,
   TransactionStatus,
 } from '@baasconn/taxonomy';
 
@@ -80,12 +83,43 @@ const SEVERIDADE: Readonly<Record<BreakSeverity, Tom>> = {
   [BreakSeverity.CRITICAL]: 'danger',
 };
 
+const EVENTO_ENTRADA: Readonly<Record<InboundEventStatus, Tom>> = {
+  [InboundEventStatus.RECEIVED]: 'info',
+  [InboundEventStatus.PROCESSING]: 'info',
+  [InboundEventStatus.PROCESSED]: 'success',
+  // `DISCARDED` e NEUTRO, nao vermelho: e o guard monotonico absorvendo evento
+  // velho ou duplicado, que e o desenho funcionando. Pinta-lo de erro faria o
+  // operador abrir chamado para o comportamento correto.
+  [InboundEventStatus.DISCARDED]: 'neutral',
+  // `FAILED` ainda tem tentativa pela frente; `DEAD_LETTER` nao tem mais.
+  [InboundEventStatus.FAILED]: 'warning',
+  [InboundEventStatus.DEAD_LETTER]: 'danger',
+};
+
+const ENTREGA: Readonly<Record<DeliveryStatus, Tom>> = {
+  [DeliveryStatus.PENDING]: 'info',
+  [DeliveryStatus.SUCCEEDED]: 'success',
+  [DeliveryStatus.FAILED]: 'warning',
+  // A escada de ~72h terminou sem sucesso: o cliente NAO recebeu, e nao vai
+  // receber sem intervencao.
+  [DeliveryStatus.EXHAUSTED]: 'danger',
+};
+
+const ASSINATURA: Readonly<Record<SubscriptionStatus, Tom>> = {
+  [SubscriptionStatus.ACTIVE]: 'success',
+  [SubscriptionStatus.PAUSED]: 'neutral',
+  [SubscriptionStatus.DISABLED_BY_FAILURES]: 'danger',
+};
+
 export const MAPAS = {
   account: CONTA,
   transaction: TRANSACAO,
   onboarding: ONBOARDING,
   break: QUEBRA,
   severity: SEVERIDADE,
+  inboundEvent: EVENTO_ENTRADA,
+  delivery: ENTREGA,
+  subscription: ASSINATURA,
 } as const;
 
 export type StatusKind = keyof typeof MAPAS;
