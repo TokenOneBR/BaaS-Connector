@@ -7,7 +7,9 @@ import {
   BreakType,
   ConnectionStatus,
   ConsoleRole,
+  DeliveryStatus,
   Environment,
+  InboundEventStatus,
   ProviderSlug,
   ReconciliationRunStatus,
   ReconciliationScope,
@@ -17,6 +19,7 @@ import {
 import { z } from 'zod';
 
 import { zPaginationQuery } from '../common/pagination.js';
+import { zWebhookDelivery, zWebhookEndpoint } from '../webhooks/index.js';
 import { zEffectiveDate, zEnum, zMoney, zTimestamp } from '../common/primitives.js';
 
 // --------------------------------------------------------------------------
@@ -297,6 +300,88 @@ export const zAuditVerification = z.object({
   first_divergence: z
     .object({ audit_id: z.string(), sequence: z.string(), occurred_at: zTimestamp })
     .nullish(),
+});
+
+// --------------------------------------------------------------------------
+// Webhooks: entrada (do provedor) e saida (para o cliente)
+// --------------------------------------------------------------------------
+
+/**
+ * Evento recebido de um provedor.
+ *
+ * `payload` sai REDIGIDO — a redacao acontece antes de o objeto deixar o
+ * adapter-kit, e o corpo cru nunca chega a um transport de logger. Esta rota
+ * serve a mesma politica: o operador precisa ver a FORMA do evento para
+ * depurar, nunca o CPF que veio dentro dele.
+ */
+export const zInboundWebhookEvent = z.object({
+  id: z.string(),
+  environment: zEnum(Environment),
+  provider: zEnum(ProviderSlug),
+  connection_id: z.string(),
+  /** Cru, como o provedor mandou: e o que o operador confere contra a doc dele. */
+  event_type_raw: z.string().nullish(),
+  provider_event_id: z.string().nullish(),
+  dedupe_key: z.string(),
+  status: zEnum(InboundEventStatus),
+  /**
+   * Sempre `true` no que esta gravado: corpo com assinatura invalida e recusado
+   * com 401 e NAO gera linha. O campo existe porque a coluna existe, e porque
+   * uma linha `false` aqui seria sinal de que a ordem do handler mudou.
+   */
+  signature_valid: z.boolean(),
+  attempts: z.number().int(),
+  last_error: z.unknown().nullish(),
+  /** Ja redigido: o corpo cru nunca chega a um transport nem a esta rota. */
+  payload: z.unknown().nullish(),
+  occurred_at: zTimestamp.nullish(),
+  received_at: zTimestamp,
+  processed_at: zTimestamp.nullish(),
+});
+
+export const zListInboundEventsQuery = zPaginationQuery.extend({
+  provider: zEnum(ProviderSlug).optional(),
+  connection_id: z.string().optional(),
+  status: zEnum(InboundEventStatus).optional(),
+  received_after: z.string().optional(),
+  received_before: z.string().optional(),
+});
+
+/**
+ * Endpoint do CLIENTE, como o console o ve.
+ *
+ * Estende o contrato publico em vez de redeclara-lo: os campos que os dois
+ * mostram sao os MESMOS campos, e duas declaracoes da mesma forma divergem na
+ * primeira mudanca. O `secret` do publico — que so aparece na criacao e na
+ * rotacao — e retirado por `.omit`, porque nenhuma rota administrativa o
+ * serve, nem mesmo naquele instante.
+ */
+export const zAdminWebhookEndpoint = zWebhookEndpoint.omit({ secret: true }).extend({
+  environment: zEnum(Environment),
+  /**
+   * `set`/`rotating` em vez de impressao digital.
+   *
+   * O segredo esta cifrado com DEK envelopada por KMS, e calcular uma
+   * impressao digital exigiria decifra-lo — uma decifra por linha, numa rota
+   * de listagem, para um dado que o operador nao pode usar. `rotating` diz o
+   * que ele PRECISA saber: ha um segredo anterior ainda aceito, e ate quando.
+   */
+  secret_set: z.boolean(),
+  secret_rotating: z.boolean(),
+  previous_secret_expires_at: zTimestamp.nullish(),
+  disabled_at: zTimestamp.nullish(),
+});
+
+/** Entrega, com o tipo e o sujeito do evento vindos por join. */
+export const zAdminWebhookDelivery = zWebhookDelivery.extend({
+  event_type: z.string().nullish(),
+  subject_id: z.string().nullish(),
+});
+
+export const zListDeliveriesQuery = zPaginationQuery.extend({
+  endpoint_id: z.string().optional(),
+  event_id: z.string().optional(),
+  status: zEnum(DeliveryStatus).optional(),
 });
 
 // --------------------------------------------------------------------------

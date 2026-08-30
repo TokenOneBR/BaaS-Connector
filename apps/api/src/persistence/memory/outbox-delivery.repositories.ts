@@ -2,12 +2,15 @@ import { Environment } from '@baasconn/taxonomy';
 
 import type {
   ClaimedOutboxEvent,
+  DeliveryFilter,
+  DeliveryListItem,
   DueDelivery,
   OutboxDispatchRepository,
   WebhookDeliveryRecord,
   WebhookDeliveryRepository,
   WebhookEndpointRecord,
   WebhookEndpointRepository,
+  WebhookEndpointSummary,
 } from '../../events/outbox-delivery.types.js';
 
 /**
@@ -67,6 +70,26 @@ export class MemoryWebhookEndpointRepository implements WebhookEndpointRepositor
     return this.rows.get(id);
   }
 
+  async list(environment: Environment): Promise<WebhookEndpointSummary[]> {
+    return [...this.rows.values()]
+      .filter((row) => row.environment === environment)
+      .sort((a, b) => b.id.localeCompare(a.id))
+      .map((row) => ({
+        id: row.id,
+        environment: row.environment,
+        url: row.url,
+        description: null,
+        eventTypes: row.eventTypes,
+        status: row.status,
+        secretSet: true,
+        secretRotating: row.previousSecret != null,
+        previousSecretExpiresAt: row.previousSecretExpiresAt ?? null,
+        consecutiveFailures: row.consecutiveFailures,
+        disabledAt: row.disabledAt ?? null,
+        createdAt: row.updatedAt,
+      }));
+  }
+
   async registerFailure(id: string, threshold: number, at: Date): Promise<{ disabled: boolean }> {
     const row = this.rows.get(id);
     if (!row) return { disabled: false };
@@ -97,6 +120,8 @@ export class MemoryWebhookDeliveryRepository implements WebhookDeliveryRepositor
   /** `eventId -> sequence`, para decidir "anterior" sem uma tabela de eventos. */
   readonly sequenceOf = new Map<string, bigint>();
   readonly subjectOf = new Map<string, { kind: string; id: string }>();
+  /** `eventId -> type`, o outro lado do join com `outbox_event`. */
+  readonly typeOf = new Map<string, string>();
   readonly environmentOf = new Map<string, Environment>();
 
   private key(eventId: string, endpointId: string, attempt: number): string {
@@ -129,6 +154,27 @@ export class MemoryWebhookDeliveryRepository implements WebhookDeliveryRepositor
 
   async findById(id: string): Promise<WebhookDeliveryRecord | undefined> {
     return this.rows.get(id);
+  }
+
+  async list(filter: DeliveryFilter): Promise<{ data: DeliveryListItem[]; nextCursor?: string }> {
+    const rows = [...this.rows.values()]
+      .filter(
+        (row) =>
+          (this.environmentOf.get(row.eventId) ?? Environment.HOMOLOGACAO) === filter.environment &&
+          (!filter.endpointId || row.endpointId === filter.endpointId) &&
+          (!filter.eventId || row.eventId === filter.eventId) &&
+          (!filter.status || row.status === filter.status) &&
+          (!filter.cursor || row.id < filter.cursor),
+      )
+      .sort((a, b) => (a.id < b.id ? 1 : -1));
+
+    const data = rows.slice(0, filter.limit).map((row) => ({
+      ...row,
+      eventType: this.typeOf.get(row.eventId) ?? null,
+      subjectId: this.subjectOf.get(row.eventId)?.id ?? null,
+    }));
+
+    return { data, nextCursor: rows.length > filter.limit ? data.at(-1)?.id : undefined };
   }
 
   async claimDue(limit: number, now: Date): Promise<DueDelivery[]> {

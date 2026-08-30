@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 
 import type {
   ClaimedOutboxEvent,
+  DeliveryFilter,
+  DeliveryListItem,
   DeliveryStatusValue,
   DueDelivery,
   OutboxDispatchRepository,
@@ -10,6 +12,7 @@ import type {
   WebhookDeliveryRepository,
   WebhookEndpointRecord,
   WebhookEndpointRepository,
+  WebhookEndpointSummary,
 } from '../events/outbox-delivery.types.js';
 
 import { PrismaService } from './prisma.service.js';
@@ -101,6 +104,50 @@ export class PrismaWebhookEndpointRepository implements WebhookEndpointRepositor
   }
 
   /**
+   * `select` explicito omitindo TODA coluna de envelope.
+   *
+   * Nao e `toEndpoint` com campos apagados depois: o ciphertext nunca chega a
+   * sair do Postgres. Assim, mesmo um log de query ou um erro do Prisma que
+   * imprima a linha nao carrega segredo nenhum.
+   */
+  async list(environment: Environment): Promise<WebhookEndpointSummary[]> {
+    const rows = await this.prisma.client.webhookEndpoint.findMany({
+      where: { environment },
+      select: {
+        id: true,
+        environment: true,
+        url: true,
+        description: true,
+        eventTypes: true,
+        status: true,
+        previousSecretExpiresAt: true,
+        previousSecretKeyId: true,
+        consecutiveFailures: true,
+        disabledAt: true,
+        createdAt: true,
+      },
+      orderBy: { id: 'desc' },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      environment: row.environment as Environment,
+      url: row.url,
+      description: row.description,
+      eventTypes: row.eventTypes,
+      status: row.status,
+      // Toda linha tem segredo: as colunas sao NOT NULL. O booleano existe
+      // para o contrato ser o mesmo de uma conexao, cuja credencial e opcional.
+      secretSet: true,
+      secretRotating: row.previousSecretKeyId !== null,
+      previousSecretExpiresAt: row.previousSecretExpiresAt,
+      consecutiveFailures: row.consecutiveFailures,
+      disabledAt: row.disabledAt,
+      createdAt: row.createdAt,
+    }));
+  }
+
+  /**
    * Conta a falha e desabilita ao cruzar o limiar, numa statement so.
    *
    * Read-modify-write entre dois workers perde contagem, e um endpoint que
@@ -174,6 +221,38 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
   async findById(id: string): Promise<WebhookDeliveryRecord | undefined> {
     const row = await this.prisma.client.webhookDelivery.findUnique({ where: { id } });
     return row ? toDelivery(row) : undefined;
+  }
+
+  /**
+   * Listagem para o console, com o tipo e o sujeito vindos do evento por join.
+   *
+   * O ambiente tambem vem do evento: `webhook_delivery` nao tem a coluna, e
+   * filtrar sem ela deixaria a tela de homologacao mostrar entrega de
+   * producao. Keyset pelo id, que e ULID.
+   */
+  async list(filter: DeliveryFilter): Promise<{ data: DeliveryListItem[]; nextCursor?: string }> {
+    const rows = await this.prisma.client.webhookDelivery.findMany({
+      where: {
+        endpointId: filter.endpointId,
+        eventId: filter.eventId,
+        status: filter.status,
+        id: filter.cursor ? { lt: filter.cursor } : undefined,
+        event: { environment: filter.environment },
+      },
+      include: { event: { select: { type: true, subjectId: true } } },
+      orderBy: { id: 'desc' },
+      take: filter.limit + 1,
+    });
+
+    const data = rows.slice(0, filter.limit).map((row) => ({
+      ...toDelivery(row),
+      eventType: row.event.type,
+      subjectId: row.event.subjectId,
+      responseBodySnippet: row.responseBodySnippet,
+      durationMs: row.durationMs,
+    }));
+
+    return { data, nextCursor: rows.length > filter.limit ? data.at(-1)?.id : undefined };
   }
 
   /**

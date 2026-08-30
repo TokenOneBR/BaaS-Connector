@@ -14,6 +14,7 @@ import { ConnectionsService } from './connections.service.js';
 import { ConsoleEnvironmentPipe } from './environment.query.js';
 import { OverviewController } from './overview.controller.js';
 import { AdminTokenService } from './token.service.js';
+import { AdminWebhooksController } from './webhooks.controller.js';
 
 /**
  * Console.
@@ -30,6 +31,7 @@ import { AdminTokenService } from './token.service.js';
     ApiKeysController,
     AuditController,
     OverviewController,
+    AdminWebhooksController,
   ],
   providers: [
     AdminAuthService,

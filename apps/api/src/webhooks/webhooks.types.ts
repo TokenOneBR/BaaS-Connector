@@ -48,4 +48,24 @@ export interface InboundEventRepository {
    * varredor nao olhava.
    */
   findStale(olderThan: Date, limit: number): Promise<InboundEventRecord[]>;
+  /**
+   * Listagem para o console, por cursor keyset sobre `(receivedAt, id)`.
+   *
+   * Offset foi recusado pelo mesmo motivo do extrato: a tabela recebe insert
+   * constante, e paginar por offset sobre ela produz linha duplicada e linha
+   * pulada. Numa tela de depuracao de webhook, uma linha pulada e exatamente
+   * o evento que o operador foi procurar.
+   */
+  list(filter: InboundEventFilter): Promise<{ data: InboundEventRecord[]; nextCursor?: string }>;
+}
+
+export interface InboundEventFilter {
+  environment: Environment;
+  provider?: string;
+  connectionId?: string;
+  status?: InboundEventStatus;
+  from?: Date;
+  to?: Date;
+  limit: number;
+  cursor?: string;
 }

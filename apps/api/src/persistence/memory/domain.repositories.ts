@@ -30,7 +30,11 @@ import type {
   AuditRecord,
   AuditVerification,
 } from '../../events/outbox.types.js';
-import type { InboundEventRecord, InboundEventRepository } from '../../webhooks/webhooks.types.js';
+import type {
+  InboundEventFilter,
+  InboundEventRecord,
+  InboundEventRepository,
+} from '../../webhooks/webhooks.types.js';
 
 /**
  * Repositorios em memoria.
@@ -431,5 +435,23 @@ export class MemoryInboundEventRepository implements InboundEventRepository {
           (row.status === 'RECEIVED' || row.status === 'PROCESSING') && row.receivedAt <= olderThan,
       )
       .slice(0, limit);
+  }
+
+  async list(filter: InboundEventFilter) {
+    const rows = [...this.rows.values()]
+      .filter(
+        (row) =>
+          row.environment === filter.environment &&
+          (!filter.provider || row.provider === filter.provider) &&
+          (!filter.connectionId || row.connectionId === filter.connectionId) &&
+          (!filter.status || row.status === filter.status) &&
+          (!filter.from || row.receivedAt >= filter.from) &&
+          (!filter.to || row.receivedAt <= filter.to) &&
+          (!filter.cursor || row.id < filter.cursor),
+      )
+      .sort((a, b) => (a.id < b.id ? 1 : -1));
+
+    const data = rows.slice(0, filter.limit);
+    return { data, nextCursor: rows.length > filter.limit ? data.at(-1)?.id : undefined };
   }
 }

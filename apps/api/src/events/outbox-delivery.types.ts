@@ -31,8 +31,34 @@ export interface WebhookEndpointRecord {
   updatedAt: Date;
 }
 
+/**
+ * Endpoint como o console o ve.
+ *
+ * Nao tem `secret` nem `previousSecret` — nao por omissao do controller, mas
+ * porque o TIPO nao os declara. Um controller pode esquecer de apagar um
+ * campo; um tipo que nao tem o campo nao pode. E a mesma garantia estrutural
+ * de `ConnectionSummary`, e o mesmo motivo: e a unica que sobrevive a um
+ * refactor feito por quem nunca leu esta linha.
+ */
+export interface WebhookEndpointSummary {
+  id: string;
+  environment: Environment;
+  url: string;
+  description?: string | null;
+  eventTypes: string[];
+  status: 'ACTIVE' | 'PAUSED' | 'DISABLED_BY_FAILURES';
+  secretSet: boolean;
+  secretRotating: boolean;
+  previousSecretExpiresAt?: Date | null;
+  consecutiveFailures: number;
+  disabledAt?: Date | null;
+  createdAt: Date;
+}
+
 export interface WebhookEndpointRepository {
   listActive(environment: Environment): Promise<WebhookEndpointRecord[]>;
+  /** Todos os endpoints do ambiente, inclusive pausados e desabilitados. */
+  list(environment: Environment): Promise<WebhookEndpointSummary[]>;
   findById(id: string): Promise<WebhookEndpointRecord | undefined>;
   /**
    * Incremento ATOMICO.
@@ -103,6 +129,29 @@ export interface DueDelivery extends WebhookDeliveryRecord {
   environment: Environment;
 }
 
+/**
+ * Entrega enriquecida com o tipo e o sujeito do evento, para a tela.
+ *
+ * O join sai daqui e nao do controller: a lista mostra "pix.out.settled do
+ * txn_..." e nao "entrega da linha evt_...", e resolver isso com uma segunda
+ * consulta por linha seria N+1 numa rota de listagem.
+ */
+export interface DeliveryListItem extends WebhookDeliveryRecord {
+  eventType?: string | null;
+  subjectId?: string | null;
+  responseBodySnippet?: string | null;
+  durationMs?: number | null;
+}
+
+export interface DeliveryFilter {
+  environment: Environment;
+  endpointId?: string;
+  eventId?: string;
+  status?: DeliveryStatusValue;
+  limit: number;
+  cursor?: string;
+}
+
 export interface WebhookDeliveryRepository {
   /** `skipDuplicates`: a unica de (evento, endpoint, tentativa) torna idempotente. */
   scheduleFirstAttempts(
@@ -116,6 +165,7 @@ export interface WebhookDeliveryRepository {
     scheduledFor: Date;
   }): Promise<void>;
   findById(id: string): Promise<WebhookDeliveryRecord | undefined>;
+  list(filter: DeliveryFilter): Promise<{ data: DeliveryListItem[]; nextCursor?: string }>;
   /**
    * Entregas prontas para tentar, com `FOR UPDATE SKIP LOCKED`.
    *

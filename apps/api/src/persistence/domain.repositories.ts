@@ -35,7 +35,11 @@ import type {
   OutboxDraft,
   OutboxRepository,
 } from '../events/outbox.types.js';
-import type { InboundEventRecord, InboundEventRepository } from '../webhooks/webhooks.types.js';
+import type {
+  InboundEventFilter,
+  InboundEventRecord,
+  InboundEventRepository,
+} from '../webhooks/webhooks.types.js';
 
 import { PrismaService } from './prisma.service.js';
 
@@ -686,6 +690,30 @@ export class PrismaInboundEventRepository implements InboundEventRepository {
       take: limit,
     });
     return rows.map(toInboundEvent);
+  }
+
+  /**
+   * Keyset pelo ID, que e ULID e portanto ordenado no tempo.
+   *
+   * Uma segunda coluna de desempate seria redundante: o ULID ja e unico e ja
+   * ordena por recebimento. E o mesmo padrao que a listagem de conexoes usa.
+   */
+  async list(filter: InboundEventFilter) {
+    const rows = await this.prisma.client.inboundWebhookEvent.findMany({
+      where: {
+        environment: filter.environment,
+        provider: filter.provider as never,
+        connectionId: filter.connectionId,
+        status: filter.status,
+        receivedAt: { gte: filter.from, lte: filter.to },
+        id: filter.cursor ? { lt: filter.cursor } : undefined,
+      },
+      orderBy: { id: 'desc' },
+      take: filter.limit + 1,
+    });
+
+    const data = rows.slice(0, filter.limit).map(toInboundEvent);
+    return { data, nextCursor: rows.length > filter.limit ? data.at(-1)?.id : undefined };
   }
 }
 
