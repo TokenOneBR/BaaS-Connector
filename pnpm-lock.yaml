@@ -32,6 +32,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@baasconn/adapter-celcoin':
+        specifier: workspace:*
+        version: link:../../packages/adapters/celcoin
       '@baasconn/adapter-kit':
         specifier: workspace:*
         version: link:../../packages/adapter-kit
@@ -360,6 +363,40 @@ importers:
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(terser@5.51.2)
+
+  packages/adapters/celcoin:
+    dependencies:
+      '@baasconn/adapter-kit':
+        specifier: workspace:*
+        version: link:../../adapter-kit
+      '@baasconn/provider-spi':
+        specifier: workspace:*
+        version: link:../../provider-spi
+      '@baasconn/taxonomy':
+        specifier: workspace:*
+        version: link:../../taxonomy
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@baasconn/conformance':
+        specifier: workspace:*
+        version: link:../../conformance
+      '@baasconn/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint-config
+      '@baasconn/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/tsconfig
+      '@baasconn/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest-config
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

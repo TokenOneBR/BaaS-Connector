@@ -9,6 +9,7 @@ import { ApiConfig } from '../src/config/config.service.js';
 import { HealthController } from '../src/health/health.controller.js';
 import { PrismaService } from '../src/persistence/prisma.service.js';
 import { CredentialResolver } from '../src/providers/credential.resolver.js';
+import { PROVIDER_ADAPTERS } from '../src/providers/providers.module.js';
 import { ProviderRegistry } from '../src/providers/provider.registry.js';
 import { ProviderResolver } from '../src/providers/provider.resolver.js';
 
@@ -53,7 +54,18 @@ describe('grafo de injecao da API', () => {
     // faceta pixTransfers, o boot teria falhado antes deste ponto — o erro
     // apareceria aqui, e nao na primeira transferencia de producao.
     const registered = moduleRef.get(ProviderRegistry).list();
-    expect(registered.map((factory) => factory.slug)).toEqual(['MOCK_BANK']);
+    const slugs = registered.map((factory) => factory.slug);
+
+    // Derivado da lista compilada, e nao escrito a mao: com o slug fixo no
+    // teste, adicionar um adapter quebrava este arquivo sem que nada estivesse
+    // errado, e a correcao obvia — editar o array esperado — nao verificava
+    // nada. O que importa e que TODO adapter compilado passou pela validacao.
+    expect(slugs).toEqual(PROVIDER_ADAPTERS.map((factory) => factory.slug));
+    expect(slugs.length).toBeGreaterThan(0);
+
+    // Slug duplicado faria a segunda conexao resolver o adapter errado, e o
+    // registry recusa no boot — aqui a garantia fica visivel.
+    expect(new Set(slugs).size).toBe(slugs.length);
   });
 
   it('o registro expoe capacidade por conexao sem tocar a rede', () => {

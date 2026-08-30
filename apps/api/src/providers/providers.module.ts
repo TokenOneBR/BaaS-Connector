@@ -1,3 +1,4 @@
+import { celcoinFactory } from '@baasconn/adapter-celcoin';
 import { mockbankFactory } from '@baasconn/adapter-mock-bank';
 import type { ProviderAdapterFactory } from '@baasconn/provider-spi';
 import { Module } from '@nestjs/common';
@@ -18,7 +19,7 @@ import { ProviderResolver } from './provider.resolver.js';
  * credencial de BaaS nenhuma, e `/v1/providers` responde lista vazia em vez de
  * o boot falhar.
  */
-export const PROVIDER_ADAPTERS: ProviderAdapterFactory[] = [mockbankFactory];
+export const PROVIDER_ADAPTERS: ProviderAdapterFactory[] = [mockbankFactory, celcoinFactory];
 
 @Module({
   providers: [
