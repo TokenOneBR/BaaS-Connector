@@ -94,19 +94,22 @@ exposta em `/admin/v1/providers` e como métrica de estado do circuito.
 
 ## Console
 
+O primeiro usuario NAO existe num banco recem-migrado: nao ha rota de
+cadastro, e `OWNER`/`ADMIN` exigem segundo fator sem que exista enrolamento
+self-service. Quem cria o primeiro e o **seed**:
+
 ```bash
-curl -s localhost:3001/admin/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"voce@exemplo.com.br","password":"...","totp_code":"123456"}'
+pnpm up          # ja roda o seed no fim
+# ou, contra um banco proprio:
+pnpm seed
 ```
 
-`OWNER` e `ADMIN` **exigem** segundo fator: são os papéis que podem gravar
-credencial de provedor e cunhar API key, e uma conta com esse poder protegida
-só por senha é o elo mais fraco do sistema.
+Ele imprime o e-mail, a senha, o segredo TOTP em base32 e um link
+`otpauth://` para o autenticador. E idempotente: rodar duas vezes nao duplica
+nada e nao troca a senha de quem ja existe.
 
-O `refresh_token` é rotacionado a cada uso. Reapresentar um token já rotacionado
-é tratado como roubo: **todas** as sessões do usuário são revogadas, não só
-aquela.
+Para trabalhar sem banco nenhum, `pnpm demo` sobe tudo em memoria e imprime as
+mesmas credenciais, mais uma API key pronta.
 
 ## Armadilhas conhecidas
 

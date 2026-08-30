@@ -6,6 +6,23 @@ node_modules
 **/coverage
 .git
 .github
-docs
-e2e
-*.md
+
+# `docs/` NAO entra aqui.
+#
+# `docker/api.Dockerfile` copia `docs/openapi.json` para dentro da imagem:
+# `GET /docs/v1` serve o arquivo commitado. Com `docs` ignorado, esse COPY
+# falhava e o build da API morria.
+#
+# `e2e/` tambem NAO entra: e um pacote do workspace (`pnpm-workspace.yaml`),
+# e `turbo prune` precisa enxergar todo pacote declarado para gerar um
+# lockfile coerente. Sem ele, `pnpm install --frozen-lockfile` recusa.
+#
+# O que sobra abaixo e o que de fato nao muda o build.
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+**/playwright-report
+**/test-results
+apps/docs/build
+apps/docs/.docusaurus

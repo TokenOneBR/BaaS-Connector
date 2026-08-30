@@ -29,9 +29,11 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:validate": "prisma validate"
+    "db:validate": "prisma validate",
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@baasconn/crypto": "workspace:*",
     "@baasconn/ledger": "workspace:*",
     "@baasconn/taxonomy": "workspace:*",
     "@prisma/client": "^6.1.0"
@@ -42,6 +44,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "prisma": "^6.1.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "tsx": "^4.19.2"
   }
 }

@@ -36,7 +36,11 @@ RUN apt-get update \
 ENV NODE_ENV=production
 
 COPY --from=builder --chown=10001:10001 /repo/node_modules ./node_modules
-COPY --from=builder --chown=10001:10001 /repo/packages/db ./packages/db
+# `packages/` inteiro, e nao so `db`: o seed importa `@baasconn/crypto` (para
+# cifrar o segredo TOTP com a mesma KMS da API) e `@baasconn/taxonomy` (para
+# cunhar os ULIDs com prefixo). Copiar so `db` fazia a imagem migrar e falhar
+# no seed — em runtime, que e a pior hora para descobrir.
+COPY --from=builder --chown=10001:10001 /repo/packages ./packages
 
 USER 10001:10001
 

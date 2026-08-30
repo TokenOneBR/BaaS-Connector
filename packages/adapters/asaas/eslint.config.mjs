@@ -1,3 +1,3 @@
-import adapter from "@baasconn/eslint-config/adapter";
+import adapter from '@baasconn/eslint-config/adapter';
 
 export default adapter;

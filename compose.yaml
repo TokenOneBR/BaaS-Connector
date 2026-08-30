@@ -52,12 +52,33 @@ services:
       postgres: { condition: service_healthy }
     restart: 'no'
 
+  # Bootstrap: sem ele a stack sobe e NINGUEM consegue entrar.
+  #
+  # Nao ha rota de cadastro de usuario de console, nem enrolamento de TOTP —
+  # e OWNER/ADMIN exigem segundo fator. O seed cifra o segredo TOTP com a
+  # MESMA KMS que a API usa para decifra-lo, entao o login funciona de
+  # verdade sem enfraquecer a regra de MFA.
+  #
+  # Idempotente: `pnpm up` duas vezes nao duplica nada nem troca senha.
+  seed:
+    build:
+      context: .
+      dockerfile: docker/migrate.Dockerfile
+    entrypoint: ['/usr/bin/tini', '--', 'node_modules/.bin/tsx', 'packages/db/prisma/seed.ts']
+    environment:
+      DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
+      KMS_MASTER_SECRET: ${KMS_MASTER_SECRET:-troque-este-segredo-mestre-de-desenvolvimento}
+      SEED_MOCK_BANK_URL: http://mock-bank:3002
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    restart: 'no'
+
   mock-bank:
     build:
       context: .
       dockerfile: docker/mock-bank.Dockerfile
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       MOCK_BANK_PORT: 3002
       # `memory` no compose: a stack local existe para demonstrar e para o
       # e2e, e um Mock Bank sem estado persistente e mais facil de repor do
@@ -83,7 +104,17 @@ services:
       context: .
       dockerfile: docker/api.Dockerfile
     environment:
-      NODE_ENV: production
+      # `development`, e NAO `production`.
+      #
+      # A API se RECUSA a subir com `KMS_DRIVER=local` em producao — a chave
+      # mestra ficaria numa variavel de ambiente. Como a stack local usa o
+      # driver `local` de proposito, declarar `production` aqui fazia o
+      # container morrer no boot com "KMS_DRIVER=local em producao".
+      #
+      # A stack do compose E um ambiente de desenvolvimento. Chama-la de
+      # producao nao a tornava mais parecida com producao; so quebrava a
+      # validacao que existe para proteger producao de verdade.
+      NODE_ENV: development
       PORT: 3001
       METRICS_PORT: 9464
       DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
@@ -118,7 +149,7 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       METRICS_PORT: 9465
       DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
       REDIS_URL: redis://redis:6379

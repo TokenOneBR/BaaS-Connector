@@ -16,10 +16,16 @@ pnpm build
 pnpm test
 ```
 
-Para subir a stack completa:
+Para ver o produto rodando sem infraestrutura nenhuma:
 
 ```bash
-pnpm up      # postgres, redis, mock-bank, api, worker, web
+pnpm demo    # Mock Bank + API + console num processo so, dados em memoria
+```
+
+Para subir a stack completa, com Postgres, Redis e worker:
+
+```bash
+pnpm up      # sobe tudo, migra e SEMEIA o primeiro usuario do console
 pnpm e2e     # fluxo dourado ponta a ponta
 pnpm down
 ```

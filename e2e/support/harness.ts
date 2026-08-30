@@ -39,13 +39,14 @@ import {
   EnvelopeCrypto,
   LocalKmsDriver,
   generateApiKey,
+  encodeBase32,
   hashSecret,
   secretLookup,
 } from '@baasconn/crypto';
 import type { LedgerAccount, LedgerEntry } from '@baasconn/ledger';
 import { AppModule as MockBankModule } from '@baasconn/mock-bank/app';
 import { Metrics } from '@baasconn/observability';
-import { Environment, FixedClock, newId, type ConsoleRole } from '@baasconn/taxonomy';
+import { ConsoleRole, Environment, FixedClock, newId } from '@baasconn/taxonomy';
 import { AutoResolutionService, ReconciliationService } from '@baasconn/worker/testing';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -64,6 +65,21 @@ export interface Harness {
   apiUrl: string;
   mockBankUrl: string;
   apiKey: string;
+  /**
+   * Segredo de assinatura HMAC da chave semeada.
+   *
+   * As rotas de dinheiro carregam `@RequireSignature()`, entao sem ele um
+   * cliente recebe 401 na primeira transferencia. O SDK assina sozinho; quem
+   * usa `curl` precisa deste valor.
+   */
+  signingSecret: string;
+  /**
+   * Segredo TOTP em bytes, presente so quando o papel semeado exige MFA.
+   *
+   * Quem sobe o harness para um HUMANO usar (o modo demo) precisa dele para
+   * imprimir o codigo; os specs, que entram por API key, nunca o usam.
+   */
+  consoleTotpSecret?: Buffer;
   connectionId: string;
   api: INestApplication;
   mockBank: INestApplication;
@@ -208,6 +224,8 @@ export async function startHarness(options: HarnessOptions = {}): Promise<Harnes
     apiUrl,
     mockBankUrl,
     apiKey: seeded.apiKey,
+    signingSecret: SIGNING_SECRET,
+    consoleTotpSecret: totpDoConsole,
     connectionId: seeded.connectionId,
     api,
     mockBank,
@@ -454,20 +472,39 @@ function seedConnection(repo: MemoryConnectionRepository, seed: Seed): MemoryCon
   return repo;
 }
 
+/**
+ * Segredo TOTP do usuario de console semeado, quando o papel exige MFA.
+ *
+ * `OWNER` e `ADMIN` estao em `MFA_REQUIRED_ROLES` INCONDICIONALMENTE, entao
+ * semear um deles sem TOTP produz um usuario que nao consegue entrar: o login
+ * recusa com "verificacao em duas etapas ainda nao configurada". Nao ha rota
+ * de enrolamento, entao o segredo precisa nascer aqui.
+ *
+ * `OPERATOR` e papeis abaixo continuam sem TOTP — e o que o Playwright usa, e
+ * o que mantem o spec de login simples.
+ */
+let totpDoConsole: Buffer | undefined;
+
 async function bootApi(seed: Seed, options: HarnessOptions): Promise<INestApplication> {
   const users = new MemoryConsoleUserRepository();
+  totpDoConsole = undefined;
+
   if (options.consoleUser) {
+    const exigeMfa =
+      options.consoleUser.role === ConsoleRole.OWNER ||
+      options.consoleUser.role === ConsoleRole.ADMIN;
+    // 20 bytes: o tamanho que o RFC 4226 recomenda para HMAC-SHA1, e o que
+    // Google Authenticator, Authy e 1Password esperam.
+    if (exigeMfa) totpDoConsole = randomBytes(20);
+
     users.seed({
       id: newId('user'),
       email: options.consoleUser.email,
       name: options.consoleUser.email,
       passwordHash: await hashSecret(options.consoleUser.password),
       role: options.consoleUser.role,
-      // Sem TOTP de proposito: o papel semeado pelo Playwright e `OPERATOR`,
-      // e ADMIN/OWNER — que EXIGEM segundo fator — ficam de fora justamente
-      // por isso. Um spec que quisesse cunhar API key precisaria do TOTP, e
-      // e essa a regra que estamos preservando ao nao contorna-la aqui.
-      mfaEnabled: false,
+      mfaEnabled: exigeMfa,
+      totpSecret: totpDoConsole ? encodeBase32(totpDoConsole) : undefined,
       status: 'ACTIVE',
     });
   }
