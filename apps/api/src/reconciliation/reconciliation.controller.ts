@@ -1,4 +1,4 @@
-import { zListBreaksQuery, zResolveBreak } from '@baasconn/contracts';
+import { zListBreaksQuery, zReconciliationBreak, zResolveBreak } from '@baasconn/contracts';
 import {
   BaasError,
   BaasErrorCode,
@@ -10,6 +10,7 @@ import { Body, Controller, Get, Inject, Param, Post, Query, Req } from '@nestjs/
 import { z } from 'zod';
 
 import { MinRole, type AdminRequest } from '../admin/admin-session.guard.js';
+import { respond } from '../admin/respond.js';
 import { Public } from '../auth/api-key.guard.js';
 import { ZodValidationPipe } from '../common/zod.pipe.js';
 import { ApiConfig } from '../config/config.service.js';
@@ -140,9 +141,15 @@ export class ReconciliationController {
   }
 }
 
-/** Registro do banco (camelCase, `bigint`) para o wire (snake_case, Money). */
-function toBreakDto(quebra: ReconciliationBreakRecord): Record<string, unknown> {
-  return {
+/**
+ * Registro do banco (camelCase, `bigint`) para o wire (snake_case, Money).
+ *
+ * Passa por `respond`, entao o contrato e quem limita a resposta. Foi assim
+ * que dois defeitos apareceram: `evidence` era declarada obrigatoria e nunca
+ * saia do banco, e `adjustment_transaction_id` saia sem estar declarada.
+ */
+function toBreakDto(quebra: ReconciliationBreakRecord) {
+  return respond(zReconciliationBreak, {
     id: quebra.id,
     run_id: quebra.runId,
     first_seen_run_id: quebra.firstSeenRunId,
@@ -163,6 +170,7 @@ function toBreakDto(quebra: ReconciliationBreakRecord): Record<string, unknown> 
     resolved_by: quebra.resolvedBy ?? null,
     resolved_at: quebra.resolvedAt?.toISOString() ?? null,
     adjustment_transaction_id: quebra.adjustmentTransactionId ?? null,
+    evidence: quebra.evidence,
     created_at: quebra.createdAt.toISOString(),
-  };
+  });
 }

@@ -164,6 +164,15 @@ export interface ReconciliationBreakRecord {
   localItemId?: string;
   ledgerItemId?: string;
   description: string;
+  /**
+   * Os dois lados normalizados e redigidos, para revisao lado a lado.
+   *
+   * A coluna e `Json NOT NULL` desde a primeira migration e o contrato a
+   * declara obrigatoria, mas o mapper nao a copiava — entao a tela lado a
+   * lado, que e o motivo de a conciliacao ter interface, nao tinha fonte de
+   * dados. `respond()` passa a reprovar a resposta que a omitir.
+   */
+  evidence: Record<string, unknown>;
   ageDays: number;
   resolution?: ResolutionAction;
   resolutionNote?: string;

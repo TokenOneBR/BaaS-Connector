@@ -77,6 +77,14 @@ export interface AdminSession {
   sessionId: string;
   email: string;
   role: ConsoleRole;
+  /**
+   * `exp` do token, em segundos unix.
+   *
+   * O BFF do console precisa saber quando renovar, e um Server Component do
+   * App Router NAO pode gravar cookie — entao a renovacao acontece antes da
+   * renderizacao, e depende de o instante de expiracao ser legivel.
+   */
+  expiresAt: number;
 }
 
 export interface AdminClock {

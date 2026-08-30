@@ -323,7 +323,16 @@ export class PrismaReconciliationBreakRepository implements ReconciliationBreakR
   }
 }
 
-function toBreak(row: Record<string, unknown>): ReconciliationBreakRecord {
+/**
+ * Linha do Postgres para o registro de dominio.
+ *
+ * Exportada para ter teste proprio. Nao e zelo excessivo: este mapper JA
+ * deixou de copiar `evidence` — coluna `Json NOT NULL` que o contrato exige —
+ * e o defeito sobreviveu a revisao porque os testes de rota usam o dobro em
+ * memoria, onde o campo passa por spread e chega sozinho. O caminho do Prisma
+ * so seria exercitado contra banco de verdade.
+ */
+export function toBreak(row: Record<string, unknown>): ReconciliationBreakRecord {
   return {
     id: row.id as string,
     environment: row.environment as Environment,
@@ -343,6 +352,7 @@ function toBreak(row: Record<string, unknown>): ReconciliationBreakRecord {
     localItemId: (row.localItemId as string | null) ?? undefined,
     ledgerItemId: (row.ledgerItemId as string | null) ?? undefined,
     description: row.description as string,
+    evidence: (row.evidence ?? {}) as Record<string, unknown>,
     ageDays: Number(row.ageDays ?? 0),
     resolution: (row.resolution as ResolutionAction | null) ?? undefined,
     resolutionNote: (row.resolutionNote as string | null) ?? undefined,

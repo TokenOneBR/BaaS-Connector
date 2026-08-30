@@ -17,7 +17,7 @@ import {
   type ConsoleUserRecord,
   type ConsoleUserRepository,
 } from './admin.types.js';
-import { AdminTokenService } from './token.service.js';
+import { type IssuableSession, AdminTokenService } from './token.service.js';
 
 export interface LoginInput {
   email: string;
@@ -129,7 +129,7 @@ export class AdminAuthService {
     if (!rotated) throw new BaasError(BaasErrorCode.SESSION_EXPIRED);
 
     void context;
-    const claims: AdminSession = {
+    const claims: IssuableSession = {
       userId: user.id,
       sessionId: session.id,
       email: user.email,

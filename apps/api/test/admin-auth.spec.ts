@@ -153,7 +153,12 @@ describe('sessao do console', () => {
 
     const me = await get('/admin/v1/me', body.access_token);
     expect(me.status).toBe(200);
-    expect(await me.json()).toMatchObject({ email: 'operador@tokenone.com.br', role: 'OPERATOR' });
+    // `GET /me` le a LINHA do usuario, nao so as claims: o console precisa de
+    // `name` no cabecalho e de `mfa_enabled` em configuracoes, e um papel
+    // alterado desde a emissao nao pode sobreviver 15 min no menu.
+    expect(await me.json()).toMatchObject({
+      user: { email: 'operador@tokenone.com.br', role: 'OPERATOR', mfa_enabled: false },
+    });
   });
 
   it('nao revela se o e-mail existe', async () => {

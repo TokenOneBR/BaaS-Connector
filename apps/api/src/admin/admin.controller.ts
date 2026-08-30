@@ -1,4 +1,6 @@
-import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
+import { zLogin, zLoginResult, zSession } from '@baasconn/contracts';
+import { BaasError, BaasErrorCode } from '@baasconn/taxonomy';
+import { Body, Controller, Get, HttpCode, Inject, Post, Req } from '@nestjs/common';
 import { z } from 'zod';
 
 import { Public } from '../auth/api-key.guard.js';
@@ -8,16 +10,12 @@ import { ProviderRegistry } from '../providers/provider.registry.js';
 
 import { AdminAuthService } from './admin-auth.service.js';
 import { MinRole, type AdminRequest } from './admin-session.guard.js';
+import { CONSOLE_USER_REPOSITORY, type ConsoleUserRepository } from './admin.types.js';
+import { respond } from './respond.js';
 
-const zLogin = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-  totp_code: z
-    .string()
-    .regex(/^\d{6}$/)
-    .optional(),
-});
-
+// `zLogin` vem de `@baasconn/contracts`. O controller definia o seu proprio,
+// com `min(1)` na senha enquanto o contrato exigia `min(8)` — duas verdades
+// sobre a mesma regra, e o console teria se tipado contra a mais fraca.
 const zRefresh = z.object({ refresh_token: z.string().min(16) });
 
 /**
@@ -37,6 +35,7 @@ export class AdminController {
     private readonly auth: AdminAuthService,
     private readonly registry: ProviderRegistry,
     private readonly config: ApiConfig,
+    @Inject(CONSOLE_USER_REPOSITORY) private readonly users: ConsoleUserRepository,
   ) {}
 
   @Post('auth/login')
@@ -68,15 +67,35 @@ export class AdminController {
     await this.auth.logout(request.session!.sessionId);
   }
 
+  /**
+   * Le a LINHA do usuario, e nao so as claims do token.
+   *
+   * O console precisa de `name` no cabecalho e de `mfa_enabled` em
+   * configuracoes, e um papel alterado desde a emissao do token nao pode
+   * sobreviver quinze minutos no menu. E uma leitura indexada, e a guarda de
+   * superficie ja faz uma.
+   */
   @Get('me')
-  me(@Req() request: AdminRequest) {
+  async me(@Req() request: AdminRequest) {
     const session = request.session!;
-    return {
-      user_id: session.userId,
-      email: session.email,
-      role: session.role,
+    const user = await this.users.findById(session.userId);
+    if (!user) {
+      throw new BaasError(BaasErrorCode.AUTHENTICATION_FAILED, {
+        message: 'Sessao aponta para usuario inexistente.',
+      });
+    }
+
+    return respond(zSession, {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        mfa_enabled: user.mfaEnabled,
+      },
       session_id: session.sessionId,
-    };
+      expires_at: new Date(session.expiresAt * 1000).toISOString(),
+    });
   }
 
   /**
@@ -127,7 +146,7 @@ function toSessionResponse(issued: {
   refreshToken: string;
   user: { id: string; email: string; name: string; role: string };
 }) {
-  return {
+  return respond(zLoginResult, {
     access_token: issued.accessToken,
     token_type: 'Bearer',
     expires_in: issued.expiresInSeconds,
@@ -138,5 +157,5 @@ function toSessionResponse(issued: {
       name: issued.user.name,
       role: issued.user.role,
     },
-  };
+  });
 }

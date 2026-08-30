@@ -12,7 +12,17 @@ export interface AccessTokenClaims {
   sid: string;
   email: string;
   role: ConsoleRole;
+  exp: number;
 }
+
+/**
+ * O que o emissor precisa saber.
+ *
+ * `expiresAt` fica de fora: quem o define e o proprio emissor, a partir do
+ * TTL configurado. Exigi-lo na entrada faria o chamador calcular um instante
+ * que o emissor ignoraria — duas verdades sobre a mesma coisa.
+ */
+export type IssuableSession = Omit<AdminSession, 'expiresAt'>;
 
 const ISSUER = 'baas-connector';
 const AUDIENCE = 'baas-console';
@@ -38,7 +48,7 @@ export class AdminTokenService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  issueAccessToken(session: AdminSession): { token: string; expiresInSeconds: number } {
+  issueAccessToken(session: IssuableSession): { token: string; expiresInSeconds: number } {
     const now = Math.floor(this.clock.now().getTime() / 1000);
     const expiresInSeconds = this.config.accessTokenTtlSeconds;
 
@@ -72,6 +82,7 @@ export class AdminTokenService {
         sessionId: claims.sid,
         email: claims.email,
         role: claims.role,
+        expiresAt: claims.exp,
       };
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {

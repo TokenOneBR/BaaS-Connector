@@ -206,6 +206,8 @@ export const zReconciliationBreak = z.object({
   resolution_note: z.string().nullish(),
   resolved_by: z.string().nullish(),
   resolved_at: zTimestamp.nullish(),
+  /** Lancamento de ajuste criado pela resolucao, quando houve. */
+  adjustment_transaction_id: z.string().nullish(),
   created_at: zTimestamp,
 });
 
@@ -215,9 +217,18 @@ export const zResolveBreak = z.object({
   note: z.string().min(10).max(2000),
 });
 
+/**
+ * Disparo de uma execucao de conciliacao.
+ *
+ * `account_id` e OBRIGATORIO. A chave unica de `ReconciliationRun` inclui a
+ * conta, e em Postgres NULL nao e igual a NULL num indice unico — um run de
+ * conexao inteira escaparia da deduplicacao e dois pods criariam dois runs
+ * para a mesma janela. Reconciliar uma conexao inteira e outra operacao: um
+ * *sweep*, que enumera as contas e cria um run por conta.
+ */
 export const zTriggerReconciliation = z.object({
   connection_id: z.string(),
-  account_id: z.string().optional(),
+  account_id: z.string(),
   scope: zEnum(ReconciliationScope).default(ReconciliationScope.MANUAL),
   window_start: zTimestamp,
   window_end: zTimestamp,
@@ -292,6 +303,14 @@ export const zLogin = z.object({
     .optional(),
 });
 
+/**
+ * `GET /admin/v1/me`.
+ *
+ * Le a LINHA DO USUARIO, e nao so as claims do token. O console precisa de
+ * `name` no cabecalho e de `mfa_enabled` em configuracoes, e um papel alterado
+ * desde a emissao do token nao pode sobreviver quinze minutos no menu. E uma
+ * leitura indexada, e a guarda ja faz uma.
+ */
 export const zSession = z.object({
   user: z.object({
     id: z.string(),
@@ -300,13 +319,27 @@ export const zSession = z.object({
     role: zEnum(ConsoleRole),
     mfa_enabled: z.boolean(),
   }),
+  session_id: z.string(),
   expires_at: zTimestamp,
 });
 
+/**
+ * Resultado do login.
+ *
+ * Nao ha `mfa_required` aqui. A API LANCA `MFA_REQUIRED` quando o papel exige
+ * segundo fator e ele nao veio — devolver tambem uma flag daria duas fontes
+ * para a mesma verdade, e o cliente que lesse a errada trataria uma recusa
+ * como sucesso. O console le o codigo do erro.
+ */
 export const zLoginResult = z.object({
   access_token: z.string(),
-  refresh_token: z.string(),
+  token_type: z.literal('Bearer'),
   expires_in: z.number().int(),
-  /** Presente quando o papel exige TOTP e ele ainda nao foi informado. */
-  mfa_required: z.boolean().default(false),
+  refresh_token: z.string(),
+  user: z.object({
+    id: z.string(),
+    email: z.string(),
+    name: z.string(),
+    role: zEnum(ConsoleRole),
+  }),
 });
