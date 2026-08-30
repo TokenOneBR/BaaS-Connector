@@ -4,3 +4,11 @@ dist/
 coverage/
 *.md
 deploy/helm/**/templates/*.yaml
+
+# Artefatos DERIVADOS: quem os formata e o gerador.
+#
+# O CI compara o commitado com o gerado (`git diff --exit-code`). Se o
+# prettier reformatasse depois, os dois nunca bateriam e o check falharia em
+# todo PR — por diferenca de indentacao, que e a pior razao possivel para um
+# gate vermelho.
+docs/openapi.json

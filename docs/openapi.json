@@ -36,7 +36,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["account"],
+            "enum": [
+              "account"
+            ],
             "default": "account"
           },
           "holder_id": {
@@ -44,7 +46,10 @@
           },
           "holder_type": {
             "type": "string",
-            "enum": ["INDIVIDUAL", "BUSINESS"]
+            "enum": [
+              "INDIVIDUAL",
+              "BUSINESS"
+            ]
           },
           "holder_tax_id": {
             "type": "string"
@@ -54,7 +59,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "connection_id": {
             "type": "string"
@@ -96,17 +108,28 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
               }
             },
-            "required": ["code", "message", "at"],
+            "required": [
+              "code",
+              "message",
+              "at"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"]
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ]
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "bank": {
             "type": "object",
@@ -137,7 +160,11 @@
                 "nullable": true
               }
             },
-            "required": ["ispb", "branch", "number"],
+            "required": [
+              "ispb",
+              "branch",
+              "number"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -191,7 +218,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["pix_charge"],
+            "enum": [
+              "pix_charge"
+            ],
             "default": "pix_charge"
           },
           "account_id": {
@@ -199,14 +228,24 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["STATIC", "DYNAMIC_IMMEDIATE", "DYNAMIC_DUE"]
+            "enum": [
+              "STATIC",
+              "DYNAMIC_IMMEDIATE",
+              "DYNAMIC_DUE"
+            ]
           },
           "txid": {
             "type": "string"
           },
           "status": {
             "type": "string",
-            "enum": ["ACTIVE", "COMPLETED", "EXPIRED", "REMOVED_BY_PSP", "REMOVED_BY_USER"]
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "EXPIRED",
+              "REMOVED_BY_PSP",
+              "REMOVED_BY_USER"
+            ]
           },
           "revision": {
             "type": "integer",
@@ -221,13 +260,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -263,13 +308,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -320,7 +371,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["pix_charge"],
+            "enum": [
+              "pix_charge"
+            ],
             "default": "pix_charge"
           },
           "account_id": {
@@ -328,14 +381,24 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["STATIC", "DYNAMIC_IMMEDIATE", "DYNAMIC_DUE"]
+            "enum": [
+              "STATIC",
+              "DYNAMIC_IMMEDIATE",
+              "DYNAMIC_DUE"
+            ]
           },
           "txid": {
             "type": "string"
           },
           "status": {
             "type": "string",
-            "enum": ["ACTIVE", "COMPLETED", "EXPIRED", "REMOVED_BY_PSP", "REMOVED_BY_USER"]
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "EXPIRED",
+              "REMOVED_BY_PSP",
+              "REMOVED_BY_USER"
+            ]
           },
           "revision": {
             "type": "integer",
@@ -350,13 +413,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -392,13 +461,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -449,7 +524,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["pix_key"],
+            "enum": [
+              "pix_key"
+            ],
             "default": "pix_key"
           },
           "account_id": {
@@ -457,7 +534,13 @@
           },
           "type": {
             "type": "string",
-            "enum": ["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"]
+            "enum": [
+              "CPF",
+              "CNPJ",
+              "EMAIL",
+              "PHONE",
+              "EVP"
+            ]
           },
           "value": {
             "type": "string"
@@ -481,7 +564,10 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["PORTABILITY", "OWNERSHIP"]
+                "enum": [
+                  "PORTABILITY",
+                  "OWNERSHIP"
+                ]
               },
               "status": {
                 "type": "string"
@@ -496,7 +582,10 @@
                 "nullable": true
               }
             },
-            "required": ["type", "status"],
+            "required": [
+              "type",
+              "status"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -515,7 +604,14 @@
             "nullable": true
           }
         },
-        "required": ["id", "account_id", "type", "value", "status", "requested_at"],
+        "required": [
+          "id",
+          "account_id",
+          "type",
+          "value",
+          "status",
+          "requested_at"
+        ],
         "additionalProperties": false
       },
       "V1AccountsAccountIdPixKeysResolveResponse": {
@@ -526,7 +622,13 @@
           },
           "key_type": {
             "type": "string",
-            "enum": ["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"]
+            "enum": [
+              "CPF",
+              "CNPJ",
+              "EMAIL",
+              "PHONE",
+              "EVP"
+            ]
           },
           "holder_name": {
             "type": "string"
@@ -558,7 +660,14 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
           }
         },
-        "required": ["key", "key_type", "holder_name", "holder_tax_id", "ispb", "resolved_at"],
+        "required": [
+          "key",
+          "key_type",
+          "holder_name",
+          "holder_tax_id",
+          "ispb",
+          "resolved_at"
+        ],
         "additionalProperties": false
       },
       "V1AccountsAccountIdStatementItem": {
@@ -577,7 +686,10 @@
           },
           "direction": {
             "type": "string",
-            "enum": ["CREDIT", "DEBIT"]
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
           },
           "amount": {
             "type": "object",
@@ -588,13 +700,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "balance_after": {
@@ -606,19 +724,32 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "type": {
             "type": "string",
-            "enum": ["PIX_IN", "PIX_OUT", "FEE", "REFUND", "ADJUSTMENT", "OTHER"]
+            "enum": [
+              "PIX_IN",
+              "PIX_OUT",
+              "FEE",
+              "REFUND",
+              "ADJUSTMENT",
+              "OTHER"
+            ]
           },
           "end_to_end_id": {
             "type": "string",
@@ -637,7 +768,14 @@
             "nullable": true
           }
         },
-        "required": ["id", "posted_at", "effective_date", "direction", "amount", "type"],
+        "required": [
+          "id",
+          "posted_at",
+          "effective_date",
+          "direction",
+          "amount",
+          "type"
+        ],
         "additionalProperties": false
       },
       "V1AccountsIdResponse": {
@@ -648,7 +786,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["account"],
+            "enum": [
+              "account"
+            ],
             "default": "account"
           },
           "holder_id": {
@@ -656,7 +796,10 @@
           },
           "holder_type": {
             "type": "string",
-            "enum": ["INDIVIDUAL", "BUSINESS"]
+            "enum": [
+              "INDIVIDUAL",
+              "BUSINESS"
+            ]
           },
           "holder_tax_id": {
             "type": "string"
@@ -666,7 +809,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "connection_id": {
             "type": "string"
@@ -708,17 +858,28 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
               }
             },
-            "required": ["code", "message", "at"],
+            "required": [
+              "code",
+              "message",
+              "at"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"]
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ]
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "bank": {
             "type": "object",
@@ -749,7 +910,11 @@
                 "nullable": true
               }
             },
-            "required": ["ispb", "branch", "number"],
+            "required": [
+              "ispb",
+              "branch",
+              "number"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -800,7 +965,9 @@
         "properties": {
           "object": {
             "type": "string",
-            "enum": ["balance"],
+            "enum": [
+              "balance"
+            ],
             "default": "balance"
           },
           "account_id": {
@@ -808,7 +975,9 @@
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "available": {
             "type": "object",
@@ -819,13 +988,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "blocked": {
@@ -837,13 +1012,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "pending": {
@@ -855,13 +1036,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "total": {
@@ -873,13 +1060,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "scheduled_outflow": {
@@ -891,13 +1084,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -912,7 +1111,12 @@
                 "properties": {
                   "source": {
                     "type": "string",
-                    "enum": ["cache", "provider", "ledger", "cache-stale"]
+                    "enum": [
+                      "cache",
+                      "provider",
+                      "ledger",
+                      "cache-stale"
+                    ]
                   },
                   "as_of": {
                     "type": "string"
@@ -928,15 +1132,30 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["source", "as_of", "age_ms"],
+                "required": [
+                  "source",
+                  "as_of",
+                  "age_ms"
+                ],
                 "additionalProperties": false
               }
             },
-            "required": ["request_id", "freshness"],
+            "required": [
+              "request_id",
+              "freshness"
+            ],
             "additionalProperties": false
           }
         },
-        "required": ["account_id", "currency", "available", "blocked", "pending", "total", "_meta"],
+        "required": [
+          "account_id",
+          "currency",
+          "available",
+          "blocked",
+          "pending",
+          "total",
+          "_meta"
+        ],
         "additionalProperties": false
       },
       "V1AccountsIdOnboardingResponse": {
@@ -947,7 +1166,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["onboarding"],
+            "enum": [
+              "onboarding"
+            ],
             "default": "onboarding"
           },
           "account_id": {
@@ -963,7 +1184,10 @@
           },
           "type": {
             "type": "string",
-            "enum": ["KYC", "KYB"]
+            "enum": [
+              "KYC",
+              "KYB"
+            ]
           },
           "status": {
             "type": "string",
@@ -981,7 +1205,11 @@
           },
           "decision": {
             "type": "string",
-            "enum": ["APPROVE", "REJECT", "REVIEW"],
+            "enum": [
+              "APPROVE",
+              "REJECT",
+              "REVIEW"
+            ],
             "nullable": true
           },
           "rejection_code": {
@@ -1115,7 +1343,13 @@
                   "nullable": true
                 }
               },
-              "required": ["id", "code", "status", "label", "attempts"],
+              "required": [
+                "id",
+                "code",
+                "status",
+                "label",
+                "attempts"
+              ],
               "additionalProperties": false
             },
             "default": []
@@ -1130,7 +1364,10 @@
                 },
                 "subject_type": {
                   "type": "string",
-                  "enum": ["HOLDER", "REPRESENTATIVE"]
+                  "enum": [
+                    "HOLDER",
+                    "REPRESENTATIVE"
+                  ]
                 },
                 "subject_id": {
                   "type": "string"
@@ -1153,7 +1390,13 @@
                 },
                 "result": {
                   "type": "string",
-                  "enum": ["CLEAR", "POTENTIAL_MATCH", "MATCH", "INCONCLUSIVE", "ERROR"]
+                  "enum": [
+                    "CLEAR",
+                    "POTENTIAL_MATCH",
+                    "MATCH",
+                    "INCONCLUSIVE",
+                    "ERROR"
+                  ]
                 },
                 "score": {
                   "type": "string",
@@ -1175,7 +1418,10 @@
                         "nullable": true
                       }
                     },
-                    "required": ["list_name", "matched_name"],
+                    "required": [
+                      "list_name",
+                      "matched_name"
+                    ],
                     "additionalProperties": false
                   },
                   "default": []
@@ -1227,7 +1473,14 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
           }
         },
-        "required": ["id", "holder_id", "type", "status", "created_at", "updated_at"],
+        "required": [
+          "id",
+          "holder_id",
+          "type",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
         "additionalProperties": false
       },
       "V1OperationsIdResponse": {
@@ -1238,7 +1491,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["operation"],
+            "enum": [
+              "operation"
+            ],
             "default": "operation"
           },
           "kind": {
@@ -1246,7 +1501,13 @@
           },
           "status": {
             "type": "string",
-            "enum": ["PENDING", "SUBMITTED", "UNKNOWN", "SETTLED", "FAILED"]
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "UNKNOWN",
+              "SETTLED",
+              "FAILED"
+            ]
           },
           "transaction_id": {
             "type": "string",
@@ -1273,7 +1534,14 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
           }
         },
-        "required": ["id", "kind", "status", "attempts", "created_at", "updated_at"],
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "created_at",
+          "updated_at"
+        ],
         "additionalProperties": false
       },
       "V1TransactionsItem": {
@@ -1284,7 +1552,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["transaction"],
+            "enum": [
+              "transaction"
+            ],
             "default": "transaction"
           },
           "account_id": {
@@ -1309,7 +1579,10 @@
           },
           "direction": {
             "type": "string",
-            "enum": ["CREDIT", "DEBIT"]
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
           },
           "status": {
             "type": "string",
@@ -1334,13 +1607,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "fee": {
@@ -1352,13 +1631,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "net_amount": {
@@ -1370,13 +1655,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "refunded_amount": {
@@ -1388,13 +1679,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "description": {
@@ -1403,7 +1700,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "provider_transaction_id": {
             "type": "string",
@@ -1453,7 +1757,12 @@
               },
               "purpose": {
                 "type": "string",
-                "enum": ["TRANSFER", "PURCHASE", "WITHDRAWAL", "CHANGE"]
+                "enum": [
+                  "TRANSFER",
+                  "PURCHASE",
+                  "WITHDRAWAL",
+                  "CHANGE"
+                ]
               },
               "key_type": {
                 "type": "string",
@@ -1492,7 +1801,12 @@
                   },
                   "account_type": {
                     "type": "string",
-                    "enum": ["CHECKING", "SAVINGS", "PAYMENT", "SALARY"],
+                    "enum": [
+                      "CHECKING",
+                      "SAVINGS",
+                      "PAYMENT",
+                      "SALARY"
+                    ],
                     "nullable": true
                   }
                 },
@@ -1521,7 +1835,10 @@
                 "nullable": true
               }
             },
-            "required": ["initiation_method", "purpose"],
+            "required": [
+              "initiation_method",
+              "purpose"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -1606,7 +1923,10 @@
                 "type": "string"
               }
             },
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -1678,7 +1998,11 @@
                   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
                 }
               },
-              "required": ["to_status", "source", "occurred_at"],
+              "required": [
+                "to_status",
+                "source",
+                "occurred_at"
+              ],
               "additionalProperties": false
             }
           },
@@ -1714,7 +2038,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["transaction"],
+            "enum": [
+              "transaction"
+            ],
             "default": "transaction"
           },
           "account_id": {
@@ -1739,7 +2065,10 @@
           },
           "direction": {
             "type": "string",
-            "enum": ["CREDIT", "DEBIT"]
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
           },
           "status": {
             "type": "string",
@@ -1764,13 +2093,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "fee": {
@@ -1782,13 +2117,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "net_amount": {
@@ -1800,13 +2141,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "refunded_amount": {
@@ -1818,13 +2165,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "description": {
@@ -1833,7 +2186,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "provider_transaction_id": {
             "type": "string",
@@ -1883,7 +2243,12 @@
               },
               "purpose": {
                 "type": "string",
-                "enum": ["TRANSFER", "PURCHASE", "WITHDRAWAL", "CHANGE"]
+                "enum": [
+                  "TRANSFER",
+                  "PURCHASE",
+                  "WITHDRAWAL",
+                  "CHANGE"
+                ]
               },
               "key_type": {
                 "type": "string",
@@ -1922,7 +2287,12 @@
                   },
                   "account_type": {
                     "type": "string",
-                    "enum": ["CHECKING", "SAVINGS", "PAYMENT", "SALARY"],
+                    "enum": [
+                      "CHECKING",
+                      "SAVINGS",
+                      "PAYMENT",
+                      "SALARY"
+                    ],
                     "nullable": true
                   }
                 },
@@ -1951,7 +2321,10 @@
                 "nullable": true
               }
             },
-            "required": ["initiation_method", "purpose"],
+            "required": [
+              "initiation_method",
+              "purpose"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -2036,7 +2409,10 @@
                 "type": "string"
               }
             },
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -2108,7 +2484,11 @@
                   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
                 }
               },
-              "required": ["to_status", "source", "occurred_at"],
+              "required": [
+                "to_status",
+                "source",
+                "occurred_at"
+              ],
               "additionalProperties": false
             }
           },
@@ -2144,7 +2524,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["account"],
+            "enum": [
+              "account"
+            ],
             "default": "account"
           },
           "holder_id": {
@@ -2152,7 +2534,10 @@
           },
           "holder_type": {
             "type": "string",
-            "enum": ["INDIVIDUAL", "BUSINESS"]
+            "enum": [
+              "INDIVIDUAL",
+              "BUSINESS"
+            ]
           },
           "holder_tax_id": {
             "type": "string"
@@ -2162,7 +2547,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "connection_id": {
             "type": "string"
@@ -2204,17 +2596,28 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
               }
             },
-            "required": ["code", "message", "at"],
+            "required": [
+              "code",
+              "message",
+              "at"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"]
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ]
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "bank": {
             "type": "object",
@@ -2245,7 +2648,11 @@
                 "nullable": true
               }
             },
-            "required": ["ispb", "branch", "number"],
+            "required": [
+              "ispb",
+              "branch",
+              "number"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -2301,20 +2708,28 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["INDIVIDUAL"]
+                    "enum": [
+                      "INDIVIDUAL"
+                    ]
                   },
                   "tax_id": {
                     "type": "object",
                     "properties": {
                       "type": {
                         "type": "string",
-                        "enum": ["CPF", "CNPJ"]
+                        "enum": [
+                          "CPF",
+                          "CNPJ"
+                        ]
                       },
                       "value": {
                         "type": "string"
                       }
                     },
-                    "required": ["type", "value"],
+                    "required": [
+                      "type",
+                      "value"
+                    ],
                     "additionalProperties": false
                   },
                   "legal_name": {
@@ -2347,7 +2762,10 @@
                         "maxLength": 9
                       }
                     },
-                    "required": ["area_code", "number"],
+                    "required": [
+                      "area_code",
+                      "number"
+                    ],
                     "additionalProperties": false
                   },
                   "addresses": {
@@ -2357,7 +2775,11 @@
                       "properties": {
                         "type": {
                           "type": "string",
-                          "enum": ["RESIDENTIAL", "COMMERCIAL", "MAILING"],
+                          "enum": [
+                            "RESIDENTIAL",
+                            "COMMERCIAL",
+                            "MAILING"
+                          ],
                           "default": "RESIDENTIAL"
                         },
                         "postal_code": {
@@ -2421,7 +2843,9 @@
                         },
                         "country": {
                           "type": "string",
-                          "enum": ["BR"],
+                          "enum": [
+                            "BR"
+                          ],
                           "default": "BR"
                         },
                         "ibge_city_code": {
@@ -2429,7 +2853,14 @@
                           "pattern": "^\\d{7}$"
                         }
                       },
-                      "required": ["postal_code", "street", "number", "district", "city", "state"],
+                      "required": [
+                        "postal_code",
+                        "street",
+                        "number",
+                        "district",
+                        "city",
+                        "state"
+                      ],
                       "additionalProperties": false
                     },
                     "minItems": 1
@@ -2466,7 +2897,13 @@
                   },
                   "marital_status": {
                     "type": "string",
-                    "enum": ["SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "STABLE_UNION"]
+                    "enum": [
+                      "SINGLE",
+                      "MARRIED",
+                      "DIVORCED",
+                      "WIDOWED",
+                      "STABLE_UNION"
+                    ]
                   },
                   "occupation_code": {
                     "type": "string",
@@ -2477,7 +2914,13 @@
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "enum": ["RG", "CNH", "RNE", "PASSPORT", "CTPS"]
+                        "enum": [
+                          "RG",
+                          "CNH",
+                          "RNE",
+                          "PASSPORT",
+                          "CTPS"
+                        ]
                       },
                       "number": {
                         "type": "string",
@@ -2492,7 +2935,10 @@
                         "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                       }
                     },
-                    "required": ["kind", "number"],
+                    "required": [
+                      "kind",
+                      "number"
+                    ],
                     "additionalProperties": false
                   },
                   "monthly_income": {
@@ -2504,13 +2950,19 @@
                       },
                       "currency": {
                         "type": "string",
-                        "enum": ["BRL"]
+                        "enum": [
+                          "BRL"
+                        ]
                       },
                       "scale": {
                         "type": "integer"
                       }
                     },
-                    "required": ["amount", "currency", "scale"],
+                    "required": [
+                      "amount",
+                      "currency",
+                      "scale"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -2530,20 +2982,28 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["BUSINESS"]
+                    "enum": [
+                      "BUSINESS"
+                    ]
                   },
                   "tax_id": {
                     "type": "object",
                     "properties": {
                       "type": {
                         "type": "string",
-                        "enum": ["CPF", "CNPJ"]
+                        "enum": [
+                          "CPF",
+                          "CNPJ"
+                        ]
                       },
                       "value": {
                         "type": "string"
                       }
                     },
-                    "required": ["type", "value"],
+                    "required": [
+                      "type",
+                      "value"
+                    ],
                     "additionalProperties": false
                   },
                   "legal_name": {
@@ -2576,7 +3036,10 @@
                         "maxLength": 9
                       }
                     },
-                    "required": ["area_code", "number"],
+                    "required": [
+                      "area_code",
+                      "number"
+                    ],
                     "additionalProperties": false
                   },
                   "addresses": {
@@ -2586,7 +3049,11 @@
                       "properties": {
                         "type": {
                           "type": "string",
-                          "enum": ["RESIDENTIAL", "COMMERCIAL", "MAILING"],
+                          "enum": [
+                            "RESIDENTIAL",
+                            "COMMERCIAL",
+                            "MAILING"
+                          ],
                           "default": "RESIDENTIAL"
                         },
                         "postal_code": {
@@ -2650,7 +3117,9 @@
                         },
                         "country": {
                           "type": "string",
-                          "enum": ["BR"],
+                          "enum": [
+                            "BR"
+                          ],
                           "default": "BR"
                         },
                         "ibge_city_code": {
@@ -2658,7 +3127,14 @@
                           "pattern": "^\\d{7}$"
                         }
                       },
-                      "required": ["postal_code", "street", "number", "district", "city", "state"],
+                      "required": [
+                        "postal_code",
+                        "street",
+                        "number",
+                        "district",
+                        "city",
+                        "state"
+                      ],
                       "additionalProperties": false
                     },
                     "minItems": 1
@@ -2706,7 +3182,13 @@
                   },
                   "company_size": {
                     "type": "string",
-                    "enum": ["MEI", "ME", "EPP", "MEDIUM", "LARGE"]
+                    "enum": [
+                      "MEI",
+                      "ME",
+                      "EPP",
+                      "MEDIUM",
+                      "LARGE"
+                    ]
                   },
                   "monthly_revenue": {
                     "type": "object",
@@ -2717,13 +3199,19 @@
                       },
                       "currency": {
                         "type": "string",
-                        "enum": ["BRL"]
+                        "enum": [
+                          "BRL"
+                        ]
                       },
                       "scale": {
                         "type": "integer"
                       }
                     },
-                    "required": ["amount", "currency", "scale"],
+                    "required": [
+                      "amount",
+                      "currency",
+                      "scale"
+                    ],
                     "additionalProperties": false
                   },
                   "share_capital": {
@@ -2735,13 +3223,19 @@
                       },
                       "currency": {
                         "type": "string",
-                        "enum": ["BRL"]
+                        "enum": [
+                          "BRL"
+                        ]
                       },
                       "scale": {
                         "type": "integer"
                       }
                     },
-                    "required": ["amount", "currency", "scale"],
+                    "required": [
+                      "amount",
+                      "currency",
+                      "scale"
+                    ],
                     "additionalProperties": false
                   },
                   "representatives": {
@@ -2764,13 +3258,19 @@
                           "properties": {
                             "type": {
                               "type": "string",
-                              "enum": ["CPF", "CNPJ"]
+                              "enum": [
+                                "CPF",
+                                "CNPJ"
+                              ]
                             },
                             "value": {
                               "type": "string"
                             }
                           },
-                          "required": ["type", "value"],
+                          "required": [
+                            "type",
+                            "value"
+                          ],
                           "additionalProperties": false
                         },
                         "full_name": {
@@ -2807,7 +3307,10 @@
                               "maxLength": 9
                             }
                           },
-                          "required": ["area_code", "number"],
+                          "required": [
+                            "area_code",
+                            "number"
+                          ],
                           "additionalProperties": false
                         },
                         "ownership_percentage": {
@@ -2831,7 +3334,11 @@
                           "properties": {
                             "type": {
                               "type": "string",
-                              "enum": ["RESIDENTIAL", "COMMERCIAL", "MAILING"],
+                              "enum": [
+                                "RESIDENTIAL",
+                                "COMMERCIAL",
+                                "MAILING"
+                              ],
                               "default": "RESIDENTIAL"
                             },
                             "postal_code": {
@@ -2895,7 +3402,9 @@
                             },
                             "country": {
                               "type": "string",
-                              "enum": ["BR"],
+                              "enum": [
+                                "BR"
+                              ],
                               "default": "BR"
                             },
                             "ibge_city_code": {
@@ -2914,7 +3423,12 @@
                           "additionalProperties": false
                         }
                       },
-                      "required": ["role", "tax_id", "full_name", "birth_date"],
+                      "required": [
+                        "role",
+                        "tax_id",
+                        "full_name",
+                        "birth_date"
+                      ],
                       "additionalProperties": false
                     },
                     "minItems": 1
@@ -2936,7 +3450,12 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"],
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ],
             "default": "PAYMENT"
           },
           "connection_id": {
@@ -2956,7 +3475,9 @@
             "default": {}
           }
         },
-        "required": ["holder"],
+        "required": [
+          "holder"
+        ],
         "additionalProperties": false
       },
       "V1AccountsAccountIdPixChargesCreated": {
@@ -2967,7 +3488,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["pix_charge"],
+            "enum": [
+              "pix_charge"
+            ],
             "default": "pix_charge"
           },
           "account_id": {
@@ -2975,14 +3498,24 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["STATIC", "DYNAMIC_IMMEDIATE", "DYNAMIC_DUE"]
+            "enum": [
+              "STATIC",
+              "DYNAMIC_IMMEDIATE",
+              "DYNAMIC_DUE"
+            ]
           },
           "txid": {
             "type": "string"
           },
           "status": {
             "type": "string",
-            "enum": ["ACTIVE", "COMPLETED", "EXPIRED", "REMOVED_BY_PSP", "REMOVED_BY_USER"]
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "EXPIRED",
+              "REMOVED_BY_PSP",
+              "REMOVED_BY_USER"
+            ]
           },
           "revision": {
             "type": "integer",
@@ -2997,13 +3530,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -3039,13 +3578,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -3095,7 +3640,9 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["STATIC"]
+                "enum": [
+                  "STATIC"
+                ]
               },
               "pix_key_id": {
                 "type": "string"
@@ -3109,13 +3656,19 @@
                   },
                   "currency": {
                     "type": "string",
-                    "enum": ["BRL"]
+                    "enum": [
+                      "BRL"
+                    ]
                   },
                   "scale": {
                     "type": "integer"
                   }
                 },
-                "required": ["amount", "currency", "scale"],
+                "required": [
+                  "amount",
+                  "currency",
+                  "scale"
+                ],
                 "additionalProperties": false
               },
               "amount_is_changeable": {
@@ -3130,13 +3683,19 @@
                     "properties": {
                       "type": {
                         "type": "string",
-                        "enum": ["CPF", "CNPJ"]
+                        "enum": [
+                          "CPF",
+                          "CNPJ"
+                        ]
                       },
                       "value": {
                         "type": "string"
                       }
                     },
-                    "required": ["type", "value"],
+                    "required": [
+                      "type",
+                      "value"
+                    ],
                     "additionalProperties": false
                   },
                   "name": {
@@ -3145,7 +3704,10 @@
                     "maxLength": 255
                   }
                 },
-                "required": ["tax_id", "name"],
+                "required": [
+                  "tax_id",
+                  "name"
+                ],
                 "additionalProperties": false
               },
               "payer_request": {
@@ -3166,7 +3728,10 @@
                       "maxLength": 200
                     }
                   },
-                  "required": ["name", "value"],
+                  "required": [
+                    "name",
+                    "value"
+                  ],
                   "additionalProperties": false
                 },
                 "maxItems": 50,
@@ -3188,7 +3753,10 @@
                 "type": "string"
               }
             },
-            "required": ["kind", "pix_key_id"],
+            "required": [
+              "kind",
+              "pix_key_id"
+            ],
             "additionalProperties": false
           },
           {
@@ -3196,7 +3764,9 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["DYNAMIC_IMMEDIATE"]
+                "enum": [
+                  "DYNAMIC_IMMEDIATE"
+                ]
               },
               "pix_key_id": {
                 "type": "string"
@@ -3210,13 +3780,19 @@
                   },
                   "currency": {
                     "type": "string",
-                    "enum": ["BRL"]
+                    "enum": [
+                      "BRL"
+                    ]
                   },
                   "scale": {
                     "type": "integer"
                   }
                 },
-                "required": ["amount", "currency", "scale"],
+                "required": [
+                  "amount",
+                  "currency",
+                  "scale"
+                ],
                 "additionalProperties": false
               },
               "amount_is_changeable": {
@@ -3231,13 +3807,19 @@
                     "properties": {
                       "type": {
                         "type": "string",
-                        "enum": ["CPF", "CNPJ"]
+                        "enum": [
+                          "CPF",
+                          "CNPJ"
+                        ]
                       },
                       "value": {
                         "type": "string"
                       }
                     },
-                    "required": ["type", "value"],
+                    "required": [
+                      "type",
+                      "value"
+                    ],
                     "additionalProperties": false
                   },
                   "name": {
@@ -3246,7 +3828,10 @@
                     "maxLength": 255
                   }
                 },
-                "required": ["tax_id", "name"],
+                "required": [
+                  "tax_id",
+                  "name"
+                ],
                 "additionalProperties": false
               },
               "payer_request": {
@@ -3267,7 +3852,10 @@
                       "maxLength": 200
                     }
                   },
-                  "required": ["name", "value"],
+                  "required": [
+                    "name",
+                    "value"
+                  ],
                   "additionalProperties": false
                 },
                 "maxItems": 50,
@@ -3292,7 +3880,10 @@
                 "default": 3600
               }
             },
-            "required": ["kind", "pix_key_id"],
+            "required": [
+              "kind",
+              "pix_key_id"
+            ],
             "additionalProperties": false
           },
           {
@@ -3300,7 +3891,9 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["DYNAMIC_DUE"]
+                "enum": [
+                  "DYNAMIC_DUE"
+                ]
               },
               "pix_key_id": {
                 "type": "string"
@@ -3314,13 +3907,19 @@
                   },
                   "currency": {
                     "type": "string",
-                    "enum": ["BRL"]
+                    "enum": [
+                      "BRL"
+                    ]
                   },
                   "scale": {
                     "type": "integer"
                   }
                 },
-                "required": ["amount", "currency", "scale"],
+                "required": [
+                  "amount",
+                  "currency",
+                  "scale"
+                ],
                 "additionalProperties": false
               },
               "amount_is_changeable": {
@@ -3335,13 +3934,19 @@
                     "properties": {
                       "type": {
                         "type": "string",
-                        "enum": ["CPF", "CNPJ"]
+                        "enum": [
+                          "CPF",
+                          "CNPJ"
+                        ]
                       },
                       "value": {
                         "type": "string"
                       }
                     },
-                    "required": ["type", "value"],
+                    "required": [
+                      "type",
+                      "value"
+                    ],
                     "additionalProperties": false
                   },
                   "name": {
@@ -3350,7 +3955,10 @@
                     "maxLength": 255
                   }
                 },
-                "required": ["tax_id", "name"],
+                "required": [
+                  "tax_id",
+                  "name"
+                ],
                 "additionalProperties": false
               },
               "payer_request": {
@@ -3371,7 +3979,10 @@
                       "maxLength": 200
                     }
                   },
-                  "required": ["name", "value"],
+                  "required": [
+                    "name",
+                    "value"
+                  ],
                   "additionalProperties": false
                 },
                 "maxItems": 50,
@@ -3404,14 +4015,20 @@
                 "properties": {
                   "mode": {
                     "type": "string",
-                    "enum": ["FIXED", "PERCENT"]
+                    "enum": [
+                      "FIXED",
+                      "PERCENT"
+                    ]
                   },
                   "value": {
                     "type": "string",
                     "pattern": "^\\d{1,10}(\\.\\d{1,2})?$"
                   }
                 },
-                "required": ["mode", "value"],
+                "required": [
+                  "mode",
+                  "value"
+                ],
                 "additionalProperties": false
               },
               "interest": {
@@ -3419,14 +4036,22 @@
                 "properties": {
                   "mode": {
                     "type": "string",
-                    "enum": ["FIXED_DAILY", "PERCENT_DAILY", "PERCENT_MONTHLY", "PERCENT_YEARLY"]
+                    "enum": [
+                      "FIXED_DAILY",
+                      "PERCENT_DAILY",
+                      "PERCENT_MONTHLY",
+                      "PERCENT_YEARLY"
+                    ]
                   },
                   "value": {
                     "type": "string",
                     "pattern": "^\\d{1,10}(\\.\\d{1,2})?$"
                   }
                 },
-                "required": ["mode", "value"],
+                "required": [
+                  "mode",
+                  "value"
+                ],
                 "additionalProperties": false
               },
               "discounts": {
@@ -3436,7 +4061,10 @@
                   "properties": {
                     "mode": {
                       "type": "string",
-                      "enum": ["FIXED", "PERCENT"]
+                      "enum": [
+                        "FIXED",
+                        "PERCENT"
+                      ]
                     },
                     "value": {
                       "type": "string",
@@ -3447,14 +4075,21 @@
                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
                     }
                   },
-                  "required": ["mode", "value"],
+                  "required": [
+                    "mode",
+                    "value"
+                  ],
                   "additionalProperties": false
                 },
                 "maxItems": 3,
                 "default": []
               }
             },
-            "required": ["kind", "pix_key_id", "due_date"],
+            "required": [
+              "kind",
+              "pix_key_id",
+              "due_date"
+            ],
             "additionalProperties": false
           }
         ]
@@ -3467,7 +4102,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["pix_charge"],
+            "enum": [
+              "pix_charge"
+            ],
             "default": "pix_charge"
           },
           "account_id": {
@@ -3475,14 +4112,24 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["STATIC", "DYNAMIC_IMMEDIATE", "DYNAMIC_DUE"]
+            "enum": [
+              "STATIC",
+              "DYNAMIC_IMMEDIATE",
+              "DYNAMIC_DUE"
+            ]
           },
           "txid": {
             "type": "string"
           },
           "status": {
             "type": "string",
-            "enum": ["ACTIVE", "COMPLETED", "EXPIRED", "REMOVED_BY_PSP", "REMOVED_BY_USER"]
+            "enum": [
+              "ACTIVE",
+              "COMPLETED",
+              "EXPIRED",
+              "REMOVED_BY_PSP",
+              "REMOVED_BY_USER"
+            ]
           },
           "revision": {
             "type": "integer",
@@ -3497,13 +4144,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -3539,13 +4192,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -3596,7 +4255,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["pix_key"],
+            "enum": [
+              "pix_key"
+            ],
             "default": "pix_key"
           },
           "account_id": {
@@ -3604,7 +4265,13 @@
           },
           "type": {
             "type": "string",
-            "enum": ["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"]
+            "enum": [
+              "CPF",
+              "CNPJ",
+              "EMAIL",
+              "PHONE",
+              "EVP"
+            ]
           },
           "value": {
             "type": "string"
@@ -3628,7 +4295,10 @@
             "properties": {
               "type": {
                 "type": "string",
-                "enum": ["PORTABILITY", "OWNERSHIP"]
+                "enum": [
+                  "PORTABILITY",
+                  "OWNERSHIP"
+                ]
               },
               "status": {
                 "type": "string"
@@ -3643,7 +4313,10 @@
                 "nullable": true
               }
             },
-            "required": ["type", "status"],
+            "required": [
+              "type",
+              "status"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -3662,7 +4335,14 @@
             "nullable": true
           }
         },
-        "required": ["id", "account_id", "type", "value", "status", "requested_at"],
+        "required": [
+          "id",
+          "account_id",
+          "type",
+          "value",
+          "status",
+          "requested_at"
+        ],
         "additionalProperties": false
       },
       "V1AccountsAccountIdPixKeysRequest": {
@@ -3670,14 +4350,22 @@
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["CPF", "CNPJ", "EMAIL", "PHONE", "EVP"]
+            "enum": [
+              "CPF",
+              "CNPJ",
+              "EMAIL",
+              "PHONE",
+              "EVP"
+            ]
           },
           "value": {
             "type": "string",
             "maxLength": 77
           }
         },
-        "required": ["type"],
+        "required": [
+          "type"
+        ],
         "additionalProperties": false
       },
       "V1AccountsAccountIdPixRefundsCreated": {
@@ -3688,7 +4376,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["transaction"],
+            "enum": [
+              "transaction"
+            ],
             "default": "transaction"
           },
           "account_id": {
@@ -3713,7 +4403,10 @@
           },
           "direction": {
             "type": "string",
-            "enum": ["CREDIT", "DEBIT"]
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
           },
           "status": {
             "type": "string",
@@ -3738,13 +4431,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "fee": {
@@ -3756,13 +4455,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "net_amount": {
@@ -3774,13 +4479,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "refunded_amount": {
@@ -3792,13 +4503,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "description": {
@@ -3807,7 +4524,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "provider_transaction_id": {
             "type": "string",
@@ -3857,7 +4581,12 @@
               },
               "purpose": {
                 "type": "string",
-                "enum": ["TRANSFER", "PURCHASE", "WITHDRAWAL", "CHANGE"]
+                "enum": [
+                  "TRANSFER",
+                  "PURCHASE",
+                  "WITHDRAWAL",
+                  "CHANGE"
+                ]
               },
               "key_type": {
                 "type": "string",
@@ -3896,7 +4625,12 @@
                   },
                   "account_type": {
                     "type": "string",
-                    "enum": ["CHECKING", "SAVINGS", "PAYMENT", "SALARY"],
+                    "enum": [
+                      "CHECKING",
+                      "SAVINGS",
+                      "PAYMENT",
+                      "SALARY"
+                    ],
                     "nullable": true
                   }
                 },
@@ -3925,7 +4659,10 @@
                 "nullable": true
               }
             },
-            "required": ["initiation_method", "purpose"],
+            "required": [
+              "initiation_method",
+              "purpose"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -4010,7 +4747,10 @@
                 "type": "string"
               }
             },
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -4082,7 +4822,11 @@
                   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
                 }
               },
-              "required": ["to_status", "source", "occurred_at"],
+              "required": [
+                "to_status",
+                "source",
+                "occurred_at"
+              ],
               "additionalProperties": false
             }
           },
@@ -4128,13 +4872,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "reason_code": {
@@ -4157,7 +4907,9 @@
             "maxLength": 128
           }
         },
-        "required": ["reason_code"],
+        "required": [
+          "reason_code"
+        ],
         "additionalProperties": false
       },
       "V1AccountsAccountIdPixTransfersCreated": {
@@ -4168,7 +4920,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["transaction"],
+            "enum": [
+              "transaction"
+            ],
             "default": "transaction"
           },
           "account_id": {
@@ -4193,7 +4947,10 @@
           },
           "direction": {
             "type": "string",
-            "enum": ["CREDIT", "DEBIT"]
+            "enum": [
+              "CREDIT",
+              "DEBIT"
+            ]
           },
           "status": {
             "type": "string",
@@ -4218,13 +4975,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "fee": {
@@ -4236,13 +4999,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "net_amount": {
@@ -4254,13 +5023,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "refunded_amount": {
@@ -4272,13 +5047,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "description": {
@@ -4287,7 +5068,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "provider_transaction_id": {
             "type": "string",
@@ -4337,7 +5125,12 @@
               },
               "purpose": {
                 "type": "string",
-                "enum": ["TRANSFER", "PURCHASE", "WITHDRAWAL", "CHANGE"]
+                "enum": [
+                  "TRANSFER",
+                  "PURCHASE",
+                  "WITHDRAWAL",
+                  "CHANGE"
+                ]
               },
               "key_type": {
                 "type": "string",
@@ -4376,7 +5169,12 @@
                   },
                   "account_type": {
                     "type": "string",
-                    "enum": ["CHECKING", "SAVINGS", "PAYMENT", "SALARY"],
+                    "enum": [
+                      "CHECKING",
+                      "SAVINGS",
+                      "PAYMENT",
+                      "SALARY"
+                    ],
                     "nullable": true
                   }
                 },
@@ -4405,7 +5203,10 @@
                 "nullable": true
               }
             },
-            "required": ["initiation_method", "purpose"],
+            "required": [
+              "initiation_method",
+              "purpose"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -4490,7 +5291,10 @@
                 "type": "string"
               }
             },
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -4562,7 +5366,11 @@
                   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
                 }
               },
-              "required": ["to_status", "source", "occurred_at"],
+              "required": [
+                "to_status",
+                "source",
+                "occurred_at"
+              ],
               "additionalProperties": false
             }
           },
@@ -4602,13 +5410,19 @@
               },
               "currency": {
                 "type": "string",
-                "enum": ["BRL"]
+                "enum": [
+                  "BRL"
+                ]
               },
               "scale": {
                 "type": "integer"
               }
             },
-            "required": ["amount", "currency", "scale"],
+            "required": [
+              "amount",
+              "currency",
+              "scale"
+            ],
             "additionalProperties": false
           },
           "destination": {
@@ -4618,7 +5432,9 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": ["pix_key"]
+                    "enum": [
+                      "pix_key"
+                    ]
                   },
                   "key": {
                     "type": "string",
@@ -4629,7 +5445,10 @@
                     "type": "string"
                   }
                 },
-                "required": ["kind", "key"],
+                "required": [
+                  "kind",
+                  "key"
+                ],
                 "additionalProperties": false
               },
               {
@@ -4637,7 +5456,9 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": ["bank_account"]
+                    "enum": [
+                      "bank_account"
+                    ]
                   },
                   "ispb": {
                     "type": "string",
@@ -4660,7 +5481,12 @@
                   },
                   "account_type": {
                     "type": "string",
-                    "enum": ["CHECKING", "SAVINGS", "PAYMENT", "SALARY"]
+                    "enum": [
+                      "CHECKING",
+                      "SAVINGS",
+                      "PAYMENT",
+                      "SALARY"
+                    ]
                   },
                   "holder": {
                     "type": "object",
@@ -4670,13 +5496,19 @@
                         "properties": {
                           "type": {
                             "type": "string",
-                            "enum": ["CPF", "CNPJ"]
+                            "enum": [
+                              "CPF",
+                              "CNPJ"
+                            ]
                           },
                           "value": {
                             "type": "string"
                           }
                         },
-                        "required": ["type", "value"],
+                        "required": [
+                          "type",
+                          "value"
+                        ],
                         "additionalProperties": false
                       },
                       "name": {
@@ -4685,11 +5517,21 @@
                         "maxLength": 255
                       }
                     },
-                    "required": ["tax_id", "name"],
+                    "required": [
+                      "tax_id",
+                      "name"
+                    ],
                     "additionalProperties": false
                   }
                 },
-                "required": ["kind", "ispb", "branch", "number", "account_type", "holder"],
+                "required": [
+                  "kind",
+                  "ispb",
+                  "branch",
+                  "number",
+                  "account_type",
+                  "holder"
+                ],
                 "additionalProperties": false
               },
               {
@@ -4697,14 +5539,19 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": ["emv"]
+                    "enum": [
+                      "emv"
+                    ]
                   },
                   "payload": {
                     "type": "string",
                     "minLength": 20
                   }
                 },
-                "required": ["kind", "payload"],
+                "required": [
+                  "kind",
+                  "payload"
+                ],
                 "additionalProperties": false
               },
               {
@@ -4712,7 +5559,9 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "enum": ["qr_code"]
+                    "enum": [
+                      "qr_code"
+                    ]
                   },
                   "txid": {
                     "type": "string"
@@ -4722,7 +5571,11 @@
                     "minLength": 20
                   }
                 },
-                "required": ["kind", "txid", "emv"],
+                "required": [
+                  "kind",
+                  "txid",
+                  "emv"
+                ],
                 "additionalProperties": false
               }
             ]
@@ -4733,7 +5586,12 @@
           },
           "purpose": {
             "type": "string",
-            "enum": ["TRANSFER", "PURCHASE", "WITHDRAWAL", "CHANGE"],
+            "enum": [
+              "TRANSFER",
+              "PURCHASE",
+              "WITHDRAWAL",
+              "CHANGE"
+            ],
             "default": "TRANSFER"
           },
           "initiation_method": {
@@ -4764,7 +5622,10 @@
             "default": {}
           }
         },
-        "required": ["amount", "destination"],
+        "required": [
+          "amount",
+          "destination"
+        ],
         "additionalProperties": false
       },
       "V1AccountsIdBlockCreated": {
@@ -4775,7 +5636,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["account"],
+            "enum": [
+              "account"
+            ],
             "default": "account"
           },
           "holder_id": {
@@ -4783,7 +5646,10 @@
           },
           "holder_type": {
             "type": "string",
-            "enum": ["INDIVIDUAL", "BUSINESS"]
+            "enum": [
+              "INDIVIDUAL",
+              "BUSINESS"
+            ]
           },
           "holder_tax_id": {
             "type": "string"
@@ -4793,7 +5659,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "connection_id": {
             "type": "string"
@@ -4835,17 +5708,28 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
               }
             },
-            "required": ["code", "message", "at"],
+            "required": [
+              "code",
+              "message",
+              "at"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"]
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ]
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "bank": {
             "type": "object",
@@ -4876,7 +5760,11 @@
                 "nullable": true
               }
             },
-            "required": ["ispb", "branch", "number"],
+            "required": [
+              "ispb",
+              "branch",
+              "number"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -4930,7 +5818,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["account"],
+            "enum": [
+              "account"
+            ],
             "default": "account"
           },
           "holder_id": {
@@ -4938,7 +5828,10 @@
           },
           "holder_type": {
             "type": "string",
-            "enum": ["INDIVIDUAL", "BUSINESS"]
+            "enum": [
+              "INDIVIDUAL",
+              "BUSINESS"
+            ]
           },
           "holder_tax_id": {
             "type": "string"
@@ -4948,7 +5841,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "connection_id": {
             "type": "string"
@@ -4990,17 +5890,28 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
               }
             },
-            "required": ["code", "message", "at"],
+            "required": [
+              "code",
+              "message",
+              "at"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"]
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ]
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "bank": {
             "type": "object",
@@ -5031,7 +5942,11 @@
                 "nullable": true
               }
             },
-            "required": ["ispb", "branch", "number"],
+            "required": [
+              "ispb",
+              "branch",
+              "number"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -5085,7 +6000,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["account"],
+            "enum": [
+              "account"
+            ],
             "default": "account"
           },
           "holder_id": {
@@ -5093,7 +6010,10 @@
           },
           "holder_type": {
             "type": "string",
-            "enum": ["INDIVIDUAL", "BUSINESS"]
+            "enum": [
+              "INDIVIDUAL",
+              "BUSINESS"
+            ]
           },
           "holder_tax_id": {
             "type": "string"
@@ -5103,7 +6023,14 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["CELCOIN", "QITECH", "DOCK", "ASAAS", "WOOVI", "MOCK_BANK"]
+            "enum": [
+              "CELCOIN",
+              "QITECH",
+              "DOCK",
+              "ASAAS",
+              "WOOVI",
+              "MOCK_BANK"
+            ]
           },
           "connection_id": {
             "type": "string"
@@ -5145,17 +6072,28 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
               }
             },
-            "required": ["code", "message", "at"],
+            "required": [
+              "code",
+              "message",
+              "at"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
           "kind": {
             "type": "string",
-            "enum": ["PAYMENT", "CHECKING", "SAVINGS", "ESCROW"]
+            "enum": [
+              "PAYMENT",
+              "CHECKING",
+              "SAVINGS",
+              "ESCROW"
+            ]
           },
           "currency": {
             "type": "string",
-            "enum": ["BRL"]
+            "enum": [
+              "BRL"
+            ]
           },
           "bank": {
             "type": "object",
@@ -5186,7 +6124,11 @@
                 "nullable": true
               }
             },
-            "required": ["ispb", "branch", "number"],
+            "required": [
+              "ispb",
+              "branch",
+              "number"
+            ],
             "additionalProperties": false,
             "nullable": true
           },
@@ -5240,7 +6182,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["onboarding"],
+            "enum": [
+              "onboarding"
+            ],
             "default": "onboarding"
           },
           "account_id": {
@@ -5256,7 +6200,10 @@
           },
           "type": {
             "type": "string",
-            "enum": ["KYC", "KYB"]
+            "enum": [
+              "KYC",
+              "KYB"
+            ]
           },
           "status": {
             "type": "string",
@@ -5274,7 +6221,11 @@
           },
           "decision": {
             "type": "string",
-            "enum": ["APPROVE", "REJECT", "REVIEW"],
+            "enum": [
+              "APPROVE",
+              "REJECT",
+              "REVIEW"
+            ],
             "nullable": true
           },
           "rejection_code": {
@@ -5408,7 +6359,13 @@
                   "nullable": true
                 }
               },
-              "required": ["id", "code", "status", "label", "attempts"],
+              "required": [
+                "id",
+                "code",
+                "status",
+                "label",
+                "attempts"
+              ],
               "additionalProperties": false
             },
             "default": []
@@ -5423,7 +6380,10 @@
                 },
                 "subject_type": {
                   "type": "string",
-                  "enum": ["HOLDER", "REPRESENTATIVE"]
+                  "enum": [
+                    "HOLDER",
+                    "REPRESENTATIVE"
+                  ]
                 },
                 "subject_id": {
                   "type": "string"
@@ -5446,7 +6406,13 @@
                 },
                 "result": {
                   "type": "string",
-                  "enum": ["CLEAR", "POTENTIAL_MATCH", "MATCH", "INCONCLUSIVE", "ERROR"]
+                  "enum": [
+                    "CLEAR",
+                    "POTENTIAL_MATCH",
+                    "MATCH",
+                    "INCONCLUSIVE",
+                    "ERROR"
+                  ]
                 },
                 "score": {
                   "type": "string",
@@ -5468,7 +6434,10 @@
                         "nullable": true
                       }
                     },
-                    "required": ["list_name", "matched_name"],
+                    "required": [
+                      "list_name",
+                      "matched_name"
+                    ],
                     "additionalProperties": false
                   },
                   "default": []
@@ -5520,7 +6489,14 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
           }
         },
-        "required": ["id", "holder_id", "type", "status", "created_at", "updated_at"],
+        "required": [
+          "id",
+          "holder_id",
+          "type",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
         "additionalProperties": false
       },
       "V1OperationsIdReconcileCreated": {
@@ -5531,7 +6507,9 @@
           },
           "object": {
             "type": "string",
-            "enum": ["operation"],
+            "enum": [
+              "operation"
+            ],
             "default": "operation"
           },
           "kind": {
@@ -5539,7 +6517,13 @@
           },
           "status": {
             "type": "string",
-            "enum": ["PENDING", "SUBMITTED", "UNKNOWN", "SETTLED", "FAILED"]
+            "enum": [
+              "PENDING",
+              "SUBMITTED",
+              "UNKNOWN",
+              "SETTLED",
+              "FAILED"
+            ]
           },
           "transaction_id": {
             "type": "string",
@@ -5566,16 +6550,28 @@
             "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$"
           }
         },
-        "required": ["id", "kind", "status", "attempts", "created_at", "updated_at"],
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "created_at",
+          "updated_at"
+        ],
         "additionalProperties": false
       },
       "Erro": {
         "type": "object",
-        "required": ["error"],
+        "required": [
+          "error"
+        ],
         "properties": {
           "error": {
             "type": "object",
-            "required": ["code", "message"],
+            "required": [
+              "code",
+              "message"
+            ],
             "properties": {
               "code": {
                 "type": "string"
@@ -5629,7 +6625,9 @@
         "summary": "Remove chave PIX",
         "operationId": "deleteV1AccountsAccountIdPixKeysKeyId",
         "x-baas-capability": "pix.keys.delete",
-        "x-baas-scopes": ["pix:keys:write"],
+        "x-baas-scopes": [
+          "pix:keys:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -5684,7 +6682,9 @@
       "get": {
         "summary": "Lista contas",
         "operationId": "getV1Accounts",
-        "x-baas-scopes": ["accounts:read"],
+        "x-baas-scopes": [
+          "accounts:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -5701,7 +6701,9 @@
                   "properties": {
                     "object": {
                       "type": "string",
-                      "enum": ["list"]
+                      "enum": [
+                        "list"
+                      ]
                     },
                     "data": {
                       "type": "array",
@@ -5755,7 +6757,9 @@
         "summary": "Cria uma conta PF ou PJ",
         "operationId": "postV1Accounts",
         "x-baas-capability": "accounts.create.pf|accounts.create.pj",
-        "x-baas-scopes": ["accounts:write"],
+        "x-baas-scopes": [
+          "accounts:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -5822,7 +6826,9 @@
         "summary": "Lista cobrancas",
         "operationId": "getV1AccountsAccountIdPixCharges",
         "x-baas-capability": "pix.charge.list",
-        "x-baas-scopes": ["pix:read"],
+        "x-baas-scopes": [
+          "pix:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -5848,7 +6854,9 @@
                   "properties": {
                     "object": {
                       "type": "string",
-                      "enum": ["list"]
+                      "enum": [
+                        "list"
+                      ]
                     },
                     "data": {
                       "type": "array",
@@ -5902,7 +6910,9 @@
         "summary": "Cria cobranca estatica ou dinamica",
         "operationId": "postV1AccountsAccountIdPixCharges",
         "x-baas-capability": "pix.charge.static.create|pix.charge.dynamic.create",
-        "x-baas-scopes": ["pix:write"],
+        "x-baas-scopes": [
+          "pix:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -5967,7 +6977,9 @@
         "summary": "Detalha cobranca",
         "operationId": "getV1AccountsAccountIdPixChargesTxid",
         "x-baas-capability": "pix.charge.get",
-        "x-baas-scopes": ["pix:read"],
+        "x-baas-scopes": [
+          "pix:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6030,7 +7042,9 @@
         "summary": "Lista chaves PIX",
         "operationId": "getV1AccountsAccountIdPixKeys",
         "x-baas-capability": "pix.keys.list",
-        "x-baas-scopes": ["pix:keys:read"],
+        "x-baas-scopes": [
+          "pix:keys:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6056,7 +7070,9 @@
                   "properties": {
                     "object": {
                       "type": "string",
-                      "enum": ["list"]
+                      "enum": [
+                        "list"
+                      ]
                     },
                     "data": {
                       "type": "array",
@@ -6110,7 +7126,9 @@
         "summary": "Cria chave PIX",
         "operationId": "postV1AccountsAccountIdPixKeys",
         "x-baas-capability": "pix.keys.create",
-        "x-baas-scopes": ["pix:keys:write"],
+        "x-baas-scopes": [
+          "pix:keys:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6175,7 +7193,9 @@
         "summary": "Resolve uma chave no DICT",
         "operationId": "getV1AccountsAccountIdPixKeysResolve",
         "x-baas-capability": "pix.keys.resolve",
-        "x-baas-scopes": ["pix:keys:read"],
+        "x-baas-scopes": [
+          "pix:keys:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6230,7 +7250,9 @@
         "summary": "Extrato por cursor",
         "operationId": "getV1AccountsAccountIdStatement",
         "x-baas-capability": "statement.list",
-        "x-baas-scopes": ["statement:read"],
+        "x-baas-scopes": [
+          "statement:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6256,7 +7278,9 @@
                   "properties": {
                     "object": {
                       "type": "string",
-                      "enum": ["list"]
+                      "enum": [
+                        "list"
+                      ]
                     },
                     "data": {
                       "type": "array",
@@ -6311,7 +7335,9 @@
       "get": {
         "summary": "Detalha uma conta",
         "operationId": "getV1AccountsId",
-        "x-baas-scopes": ["accounts:read"],
+        "x-baas-scopes": [
+          "accounts:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6366,7 +7392,9 @@
         "summary": "Saldo, com a frescura declarada",
         "operationId": "getV1AccountsIdBalance",
         "x-baas-capability": "balance.get",
-        "x-baas-scopes": ["balance:read"],
+        "x-baas-scopes": [
+          "balance:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6421,7 +7449,9 @@
         "summary": "Situacao do onboarding",
         "operationId": "getV1AccountsIdOnboarding",
         "x-baas-capability": "onboarding.status.get",
-        "x-baas-scopes": ["onboarding:read"],
+        "x-baas-scopes": [
+          "onboarding:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6475,7 +7505,9 @@
       "get": {
         "summary": "Estado de uma operacao assincrona ou em UNKNOWN",
         "operationId": "getV1OperationsId",
-        "x-baas-scopes": ["pix:read"],
+        "x-baas-scopes": [
+          "pix:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6529,7 +7561,9 @@
       "get": {
         "summary": "Lista transacoes",
         "operationId": "getV1Transactions",
-        "x-baas-scopes": ["pix:read"],
+        "x-baas-scopes": [
+          "pix:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6546,7 +7580,9 @@
                   "properties": {
                     "object": {
                       "type": "string",
-                      "enum": ["list"]
+                      "enum": [
+                        "list"
+                      ]
                     },
                     "data": {
                       "type": "array",
@@ -6601,7 +7637,9 @@
       "get": {
         "summary": "Detalha transacao",
         "operationId": "getV1TransactionsId",
-        "x-baas-scopes": ["pix:read"],
+        "x-baas-scopes": [
+          "pix:read"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6656,7 +7694,9 @@
         "summary": "Cancela cobranca",
         "operationId": "postV1AccountsAccountIdPixChargesTxidCancel",
         "x-baas-capability": "pix.charge.cancel",
-        "x-baas-scopes": ["pix:write"],
+        "x-baas-scopes": [
+          "pix:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -6719,7 +7759,9 @@
         "summary": "Devolve um PIX recebido",
         "operationId": "postV1AccountsAccountIdPixRefunds",
         "x-baas-capability": "pix.refund.create",
-        "x-baas-scopes": ["pix:refund"],
+        "x-baas-scopes": [
+          "pix:refund"
+        ],
         "x-baas-signature-required": true,
         "security": [
           {
@@ -6801,7 +7843,9 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["processing"]
+                      "enum": [
+                        "processing"
+                      ]
                     },
                     "operation_id": {
                       "type": "string"
@@ -6839,7 +7883,9 @@
         "summary": "Envia PIX. Responde 202 quando o desfecho e desconhecido",
         "operationId": "postV1AccountsAccountIdPixTransfers",
         "x-baas-capability": "pix.out.send",
-        "x-baas-scopes": ["pix:write"],
+        "x-baas-scopes": [
+          "pix:write"
+        ],
         "x-baas-signature-required": true,
         "security": [
           {
@@ -6921,7 +7967,9 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["processing"]
+                      "enum": [
+                        "processing"
+                      ]
                     },
                     "operation_id": {
                       "type": "string"
@@ -6959,7 +8007,9 @@
         "summary": "Bloqueia a conta",
         "operationId": "postV1AccountsIdBlock",
         "x-baas-capability": "accounts.updateStatus",
-        "x-baas-scopes": ["accounts:write"],
+        "x-baas-scopes": [
+          "accounts:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -7014,7 +8064,9 @@
         "summary": "Encerra a conta",
         "operationId": "postV1AccountsIdClose",
         "x-baas-capability": "accounts.close",
-        "x-baas-scopes": ["accounts:close"],
+        "x-baas-scopes": [
+          "accounts:close"
+        ],
         "security": [
           {
             "apiKey": []
@@ -7069,7 +8121,9 @@
         "summary": "Desbloqueia a conta",
         "operationId": "postV1AccountsIdUnblock",
         "x-baas-capability": "accounts.updateStatus",
-        "x-baas-scopes": ["accounts:write"],
+        "x-baas-scopes": [
+          "accounts:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -7124,7 +8178,9 @@
         "summary": "Envia documento de KYC/KYB (multipart, em stream)",
         "operationId": "postV1OnboardingCaseIdDocuments",
         "x-baas-capability": "onboarding.document.upload",
-        "x-baas-scopes": ["onboarding:documents"],
+        "x-baas-scopes": [
+          "onboarding:documents"
+        ],
         "security": [
           {
             "apiKey": []
@@ -7172,7 +8228,9 @@
         "summary": "Cumpre uma pendencia",
         "operationId": "postV1OnboardingCaseIdRequirementsCodeFulfill",
         "x-baas-capability": "onboarding.requirements.fulfill",
-        "x-baas-scopes": ["onboarding:write"],
+        "x-baas-scopes": [
+          "onboarding:write"
+        ],
         "security": [
           {
             "apiKey": []
@@ -7234,7 +8292,9 @@
       "post": {
         "summary": "Consulta o provedor agora. NUNCA reenvia",
         "operationId": "postV1OperationsIdReconcile",
-        "x-baas-scopes": ["pix:write"],
+        "x-baas-scopes": [
+          "pix:write"
+        ],
         "security": [
           {
             "apiKey": []
