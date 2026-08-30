@@ -1,6 +1,14 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 
-import { constantTimeEqual, parseApiKey, secretLookup, verifySecret } from '@baasconn/crypto';
+import {
+  buildSignature,
+  canonicalSignatureString,
+  constantTimeEqual,
+  generateNonce,
+  parseApiKey,
+  secretLookup,
+  verifySecret,
+} from '@baasconn/crypto';
 import { BaasError, BaasErrorCode, type Clock, type Environment } from '@baasconn/taxonomy';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
@@ -271,25 +279,14 @@ export class ApiKeyService {
 }
 
 /**
- * String canonica assinada.
+ * Reexportados de `@baasconn/crypto`.
  *
- * Inclui metodo, caminho com query, timestamp, nonce e digest do corpo. Cada
- * componente fecha um vetor: sem o caminho, a assinatura de um GET valeria num
- * POST; sem o digest, o valor da transferencia poderia ser trocado.
+ * A implementacao mudou de lugar quando o SDK publicado passou a precisar
+ * ASSINAR: um pacote publicado nao pode depender de `apps/api`. Continuam
+ * saindo por aqui porque o harness do e2e e os testes ja os importam deste
+ * caminho, e porque quem procura "onde a assinatura e verificada" chega neste
+ * arquivo primeiro.
  */
-export function canonicalSignatureString(input: Omit<SignatureInput, 'signature'>): string {
-  const bodyDigest = createHash('sha256').update(input.rawBody).digest('hex');
-  return [input.method.toUpperCase(), input.path, input.timestamp, input.nonce, bodyDigest].join(
-    '\n',
-  );
-}
-
-export function buildSignature(secret: string, input: Omit<SignatureInput, 'signature'>): string {
-  return createHmac('sha256', secret).update(canonicalSignatureString(input)).digest('hex');
-}
-
-export function generateNonce(): string {
-  return randomBytes(16).toString('hex');
-}
+export { buildSignature, canonicalSignatureString, generateNonce };
 
 export { constantTimeEqual };

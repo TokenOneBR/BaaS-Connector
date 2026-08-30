@@ -9,6 +9,7 @@ export default [
   'packages/crypto',
   'packages/db',
   'packages/observability',
+  'packages/sdk',
   'packages/adapters/*',
   'apps/api',
   'apps/worker',
