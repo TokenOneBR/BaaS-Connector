@@ -1,0 +1,83 @@
+name: Chart Helm
+
+on:
+  pull_request:
+    paths: ['deploy/**', '.github/workflows/helm.yml']
+  push:
+    branches: [main]
+    paths: ['deploy/**']
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chart:
+    name: Lint, template e kubeconform
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+        with: { version: v3.16.3 }
+
+      - name: Dependencias do chart
+        run: helm dependency update deploy/helm/baas-connector
+
+      - run: helm lint deploy/helm/baas-connector -f deploy/k8s/examples/values-example.yaml
+
+      - name: Renderizar
+        run: |
+          mkdir -p rendered
+          helm template baas deploy/helm/baas-connector \
+            -f deploy/k8s/examples/values-example.yaml \
+            > rendered/all.yaml
+          echo "Renderizado: $(grep -c '^kind:' rendered/all.yaml) objeto(s)."
+
+      # Renderiza tambem com os PADROES.
+      #
+      # O `values-example.yaml` habilita o Mock Bank e cria segredos, entao
+      # sozinho ele nao exercita o caminho padrao — que e justamente o que a
+      # maioria vai instalar. `--set` dos obrigatorios porque o padrao usa
+      # `existingSecret` e nao tem nada para criar.
+      - name: Renderizar com os valores padrao
+        run: |
+          helm template baas deploy/helm/baas-connector \
+            --set secrets.existingSecret=baas-secrets > /dev/null
+
+      # 1.28 a 1.31: cobre o que as tres nuvens gerenciadas oferecem hoje.
+      #
+      # `-strict` recusa campo desconhecido, e e o que importa: um typo em
+      # `readinessProbe` seria aceito em silencio por um validador tolerante,
+      # e o sintoma seria um pod entrando em servico sem readiness nenhuma.
+      - name: Validar contra as APIs do Kubernetes
+        run: |
+          for versao in 1.28.0 1.29.0 1.30.0 1.31.0; do
+            echo "::group::kubeconform $versao"
+            docker run --rm -v "$PWD:/w" -w /w ghcr.io/yannh/kubeconform:v0.6.7 \
+              -strict -summary -kubernetes-version "$versao" rendered/all.yaml
+            echo "::endgroup::"
+          done
+
+      - name: Publicar o render como artefato
+        if: always()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: helm-rendered
+          path: rendered/
+          retention-days: 7
+
+  estrutura:
+    name: Estrutura dos templates
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      # Roda tambem sem o binario do helm, que e o caso de quem desenvolve num
+      # ambiente com egresso restrito. Pega bloco sem `end` e delimitador sem
+      # fechar — os erros mais comuns — e nao substitui os jobs acima.
+      - run: pnpm check:helm

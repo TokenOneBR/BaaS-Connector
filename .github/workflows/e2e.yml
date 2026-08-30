@@ -1,0 +1,73 @@
+name: Fluxo dourado
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: Fluxo dourado pela API
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      # API e Mock Bank no mesmo processo, sobre sockets REAIS: conta PJ ate
+      # ACTIVE, PIX in, PIX out, desfecho desconhecido, conciliacao e o
+      # invariante final de que debitos igualam creditos nos dois razoes.
+      - run: pnpm e2e
+
+  console:
+    name: Console pelo Playwright
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+      # `--with-deps` porque o runner nao tem as bibliotecas de sistema do
+      # Chromium. So o chromium: o console e testado num navegador, e baixar
+      # tres triplica o tempo por nenhuma cobertura adicional.
+      - run: pnpm --filter @baasconn/e2e exec playwright install --with-deps chromium
+
+      - run: pnpm --filter @baasconn/e2e test:console
+
+      # Rastro, video e captura so em falha. Guardar o artefato de toda
+      # execucao verde enche a retencao do repositorio com arquivos que
+      # ninguem abre.
+      - name: Publicar rastros em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+  compose:
+    name: Stack do compose
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+
+      # Valida schema, interpolacao e profiles SEM construir imagem. O build
+      # de verdade tem workflow proprio; este job existe para a stack local
+      # nao apodrecer — README, CONTRIBUTING e o guia de desenvolvimento
+      # todos mandam rodar `docker compose up`.
+      - name: Gerar o par de chaves de desenvolvimento
+        run: pnpm dev:env
+
+      - run: docker compose config -q
+      - run: docker compose -f compose.yaml -f compose.observability.yaml config -q

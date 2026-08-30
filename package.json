@@ -19,7 +19,7 @@
     "test": "turbo run test",
     "test:conformance": "turbo run test:conformance",
     "test:integration": "turbo run test:integration",
-    "e2e": "pnpm --filter @baasconn/e2e test",
+    "e2e": "turbo run e2e",
     "db:generate": "pnpm --filter @baasconn/db db:generate",
     "db:migrate": "pnpm --filter @baasconn/db migrate:dev",
     "up": "pnpm dev:env && docker compose up -d --wait",
@@ -32,7 +32,8 @@
     "worker": "pnpm --filter @baasconn/worker dev",
     "dev:env": "tsx scripts/dev-env.ts",
     "up:observability": "pnpm dev:env && docker compose -f compose.yaml -f compose.observability.yaml up -d --wait",
-    "check:helm": "tsx scripts/check-helm-templates.ts"
+    "check:helm": "tsx scripts/check-helm-templates.ts",
+    "e2e:console": "turbo run test:console"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

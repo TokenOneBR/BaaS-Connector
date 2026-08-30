@@ -7,7 +7,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint api support console",
-    "test:console": "playwright test"
+    "test:console": "playwright test",
+    "e2e": "vitest run"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

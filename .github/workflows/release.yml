@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # SEM `cancel-in-progress`.
+  #
+  # Um publish cancelado no meio deixa metade dos pacotes na versao nova e
+  # metade na antiga, e o npm nao desfaz. Deixar duas execucoes de release em
+  # fila e feio; deixar uma pela metade e um incidente.
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Versionar e publicar
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # OIDC para Trusted Publishing do npm: nao existe `NPM_TOKEN` de longa
+      # duracao neste repositorio, e portanto nao ha o que roubar.
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { fetch-depth: 0 }
+      - uses: ./.github/actions/setup
+
+      - run: pnpm build --filter='./packages/*'
+
+      # O changesets abre um PR "Version Packages" acumulando os changesets
+      # pendentes; quando ESSE PR e mergeado, o mesmo job publica.
+      #
+      # Changesets e nao semantic-release, e a razao nao e tecnica: o
+      # changeset faz o contribuidor DECLARAR a intencao no PR ("isto e um
+      # minor em @baasconn/contracts, e esta e a linha de changelog"), que e
+      # exatamente o sinal que um mantenedor precisa quando alguem mexe no
+      # modelo canonico. Ver ADR 0012.
+      - name: Versionar ou publicar
+        uses: changesets/action@c8bada60c408975afd1a20b3db81d6eee6789308 # v1.4.9
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+          commit: 'chore(release): versiona pacotes'
+          title: 'chore(release): versiona pacotes'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # `--provenance` no `.npmrc`; a credencial vem do OIDC acima.
+          NPM_CONFIG_PROVENANCE: 'true'

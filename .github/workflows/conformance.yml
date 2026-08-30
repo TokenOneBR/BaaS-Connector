@@ -1,0 +1,81 @@
+name: Conformidade de adapters
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Matriz DINAMICA, e nao uma lista escrita a mao.
+  #
+  # Uma lista fixa fica desatualizada no dia em que alguem adiciona um adapter
+  # — e a falha e silenciosa: o adapter novo simplesmente nao e verificado, e
+  # nada avisa. Ler `packages/adapters/` torna isso impossivel.
+  descobrir:
+    name: Descobrir adapters
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    outputs:
+      adapters: ${{ steps.listar.outputs.adapters }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - id: listar
+        run: |
+          adapters=$(ls -1 packages/adapters | jq -R . | jq -s -c .)
+          echo "adapters=$adapters" >> "$GITHUB_OUTPUT"
+          echo "Adapters encontrados: $adapters"
+
+  conformidade:
+    name: Conformidade — ${{ matrix.adapter }}
+    needs: descobrir
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    strategy:
+      # `fail-fast: false` de proposito: a falha da QI Tech nao pode esconder
+      # a da Celcoin. Cada adapter vira um check NOMEADO e atribuivel, que e
+      # metade do valor de ter mantenedor externo por adapter.
+      fail-fast: false
+      matrix:
+        adapter: ${{ fromJson(needs.descobrir.outputs.adapters) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      - run: pnpm build --filter=@baasconn/adapter-${{ matrix.adapter }}...
+      - run: pnpm --filter @baasconn/adapter-${{ matrix.adapter }} test:conformance
+
+  fixtures:
+    name: Gate de PII nas fixtures
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      # Recusa CPF/CNPJ com digito verificador VALIDO, string em formato JWT,
+      # bloco PEM e prefixo de chave conhecido. Uma fixture gravada contra
+      # sandbox com um documento real dentro e um vazamento permanente: o
+      # historico do git nao esquece.
+      - run: pnpm exec tsx scripts/check-cassette-pii.ts
+
+  matriz:
+    name: Matriz de capacidades
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - run: pnpm gen:capability-matrix
+      # A matriz e DERIVADA dos manifestos. Commita-la torna a mudanca
+      # revisavel no diff — "este PR passou a declarar `pix.out.send` como
+      # SUPPORTED" e exatamente a linha que um revisor precisa ver.
+      - name: A matriz commitada esta em dia
+        run: git diff --exit-code docs/providers/capability-matrix.md
+      - name: Publicar no resumo do job
+        if: always()
+        run: cat docs/providers/capability-matrix.md >> "$GITHUB_STEP_SUMMARY"

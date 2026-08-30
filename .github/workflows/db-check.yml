@@ -1,0 +1,129 @@
+name: Banco de dados
+
+on:
+  pull_request:
+    paths: ['packages/db/**', '.github/workflows/db-check.yml']
+  push:
+    branches: [main]
+    paths: ['packages/db/**']
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  schema:
+    name: Schema e migrations
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: baas
+          POSTGRES_PASSWORD: baas
+          POSTGRES_DB: baas
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U baas -d baas" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://baas:baas@127.0.0.1:5432/baas?schema=public
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        # Historico completo: a checagem de imutabilidade compara com a base.
+        with: { fetch-depth: 0 }
+      - uses: ./.github/actions/setup
+
+      - name: Schema valido
+        run: pnpm --filter @baasconn/db exec prisma validate --schema prisma/schema
+
+      # Drift entre `schema.prisma` e as migrations.
+      #
+      # E o bug mais chato do Prisma: alguem edita o schema, roda o app com
+      # `db push`, e as migrations ficam para tras. Em desenvolvimento tudo
+      # funciona; no primeiro `migrate deploy` em producao, a coluna nao
+      # existe.
+      - name: Sem drift entre schema e migrations
+        run: |
+          pnpm --filter @baasconn/db exec prisma migrate diff \
+            --from-migrations prisma/migrations \
+            --to-schema-datamodel prisma/schema \
+            --shadow-database-url "$DATABASE_URL" \
+            --exit-code
+
+      - name: Migrations aplicam num banco limpo
+        run: pnpm --filter @baasconn/db exec prisma migrate deploy --schema prisma/schema
+
+      # Migration ja aplicada e IMUTAVEL.
+      #
+      # Editar uma migration que ja rodou em producao produz a pior classe de
+      # divergencia: o `_prisma_migrations` diz que rodou, o checksum nao
+      # bate, e o estado real do banco e o antigo. O Prisma detecta e RECUSA
+      # a migrar — durante um deploy, que e a pior hora.
+      - name: Migrations aplicadas nao mudaram
+        run: pnpm exec tsx scripts/check-migrations-immutable.ts
+
+      # Operacao destrutiva exige LABEL.
+      #
+      # Nao proibe: um `DROP COLUMN` legitimo existe. Obriga alguem a
+      # declarar a intencao no PR, que e onde a decisao deveria estar.
+      - name: Operacao destrutiva exige a label db-destructive-ok
+        if: github.event_name == 'pull_request'
+        run: |
+          base=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          novas=$(git diff --name-only --diff-filter=A "$base" HEAD -- 'packages/db/prisma/migrations/**/migration.sql')
+          [ -z "$novas" ] && { echo "Nenhuma migration nova."; exit 0; }
+
+          if echo "$novas" | xargs grep -liE 'DROP (TABLE|COLUMN)|TRUNCATE|ALTER COLUMN .* TYPE' 2>/dev/null; then
+            echo "::error::Migration com operacao destrutiva. Adicione a label db-destructive-ok ao PR."
+            echo '${{ toJson(github.event.pull_request.labels.*.name) }}' | jq -e 'index("db-destructive-ok")' \
+              || exit 1
+            echo "Label presente: prosseguindo."
+          fi
+
+  compatibilidade:
+    name: Compatibilidade para frente
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    # So quando ha release anterior. Antes da primeira tag nao ha "versao
+    # anterior" para migrar a partir de, e falhar por isso ensinaria a
+    # ignorar o check.
+    if: github.event_name == 'pull_request'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: baas
+          POSTGRES_PASSWORD: baas
+          POSTGRES_DB: baas
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U baas -d baas" --health-interval 5s
+          --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://baas:baas@127.0.0.1:5432/baas?schema=public
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with: { fetch-depth: 0 }
+      - uses: ./.github/actions/setup
+
+      # Migra a partir da ULTIMA TAG, e nao do zero.
+      #
+      # De zero, toda migration roda em ordem e sempre passa. O que quebra de
+      # verdade e o upgrade: o banco tem o estado da versao anterior, e a
+      # migration nova precisa caber nele. E o caminho que producao percorre.
+      - name: Aplicar migrations da tag anterior, depois as novas
+        run: |
+          tag=$(git tag --sort=-v:refname | head -1)
+          if [ -z "$tag" ]; then
+            echo "Nenhuma tag ainda; nada a comparar."
+            exit 0
+          fi
+          echo "Partindo de $tag"
+          git checkout "$tag" -- packages/db/prisma
+          pnpm --filter @baasconn/db exec prisma migrate deploy --schema prisma/schema
+          git checkout HEAD -- packages/db/prisma
+          pnpm --filter @baasconn/db exec prisma migrate deploy --schema prisma/schema
