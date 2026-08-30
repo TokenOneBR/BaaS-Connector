@@ -50,6 +50,62 @@ export interface ApiKeyRepository {
     | undefined
   >;
   touchLastUsed(id: string): Promise<void>;
+
+  // --- Superficie do console. Nenhuma delas devolve o segredo. ---
+
+  list(environment: Environment, status?: string): Promise<ApiKeyRecord[]>;
+  findById(environment: Environment, id: string): Promise<ApiKeyRecord | undefined>;
+  create(input: CreateApiKeyRow): Promise<ApiKeyRecord>;
+  revoke(environment: Environment, id: string, at: Date): Promise<ApiKeyRecord | undefined>;
+}
+
+/**
+ * Chave de API SEM segredo.
+ *
+ * Mesma garantia estrutural das conexoes: nao ha campo para vazar. O segredo
+ * existe UMA vez, no retorno de `create`, e nenhum caminho de leitura consegue
+ * construi-lo — o que fica gravado e o hash Argon2id.
+ */
+export interface ApiKeyRecord {
+  id: string;
+  environment: Environment;
+  name: string;
+  prefix: string;
+  last4: string;
+  scopes: string[];
+  signingRequired: boolean;
+  ipAllowlist: string[];
+  rateLimitTier: string;
+  defaultConnectionId?: string;
+  status: string;
+  lastUsedAt?: Date;
+  expiresAt?: Date;
+  createdAt: Date;
+}
+
+export interface CreateApiKeyRow {
+  id: string;
+  environment: Environment;
+  name: string;
+  prefix: string;
+  last4: string;
+  secretHash: string;
+  secretLookup: Buffer;
+  scopes: string[];
+  signingRequired: boolean;
+  signingSecret?: {
+    ciphertext: Buffer;
+    iv: Buffer;
+    tag: Buffer;
+    wrappedKey: Buffer;
+    keyId: string;
+  };
+  ipAllowlist: string[];
+  defaultConnectionId?: string;
+  expiresAt?: Date;
+  /** Quem cunhou. O schema o exige, e e a metade de "quem" da auditoria. */
+  createdBy: string;
+  at: Date;
 }
 
 export interface SignatureInput {

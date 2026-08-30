@@ -134,6 +134,15 @@ export const zCreateApiKey = z.object({
   expires_at: zTimestamp.optional(),
   ip_allowlist: z.array(z.string()).max(50).default([]),
   default_connection_id: z.string().optional(),
+  /**
+   * Assinatura HMAC nas rotas de movimentacao.
+   *
+   * Opcional para poder LIGAR em homologacao. Em producao com `pix:write` ela
+   * e forcada, e um `false` explicito e RECUSADO com 422 em vez de
+   * sobrescrito em silencio: o operador precisa aprender a regra, e nao achar
+   * que a desligou.
+   */
+  signing_required: z.boolean().optional(),
 });
 
 export const zApiKey = z.object({

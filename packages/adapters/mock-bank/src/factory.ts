@@ -25,6 +25,8 @@ export const mockbankFactory: ProviderAdapterFactory = {
     'accounts.create': { mode: 'external_id' },
   },
 
+  // Identificador, nao segredo: pode ter os ultimos 4 exibidos.
+  credentialsDisplayField: 'clientId',
   docsUrl: 'https://github.com/TokenOneBR/BaaS-Connector/blob/main/docs/providers/mock-bank.md',
   create: (ctx: ProviderContext) => new MockBankAdapter(ctx),
 };

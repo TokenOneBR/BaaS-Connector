@@ -29,6 +29,15 @@ export interface ProviderAdapterFactory {
 
   /** Link para a documentacao publica de onde o adapter foi implementado. */
   readonly docsUrl?: string;
+  /**
+   * Qual credencial pode ter os ultimos quatro caracteres exibidos.
+   *
+   * Nao ha resposta generica segura: `last4` de um `clientSecret` vaza quatro
+   * caracteres de um segredo. So o adapter sabe qual das credenciais e um
+   * IDENTIFICADOR — um `clientId`, um `appId` — em vez de um segredo. Sem esta
+   * declaracao o console mostra apenas o fingerprint, que e o padrao seguro.
+   */
+  readonly credentialsDisplayField?: string;
 
   /**
    * Chamada uma vez por operacao logica, nao por resolucao de DI.

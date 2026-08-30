@@ -49,6 +49,8 @@ import {
   PrismaOutboxRepository,
 } from './domain.repositories.js';
 import { PrismaIdempotencyRepository } from './idempotency.repository.js';
+import { MemoryApiKeyRepository } from './memory/api-key.repository.js';
+import { MemoryConnectionRepository } from './memory/connection.repository.js';
 import {
   MemoryAccountRepository,
   MemoryAuditRepository,
@@ -130,7 +132,7 @@ import { REDIS, redisProvider } from './redis.provider.js';
     PrismaReconciliationBreakRepository,
     PrismaPollCursorRepository,
     ProviderCallRecorder,
-    { provide: API_KEY_REPOSITORY, useExisting: PrismaApiKeyRepository },
+    domainProvider(API_KEY_REPOSITORY, PrismaApiKeyRepository, MemoryApiKeyRepository),
     {
       provide: IDEMPOTENCY_REPOSITORY,
       inject: [ApiConfig, PrismaIdempotencyRepository, CLOCK],
@@ -140,7 +142,7 @@ import { REDIS, redisProvider } from './redis.provider.js';
         clock: Clock,
       ) => (config.isTest ? new MemoryIdempotencyRepository(clock) : prismaImplementation),
     },
-    { provide: CONNECTION_REPOSITORY, useExisting: PrismaConnectionRepository },
+    domainProvider(CONNECTION_REPOSITORY, PrismaConnectionRepository, MemoryConnectionRepository),
     { provide: CONNECTION_LOOKUP, useExisting: PrismaConnectionRepository },
     { provide: CONSOLE_USER_REPOSITORY, useExisting: PrismaConsoleUserRepository },
     { provide: CONSOLE_SESSION_REPOSITORY, useExisting: PrismaConsoleSessionRepository },

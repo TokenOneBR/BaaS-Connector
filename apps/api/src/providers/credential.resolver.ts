@@ -31,6 +31,57 @@ export interface StoredConnection {
 
 export const CONNECTION_REPOSITORY = Symbol('BAAS_CONNECTION_REPOSITORY');
 
+/**
+ * Conexao SEM material de credencial.
+ *
+ * Este tipo e a garantia estrutural de que nenhuma rota administrativa serve o
+ * valor de uma credencial. Ele nao tem `ciphertext`, `wrappedKey` nem `iv`:
+ * nao ha campo para vazar, e o controller literalmente nao consegue escrever
+ * o vazamento. `StoredConnection`, que carrega o envelope, e devolvido apenas
+ * por `findById`, e o unico chamador de `findById` e o `CredentialResolver`.
+ *
+ * A alternativa — um `delete resposta.credentials` no controller — depende de
+ * alguem lembrar em cada rota nova. Um tipo que nao tem o campo nao esquece.
+ */
+export interface ConnectionSummary {
+  id: string;
+  environment: Environment;
+  provider: string;
+  label: string;
+  status: string;
+  baseUrl?: string | null;
+  config: Record<string, unknown>;
+  capabilities: Record<string, unknown>;
+  credentials: {
+    set: boolean;
+    /** `sha256:<16 hex>` — prova que ha segredo sem revelar nada dele. */
+    fingerprint?: string;
+    last4?: string;
+    updatedAt?: Date;
+    updatedBy?: string;
+  };
+  webhookSecretSet: boolean;
+  lastHealthCheckAt?: Date;
+  lastHealthStatus?: string;
+  createdAt: Date;
+}
+
+export interface CreateConnectionInput {
+  id: string;
+  environment: Environment;
+  provider: string;
+  label: string;
+  baseUrl?: string;
+  config: Record<string, unknown>;
+  capabilities: Record<string, unknown>;
+  credentials: StoredConnection['credentials'];
+  credentialsFingerprint: string;
+  credentialsLast4?: string;
+  webhookSecret?: NonNullable<StoredConnection['webhookSecret']>;
+  actorId: string;
+  at: Date;
+}
+
 export interface ConnectionRepository {
   findById(id: string): Promise<StoredConnection | undefined>;
   /**
@@ -41,6 +92,32 @@ export interface ConnectionRepository {
    * parar de olhar exatamente onde os numeros divergem.
    */
   listActive(): Promise<StoredConnection[]>;
+
+  // --- Superficie do console. Nenhuma delas devolve material de credencial. ---
+
+  listSummaries(environment: Environment): Promise<ConnectionSummary[]>;
+  findSummary(environment: Environment, id: string): Promise<ConnectionSummary | undefined>;
+  create(input: CreateConnectionInput): Promise<ConnectionSummary>;
+  /** Rotacao. Incrementa `credentialsVersion`, que invalida a DEK em cache. */
+  rotateCredentials(input: {
+    environment: Environment;
+    id: string;
+    credentials: StoredConnection['credentials'];
+    credentialsFingerprint: string;
+    credentialsLast4?: string;
+    webhookSecret?: NonNullable<StoredConnection['webhookSecret']>;
+    actorId: string;
+    at: Date;
+  }): Promise<ConnectionSummary | undefined>;
+  updateSettings(input: {
+    environment: Environment;
+    id: string;
+    label?: string;
+    baseUrl?: string;
+    config?: Record<string, unknown>;
+    status?: string;
+  }): Promise<ConnectionSummary | undefined>;
+  recordHealth(id: string, healthy: boolean, at: Date): Promise<void>;
 }
 
 export interface ResolvedConnection {

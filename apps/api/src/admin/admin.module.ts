@@ -6,6 +6,11 @@ import { AdminAuthService } from './admin-auth.service.js';
 import { AdminSessionGuard } from './admin-session.guard.js';
 import { AdminSurfaceGuard } from './admin-surface.guard.js';
 import { AdminController } from './admin.controller.js';
+import { ApiKeysController } from './api-keys.controller.js';
+import { ApiKeysService } from './api-keys.service.js';
+import { ConnectionsController } from './connections.controller.js';
+import { ConnectionsService } from './connections.service.js';
+import { ConsoleEnvironmentPipe } from './environment.query.js';
 import { AdminTokenService } from './token.service.js';
 
 /**
@@ -17,8 +22,16 @@ import { AdminTokenService } from './token.service.js';
  */
 @Module({
   imports: [ProvidersModule],
-  controllers: [AdminController],
-  providers: [AdminAuthService, AdminTokenService, AdminSessionGuard, AdminSurfaceGuard],
+  controllers: [AdminController, ConnectionsController, ApiKeysController],
+  providers: [
+    AdminAuthService,
+    AdminTokenService,
+    AdminSessionGuard,
+    AdminSurfaceGuard,
+    ConnectionsService,
+    ApiKeysService,
+    ConsoleEnvironmentPipe,
+  ],
   exports: [AdminAuthService, AdminTokenService, AdminSessionGuard, AdminSurfaceGuard],
 })
 export class AdminModule {}

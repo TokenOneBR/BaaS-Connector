@@ -2,7 +2,7 @@ import { EnvelopeCrypto } from '@baasconn/crypto';
 import type { Environment } from '@baasconn/taxonomy';
 import { Injectable } from '@nestjs/common';
 
-import type { ApiKeyRepository } from '../auth/api-key.service.js';
+import type { ApiKeyRecord, ApiKeyRepository, CreateApiKeyRow } from '../auth/api-key.service.js';
 
 import { PrismaService } from './prisma.service.js';
 
@@ -94,4 +94,131 @@ export class PrismaApiKeyRepository implements ApiKeyRepository {
       data: { lastUsedAt: new Date() },
     });
   }
+
+  /**
+   * `select` explicito, sem `secretHash` nem `secretLookup`.
+   *
+   * O segredo nunca foi recuperavel — o que fica gravado e um hash Argon2id —,
+   * mas nem o hash sai daqui: publica-lo daria a quem lesse a listagem um alvo
+   * offline, e nao ha razao para o console conhece-lo.
+   */
+  private static readonly RECORD_SELECT = {
+    id: true,
+    environment: true,
+    name: true,
+    prefix: true,
+    last4: true,
+    scopes: true,
+    signingRequired: true,
+    ipAllowlist: true,
+    rateLimitTier: true,
+    defaultConnectionId: true,
+    status: true,
+    lastUsedAt: true,
+    expiresAt: true,
+    createdAt: true,
+  } as const;
+
+  async list(environment: Environment, status?: string): Promise<ApiKeyRecord[]> {
+    const rows = await this.prisma.client.apiKey.findMany({
+      where: { environment, status: status as never },
+      select: PrismaApiKeyRepository.RECORD_SELECT,
+      orderBy: { id: 'desc' },
+    });
+    return rows.map(toApiKeyRecord);
+  }
+
+  async findById(environment: Environment, id: string): Promise<ApiKeyRecord | undefined> {
+    const row = await this.prisma.client.apiKey.findFirst({
+      where: { id, environment },
+      select: PrismaApiKeyRepository.RECORD_SELECT,
+    });
+    return row ? toApiKeyRecord(row) : undefined;
+  }
+
+  async create(input: CreateApiKeyRow): Promise<ApiKeyRecord> {
+    const row = await this.prisma.client.apiKey.create({
+      data: {
+        id: input.id,
+        environment: input.environment,
+        name: input.name,
+        prefix: input.prefix,
+        last4: input.last4,
+        secretHash: input.secretHash,
+        secretLookup: bytesOf(input.secretLookup),
+        scopes: input.scopes,
+        signingRequired: input.signingRequired,
+        signingSecretCiphertext: optionalBytes(input.signingSecret?.ciphertext),
+        signingSecretIv: optionalBytes(input.signingSecret?.iv),
+        signingSecretTag: optionalBytes(input.signingSecret?.tag),
+        signingSecretWrappedKey: optionalBytes(input.signingSecret?.wrappedKey),
+        signingSecretKeyId: input.signingSecret?.keyId,
+        ipAllowlist: input.ipAllowlist,
+        expiresAt: input.expiresAt,
+        createdBy: input.createdBy,
+        // Spread condicional: `defaultConnectionId: undefined` faria o Prisma
+        // escolher a variante "checked" do create, onde a FK so entra por
+        // `connect`. Ausente, ele usa a "unchecked" e aceita o id direto.
+        ...(input.defaultConnectionId
+          ? { defaultConnection: { connect: { id: input.defaultConnectionId } } }
+          : {}),
+      },
+      select: PrismaApiKeyRepository.RECORD_SELECT,
+    });
+    return toApiKeyRecord(row);
+  }
+
+  async revoke(environment: Environment, id: string, at: Date): Promise<ApiKeyRecord | undefined> {
+    const updated = await this.prisma.client.apiKey.updateMany({
+      // `environment` no `where`: revogar por id sozinho deixaria uma sessao
+      // de homologacao derrubar uma chave de producao.
+      where: { id, environment, status: 'ACTIVE' },
+      data: { status: 'REVOKED', revokedAt: at },
+    });
+    if (updated.count === 0) return undefined;
+    return this.findById(environment, id);
+  }
+}
+
+function toApiKeyRecord(row: {
+  id: string;
+  environment: string;
+  name: string;
+  prefix: string;
+  last4: string;
+  scopes: string[];
+  signingRequired: boolean;
+  ipAllowlist: string[];
+  rateLimitTier: string;
+  defaultConnectionId: string | null;
+  status: string;
+  lastUsedAt: Date | null;
+  expiresAt: Date | null;
+  createdAt: Date;
+}): ApiKeyRecord {
+  return {
+    id: row.id,
+    environment: row.environment as Environment,
+    name: row.name,
+    prefix: row.prefix,
+    last4: row.last4,
+    scopes: row.scopes,
+    signingRequired: row.signingRequired,
+    ipAllowlist: row.ipAllowlist,
+    rateLimitTier: row.rateLimitTier,
+    defaultConnectionId: row.defaultConnectionId ?? undefined,
+    status: row.status,
+    lastUsedAt: row.lastUsedAt ?? undefined,
+    expiresAt: row.expiresAt ?? undefined,
+    createdAt: row.createdAt,
+  };
+}
+
+/** `Buffer` e `Uint8Array<ArrayBufferLike>`; o Prisma exige `<ArrayBuffer>`. */
+function bytesOf(value: Buffer): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(value);
+}
+
+function optionalBytes(value: Buffer | undefined): Uint8Array<ArrayBuffer> | undefined {
+  return value ? new Uint8Array(value) : undefined;
 }

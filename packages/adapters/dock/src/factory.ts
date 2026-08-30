@@ -12,6 +12,8 @@ export const dockFactory: ProviderAdapterFactory = {
   credentialsSchema,
   endpoints,
   idempotency: {},
+  // Identificador, nao segredo: pode ter os ultimos 4 exibidos.
+  credentialsDisplayField: 'clientId',
   docsUrl: 'https://github.com/TokenOneBR/BaaS-Connector/blob/main/docs/providers/dock.md',
   create: (ctx: ProviderContext) => new DockAdapter(ctx),
 };
