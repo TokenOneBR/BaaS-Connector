@@ -299,6 +299,9 @@ importers:
       '@baasconn/mock-bank':
         specifier: workspace:*
         version: link:../apps/mock-bank
+      '@baasconn/observability':
+        specifier: workspace:*
+        version: link:../packages/observability
       '@baasconn/taxonomy':
         specifier: workspace:*
         version: link:../packages/taxonomy
@@ -308,6 +311,9 @@ importers:
       '@baasconn/vitest-config':
         specifier: workspace:*
         version: link:../tooling/vitest-config
+      '@baasconn/worker':
+        specifier: workspace:*
+        version: link:../apps/worker
       '@nestjs/common':
         specifier: ^10.4.15
         version: 10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)

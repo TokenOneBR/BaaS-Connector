@@ -62,3 +62,27 @@ export {
   MemoryReconciliationRunRepository,
 } from './persistence/memory/reconciliation.repositories.js';
 export { MemoryPollCursorRepository } from './persistence/memory/reconciliation.repositories.js';
+
+// Tokens e classes que a suite de ponta a ponta precisa para montar a
+// conciliacao a mao.
+//
+// Saem por AQUI, e nao por `./domain`, de proposito: `./domain` aponta para o
+// `dist`, e o harness sobe a aplicacao a partir do `src`. Os tokens sao
+// `Symbol()`, entao o mesmo nome vindo das duas seams sao DOIS tokens
+// diferentes e o `app.get()` nao acha nada. Uma seam, uma identidade.
+export {
+  RECONCILIATION_BREAK_REPOSITORY,
+  RECONCILIATION_RUN_REPOSITORY,
+} from './reconciliation/reconciliation.types.js';
+export type {
+  ReconciliationBreakRecord,
+  ReconciliationBreakRepository,
+  ReconciliationRunRecord,
+  ReconciliationRunRepository,
+} from './reconciliation/reconciliation.types.js';
+export { BreakResolutionService } from './reconciliation/break-resolution.service.js';
+export { CLOCK } from './common/clock.js';
+export { ProviderResolver } from './providers/provider.resolver.js';
+export { ShadowLedgerService } from './ledger/shadow-ledger.service.js';
+export { WebhookApplyService } from './webhooks/webhook-apply.service.js';
+export type { AccountRecord } from './accounts/accounts.types.js';

@@ -5,6 +5,8 @@ import {
   API_KEY_REPOSITORY,
   AUDIT_REPOSITORY,
   AppModule as ApiModule,
+  BreakResolutionService,
+  CLOCK,
   CONNECTION_LOOKUP,
   CONNECTION_REPOSITORY,
   INBOUND_EVENT_REPOSITORY,
@@ -14,10 +16,17 @@ import {
   OUTBOX_REPOSITORY,
   PIX_CHARGE_REPOSITORY,
   PIX_KEY_REPOSITORY,
+  ProviderResolver,
+  RECONCILIATION_BREAK_REPOSITORY,
+  RECONCILIATION_RUN_REPOSITORY,
+  ShadowLedgerService,
   TRANSACTION_REPOSITORY,
+  WebhookApplyService,
   buildSignature,
   generateNonce,
   type EventQueue,
+  type ReconciliationBreakRepository,
+  type ReconciliationRunRepository,
 } from '@baasconn/api/testing';
 import {
   EnvelopeCrypto,
@@ -28,7 +37,9 @@ import {
 } from '@baasconn/crypto';
 import type { LedgerAccount, LedgerEntry } from '@baasconn/ledger';
 import { AppModule as MockBankModule } from '@baasconn/mock-bank/app';
-import { Environment, newId } from '@baasconn/taxonomy';
+import { Metrics } from '@baasconn/observability';
+import { Environment, FixedClock, newId } from '@baasconn/taxonomy';
+import { AutoResolutionService, ReconciliationService } from '@baasconn/worker/testing';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import express from 'express';
@@ -67,7 +78,38 @@ export interface Harness {
         snapshot(): { accounts: LedgerAccount[]; entries: LedgerEntry[] };
       };
     };
+    reconciliationRuns: ReconciliationRunRepository;
+    reconciliationBreaks: ReconciliationBreakRepository;
   };
+  /**
+   * Conciliacao, montada a mao.
+   *
+   * Os servicos moram em `apps/worker` e sao construidos aqui com os MESMOS
+   * dobros que a API ja usa — nao com dobros proprios. O que se prova e o
+   * FLUXO (quebra semeada -> quebra aberta -> ajuste lancado), nao a fiacao: o
+   * grafo de DI do worker tem teste proprio e o BullMQ tem o dele contra Redis
+   * de verdade.
+   */
+  reconcile(input: {
+    accountId: string;
+    windowStart: Date;
+    windowEnd: Date;
+    scope?: 'DAILY' | 'INTRADAY' | 'MANUAL';
+    /**
+     * Instante em que a conciliacao se ve rodando. Padrao: agora.
+     *
+     * Existe porque a graca de liquidacao e por IDADE DO ITEM: um movimento
+     * nosso de tres minutos atras legitimamente ainda nao esta no extrato do
+     * provedor, entao `MISSING_ON_PROVIDER` fica suprimido. Adiantar o relogio
+     * e como a `recon.daily` das 03:00 enxerga a janela de ontem — e a unica
+     * forma de exercitar a quebra sem dormir duas horas.
+     */
+    asOf?: Date;
+  }): Promise<string>;
+  /** Resolucao manual, pelo servico de producao. */
+  resolveBreak: BreakResolutionService;
+  /** Metricas da API. `baas_ledger_imbalance_detected_total` fica em zero. */
+  metrics: Metrics;
   /**
    * Assina uma requisicao de movimentacao.
    *
@@ -96,8 +138,22 @@ const SIGNING_SECRET = 'segredo-de-assinatura-do-e2e';
 const CLIENT_ID = 'mock-client';
 const CLIENT_SECRET = 'mock-secret';
 
-export async function startHarness(): Promise<Harness> {
+export interface HarnessOptions {
+  /**
+   * Janela da regra 3 de bypass do cache de saldo.
+   *
+   * Zero desliga a regra. Um spec que quer afirmar sobre a regra 5 precisa
+   * disso: a 3 e avaliada antes e venceria sempre, porque todo cenario de
+   * conciliacao comeca com um movimento recente.
+   */
+  postMutationBypassSeconds?: number;
+}
+
+export async function startHarness(options: HarnessOptions = {}): Promise<Harness> {
   process.env.NODE_ENV = 'test';
+  if (options.postMutationBypassSeconds !== undefined) {
+    process.env.POST_MUTATION_BYPASS = String(options.postMutationBypassSeconds);
+  }
   process.env.KMS_MASTER_SECRET = KMS_SECRET;
   process.env.MOCK_BANK_STORE = 'memory';
   // Liquidacao imediata: o atraso aleatorio do Mock Bank serve para demonstrar
@@ -141,7 +197,28 @@ export async function startHarness(): Promise<Harness> {
       charges: api.get(PIX_CHARGE_REPOSITORY),
       operations: api.get(OPERATION_REPOSITORY),
       ledger: api.get(LEDGER_STORE_FACTORY),
+      reconciliationRuns: api.get(RECONCILIATION_RUN_REPOSITORY),
+      reconciliationBreaks: api.get(RECONCILIATION_BREAK_REPOSITORY),
     },
+    reconcile: async ({ accountId, windowStart, windowEnd, scope = 'MANUAL', asOf }) => {
+      const runs = api.get<ReconciliationRunRepository>(RECONCILIATION_RUN_REPOSITORY);
+      const { run } = await runs.startRun({
+        id: newId('reconciliationRun'),
+        environment: Environment.HOMOLOGACAO,
+        connectionId: seeded.connectionId,
+        // NUNCA nulo: em Postgres NULL nao e igual a NULL num indice unico,
+        // entao um run de conexao inteira escaparia da deduplicacao.
+        accountId,
+        scope: scope as never,
+        windowStart,
+        windowEnd,
+        triggeredBy: 'e2e',
+      });
+      await buildReconciliation(api, asOf).run(Environment.HOMOLOGACAO, run.id);
+      return run.id;
+    },
+    resolveBreak: api.get(BreakResolutionService),
+    metrics: api.get(Metrics),
     sign: (method, path, body) => {
       const rawBody = body === undefined ? '' : JSON.stringify(body);
       const timestamp = String(Math.floor(Date.now() / 1000));
@@ -177,6 +254,38 @@ export async function startHarness(): Promise<Harness> {
       await mockBank.close();
     },
   };
+}
+
+/**
+ * Monta o `ReconciliationService` do worker sobre os objetos vivos da API.
+ *
+ * Construcao posicional em vez de container: os tokens de `@baasconn/api/domain`
+ * (dist) e os de `@baasconn/api/testing` (src) sao `Symbol()` distintos, entao
+ * um `Test.createTestingModule` do worker nao encontraria nada do app que ja
+ * esta de pe. `new` nao consulta token nenhum — e o que faz as duas seams
+ * conviverem sem uma segunda copia do estado.
+ */
+function buildReconciliation(api: INestApplication, asOf?: Date): ReconciliationService {
+  const autoResolution = new AutoResolutionService(
+    api.get(WebhookApplyService) as never,
+    api.get(TRANSACTION_REPOSITORY),
+    api.get(OUTBOX_REPOSITORY),
+    api.get(AUDIT_REPOSITORY),
+    api.get(CLOCK),
+  );
+
+  return new ReconciliationService(
+    api.get(ProviderResolver) as never,
+    api.get(ShadowLedgerService) as never,
+    autoResolution,
+    api.get(Metrics),
+    api.get(RECONCILIATION_RUN_REPOSITORY),
+    api.get(RECONCILIATION_BREAK_REPOSITORY),
+    api.get(ACCOUNT_REPOSITORY),
+    api.get(TRANSACTION_REPOSITORY),
+    api.get(OUTBOX_REPOSITORY),
+    asOf ? new FixedClock(asOf) : api.get(CLOCK),
+  );
 }
 
 async function bootMockBank(): Promise<INestApplication> {

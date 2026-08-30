@@ -266,6 +266,113 @@ describe('resolucao manual de quebra', () => {
     expect(await saldo()).toBe(102_500n);
   });
 
+  // ------------------------------------------------------------------------
+  // O sentido do ajuste
+  // ------------------------------------------------------------------------
+
+  /**
+   * `amountCents` NAO e um delta assinado — e a magnitude do movimento.
+   *
+   * Usa-lo como se fosse inverte o sentido em toda quebra de ausencia: um PIX
+   * de entrada que o provedor nunca teve seria creditado de novo em vez de
+   * estornado, e o ajuste DOBRARIA o erro que veio consertar. Estes testes
+   * existem porque foi exatamente o que aconteceu na primeira versao.
+   */
+  const semearItem = async (
+    side: ReconciliationSide,
+    direction: 'CREDIT' | 'DEBIT',
+  ): Promise<string> => {
+    const itemId = newId('reconciliationItem');
+    await runs.insertItems([
+      {
+        id: itemId,
+        runId,
+        side,
+        postedAt: clock.now(),
+        effectiveDate: '2026-08-29',
+        direction,
+        amountCents: 25_000n,
+        type: 'PIX_IN',
+        matchKeyFuzzy: 'fuzzy',
+        raw: {},
+      },
+    ]);
+    return itemId;
+  };
+
+  const ajustar = async (overrides: Partial<BreakUpsertRow>) => {
+    const id = await abrirQuebra({ deltaCents: undefined, amountCents: 25_000n, ...overrides });
+    await service.resolve({
+      environment: ENV,
+      breakId: id,
+      action: ResolutionAction.CREATE_LEDGER_ADJUSTMENT,
+      note: NOTA,
+      resolvedBy: 'usr_admin',
+    });
+  };
+
+  it('credito nosso que o provedor nunca teve DEBITA o cliente', async () => {
+    await ajustar({
+      type: BreakType.MISSING_ON_PROVIDER,
+      localItemId: await semearItem(ReconciliationSide.LOCAL, 'CREDIT'),
+    });
+
+    // O espelho encolhe ate concordar com o sistema de registro.
+    expect(await saldo()).toBe(75_000n);
+    invariantes();
+  });
+
+  it('debito nosso que o provedor nunca teve CREDITA de volta', async () => {
+    await ajustar({
+      type: BreakType.MISSING_ON_PROVIDER,
+      localItemId: await semearItem(ReconciliationSide.LOCAL, 'DEBIT'),
+    });
+
+    expect(await saldo()).toBe(125_000n);
+    invariantes();
+  });
+
+  it('credito do provedor que nao registramos CREDITA o cliente', async () => {
+    await ajustar({
+      type: BreakType.MISSING_ON_LOCAL,
+      providerItemId: await semearItem(ReconciliationSide.PROVIDER, 'CREDIT'),
+    });
+
+    // O provedor e o sistema de registro: aplicamos no sentido dele.
+    expect(await saldo()).toBe(125_000n);
+    invariantes();
+  });
+
+  it('delta assinado manda sobre a derivacao pelo item', async () => {
+    await ajustar({
+      type: BreakType.MISSING_ON_PROVIDER,
+      deltaCents: 2_500n,
+      localItemId: await semearItem(ReconciliationSide.LOCAL, 'CREDIT'),
+    });
+
+    // `deltaCents` ja e `provedor - nos`: positivo credita, e nao se discute.
+    expect(await saldo()).toBe(102_500n);
+  });
+
+  it('quebra sem delta e de tipo que nao determina sentido recusa', async () => {
+    // Um `AMOUNT_MISMATCH` sem `deltaCents` nao diz de QUANTO e a diferenca.
+    // Adivinhar seria lancar um numero inventado na conta de um cliente.
+    const id = await abrirQuebra({ deltaCents: undefined, amountCents: 25_000n });
+
+    await expect(
+      service.resolve({
+        environment: ENV,
+        breakId: id,
+        action: ResolutionAction.CREATE_LEDGER_ADJUSTMENT,
+        note: NOTA,
+        resolvedBy: 'usr_admin',
+      }),
+    ).rejects.toMatchObject({ code: BaasErrorCode.VALIDATION_ERROR });
+
+    expect(await saldo()).toBe(100_000n);
+    expect((await breaks.findById(ENV, id))?.status).toBe(BreakStatus.OPEN);
+  });
+
   it('quebra sem conta nao gera ajuste', async () => {
     const id = await abrirQuebra({ deltaCents: 0n, amountCents: 0n });
 

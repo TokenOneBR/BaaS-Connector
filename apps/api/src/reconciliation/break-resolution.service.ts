@@ -3,6 +3,7 @@ import {
   BaasError,
   BaasErrorCode,
   BreakStatus,
+  BreakType,
   ResolutionAction,
   TransactionStatus,
   type Clock,
@@ -166,16 +167,13 @@ export class BreakResolutionService {
    * rede ou dois operadores na mesma quebra postam UMA vez, porque o motor do
    * razao resolve por `findByIdempotencyKey` antes de lancar. E o que impede o
    * conserto de um erro de dinheiro de virar um segundo erro de dinheiro.
-   *
-   * O sentido vem do `deltaCents` da quebra: positivo significa que o provedor
-   * tem MAIS do que nos, entao falta creditar o cliente.
    */
   private async postAdjustment(
     input: ResolveBreakInput,
     quebra: ReconciliationBreakRecord,
   ): Promise<string> {
-    const delta = quebra.deltaCents ?? quebra.amountCents;
-    if (!quebra.accountId || delta === undefined || delta === 0n) {
+    const delta = await this.signedDelta(quebra);
+    if (!quebra.accountId || delta === 0n) {
       throw new BaasError(BaasErrorCode.VALIDATION_ERROR, {
         message: 'Quebra sem conta ou sem valor nao pode gerar ajuste de razao.',
       });
@@ -208,6 +206,59 @@ export class BreakResolutionService {
     );
 
     return posted.transaction.id;
+  }
+
+  /**
+   * Quanto e para que lado, do ponto de vista do CLIENTE.
+   *
+   * Positivo credita, negativo debita. E a decisao mais perigosa deste
+   * servico, entao ela e explicita:
+   *
+   * `deltaCents` ja e assinado — `provedor - nos` — e quando existe manda. O
+   * `amountCents` NAO e assinado: e a magnitude do movimento, e usa-lo como se
+   * fosse delta inverte o sentido em toda quebra de ausencia. Um PIX de
+   * entrada que o provedor nunca teve seria CREDITADO de novo em vez de
+   * estornado — o ajuste dobraria o erro que veio consertar.
+   *
+   * Sem delta assinado, o sentido vem do ITEM que originou a quebra:
+   *
+   *   - falta no provedor -> o item e NOSSO, e o espelho e que esta errado:
+   *     desfazemos o movimento (credito local vira debito, e vice-versa);
+   *   - falta em nos ou no razao -> o item e do PROVEDOR, que e o sistema de
+   *     registro: aplicamos o movimento no sentido dele.
+   *
+   * Qualquer outro tipo recusa: um `AMOUNT_MISMATCH` sem `deltaCents` nao diz
+   * de quanto e a diferenca, e adivinhar seria lancar um numero inventado.
+   */
+  private async signedDelta(quebra: ReconciliationBreakRecord): Promise<bigint> {
+    if (quebra.deltaCents !== undefined && quebra.deltaCents !== 0n) return quebra.deltaCents;
+
+    const desfazerLocal = quebra.type === BreakType.MISSING_ON_PROVIDER;
+    const itemId = desfazerLocal
+      ? quebra.localItemId
+      : (quebra.providerItemId ?? quebra.ledgerItemId);
+
+    if (
+      !itemId ||
+      (!desfazerLocal &&
+        quebra.type !== BreakType.MISSING_ON_LOCAL &&
+        quebra.type !== BreakType.MISSING_ON_LEDGER)
+    ) {
+      throw new BaasError(BaasErrorCode.VALIDATION_ERROR, {
+        message: `Quebra ${quebra.type} sem delta assinado nao determina o sentido do ajuste.`,
+      });
+    }
+
+    const item = await this.runs.findItemById(itemId);
+    if (!item) {
+      throw new BaasError(BaasErrorCode.VALIDATION_ERROR, {
+        message: 'Item de origem da quebra nao encontrado.',
+      });
+    }
+
+    const aoCliente = item.direction === 'CREDIT';
+    const sentido = desfazerLocal ? !aoCliente : aoCliente;
+    return sentido ? item.amountCents : -item.amountCents;
   }
 
   /** Cancela o registro local de um pagamento que o provedor nunca teve. */

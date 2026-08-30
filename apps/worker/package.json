@@ -5,6 +5,10 @@
   "description": "Consumidores de fila: webhooks, outbox, conciliacao e polling",
   "license": "Apache-2.0",
   "main": "dist/main.js",
+  "exports": {
+    ".": "./dist/main.js",
+    "./testing": "./src/testing.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",

@@ -25,5 +25,7 @@ de implementacao. Ver [GOVERNANCE.md](../../GOVERNANCE.md).
 | [0014](0014-shadow-ledger-customer-side-only.md) | Ledger sombra espelha so o lado do cliente |
 | [0015](0015-unknown-outcome-holds-the-reserve.md) | Desfecho desconhecido mantem a reserva e devolve 202 |
 | [0016](0016-statement-balances-and-real-pagination.md) | Extrato com saldos opcionais no SPI e paginacao de verdade no Mock Bank |
+| [0017](0017-three-way-reconciliation.md) | Conciliacao em tres vias, com cinco passes ordenados |
+| [0018](0018-aggregate-lock-not-bullmq-groups.md) | Lock por agregado no Redis, e nao grupos do BullMQ |
 
 Novo ADR: copie [0000-template.md](0000-template.md).
