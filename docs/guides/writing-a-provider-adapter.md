@@ -94,7 +94,7 @@ O kit cobre os modelos que aparecem na prática:
 | Celcoin | `OAuth2ClientCredentialsStrategy` com `credentialPlacement: 'body'` |
 | Asaas | `StaticApiKeyStrategy({ header: 'access_token', value })` |
 | Woovi | `StaticApiKeyStrategy({ header: 'Authorization', value: appId })` |
-| QI Tech | `HmacSignatureStrategy` (JWT assinado com ECDSA-SHA512) |
+| QI Tech | `AsymmetricJwtStrategy` (JWS ES512 — ECDSA com SHA-512, requisição **e** resposta) |
 | Fluxos SPI | `MtlsStrategy`, ou `CompositeStrategy` sobre OAuth2 |
 
 O token cache tem single-flight embutido: 200 requisições concorrentes num

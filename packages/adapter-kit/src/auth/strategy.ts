@@ -111,6 +111,148 @@ export class HmacSignatureStrategy implements AuthStrategy {
   }
 }
 
+export interface AsymmetricJwtConfig {
+  /**
+   * Algoritmo de assinatura JWS.
+   *
+   * `ES512` e ECDSA com SHA-512, que e o que a QI Tech usa. Repare que
+   * ECDSA e ASSIMETRICO: assinamos com a chave privada e o provedor verifica
+   * com a nossa publica. Isso e categoricamente diferente de HMAC, onde os
+   * dois lados compartilham o mesmo segredo — e por isso `HmacSignatureStrategy`
+   * NAO serve aqui, apesar de a tabela do guia ter dito por um tempo que servia.
+   */
+  algorithm: 'ES256' | 'ES512' | 'RS256' | 'RS512';
+  /** Chave privada em PEM (PKCS#8). */
+  privateKey: string;
+  /** Vai no header `kid` do JWS, para o provedor achar a chave publica. */
+  keyId?: string;
+  /**
+   * Monta o payload assinado a partir da requisicao.
+   *
+   * Cada provedor define o seu. A QI Tech assina o corpo inteiro mais o
+   * metodo e o caminho, para a assinatura cobrir a requisicao toda e nao so
+   * uma parte dela.
+   */
+  claims: (request: PreparedRequest) => Record<string, unknown>;
+  /** Onde o JWS entra. Padrao: `Authorization: <jws>` e o corpo substituido. */
+  headers: (jws: string, request: PreparedRequest) => Record<string, string>;
+  /** Quando presente, o corpo enviado passa a ser o proprio JWS. */
+  replaceBody?: boolean;
+  /** Tolerancia de relogio embutida no `iat`. */
+  clockSkewSeconds?: number;
+}
+
+/**
+ * Assinatura ASSIMETRICA por requisicao, no formato JWS compacto.
+ *
+ * Existe porque o kit so cobria HMAC, que e simetrico, e provedores como a QI
+ * Tech assinam com par de chaves — a requisicao E a resposta. Tratar isso como
+ * HMAC nao e uma aproximacao ruim, e impossivel: nao existe segredo
+ * compartilhado para o `createHmac` usar.
+ *
+ * A verificacao da RESPOSTA e metade do contrato nesses provedores, e fica em
+ * `verifyResponse`. Aceitar resposta nao verificada anularia o motivo de a
+ * assinatura existir: sem ela, um intermediario pode reescrever o corpo de uma
+ * confirmacao de pagamento e nos acreditariamos.
+ */
+export class AsymmetricJwtStrategy implements AuthStrategy {
+  readonly kind = 'hmac' as const;
+
+  constructor(private readonly config: AsymmetricJwtConfig) {}
+
+  async apply(request: PreparedRequest): Promise<void> {
+    const jws = await this.sign(request);
+    Object.assign(request.headers, this.config.headers(jws, request));
+    if (this.config.replaceBody) request.body = jws;
+  }
+
+  private async sign(request: PreparedRequest): Promise<string> {
+    const { createSign, createPrivateKey } = await import('node:crypto');
+
+    const header = base64url(
+      JSON.stringify({
+        alg: this.config.algorithm,
+        typ: 'JWT',
+        ...(this.config.keyId ? { kid: this.config.keyId } : {}),
+      }),
+    );
+    const payload = base64url(
+      JSON.stringify({
+        iat: Math.floor(request.timestamp / 1000) - (this.config.clockSkewSeconds ?? 0),
+        ...this.config.claims(request),
+      }),
+    );
+
+    const signing = `${header}.${payload}`;
+    const signer = createSign(HASH_FOR[this.config.algorithm]);
+    signer.update(signing);
+    signer.end();
+
+    // `dsaEncoding: 'ieee-p1363'` NAO e detalhe: o padrao do Node para ECDSA e
+    // DER, e o JWS exige a forma crua R||S. Assinar em DER produz um token que
+    // toda biblioteca de JWT recusa, com erro que nao diz por que.
+    const signature = signer.sign(
+      { key: createPrivateKey(this.config.privateKey), dsaEncoding: 'ieee-p1363' },
+      'base64',
+    );
+
+    return `${signing}.${toBase64Url(signature)}`;
+  }
+
+  /**
+   * Verifica a assinatura de uma resposta do provedor.
+   *
+   * Devolve o payload quando confere e LANCA quando nao — nunca devolve
+   * `false` silenciosamente, porque um chamador que ignora o booleano e
+   * indistinguivel de um que nao verificou.
+   */
+  static async verifyResponse(
+    jws: string,
+    publicKeyPem: string,
+    algorithm: AsymmetricJwtConfig['algorithm'],
+  ): Promise<Record<string, unknown>> {
+    const { createVerify, createPublicKey } = await import('node:crypto');
+    const parts = jws.split('.');
+    if (parts.length !== 3) {
+      throw new Error('Resposta assinada malformada: nao tem tres segmentos.');
+    }
+
+    const verifier = createVerify(HASH_FOR[algorithm]);
+    verifier.update(`${parts[0]}.${parts[1]}`);
+    verifier.end();
+
+    const ok = verifier.verify(
+      { key: createPublicKey(publicKeyPem), dsaEncoding: 'ieee-p1363' },
+      fromBase64Url(parts[2]!),
+    );
+    if (!ok) throw new Error('Assinatura da resposta do provedor nao confere.');
+
+    return JSON.parse(Buffer.from(fromBase64Url(parts[1]!)).toString('utf8')) as Record<
+      string,
+      unknown
+    >;
+  }
+}
+
+const HASH_FOR: Readonly<Record<AsymmetricJwtConfig['algorithm'], string>> = Object.freeze({
+  ES256: 'sha256',
+  ES512: 'sha512',
+  RS256: 'sha256',
+  RS512: 'sha512',
+});
+
+function base64url(value: string): string {
+  return toBase64Url(Buffer.from(value, 'utf8').toString('base64'));
+}
+
+function toBase64Url(base64: string): string {
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(value: string): Buffer {
+  return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+
 export interface MtlsConfig {
   cert: string;
   key: string;

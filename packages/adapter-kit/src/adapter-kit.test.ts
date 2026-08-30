@@ -1,11 +1,15 @@
+import { generateKeyPairSync } from 'node:crypto';
+
 import { BaasErrorCode, FixedClock, ProviderOutcomeUnknownError } from '@baasconn/taxonomy';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  AsymmetricJwtStrategy,
   NoAuthStrategy,
   StaticApiKeyStrategy,
   InMemoryTokenStore,
   OAuth2ClientCredentialsStrategy,
+  type PreparedRequest,
 } from './auth/index.js';
 import { breakerKey, InMemoryCircuitBreaker } from './circuit-breaker.js';
 import { buildErrorMapper, COMMON_ERROR_MAPPINGS, extractProviderCode } from './errors/mapper.js';
@@ -509,5 +513,109 @@ describe('cache de token OAuth2', () => {
     const request = { method: 'GET', path: '/x', headers: {}, timestamp: 0 };
     await strategy.apply(request);
     expect(request.headers).toMatchObject({ Authorization: 'Bearer abc' });
+  });
+});
+
+describe('assinatura assimetrica', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', {
+    namedCurve: 'P-521',
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  });
+
+  const request = (): PreparedRequest => ({
+    method: 'POST',
+    path: '/baas/v2/pix/payment',
+    headers: {},
+    body: JSON.stringify({ amount: 100 }),
+    timestamp: Date.parse('2026-08-30T12:00:00.000Z'),
+  });
+
+  const strategy = new AsymmetricJwtStrategy({
+    algorithm: 'ES512',
+    privateKey,
+    keyId: 'chave-de-teste',
+    claims: (req) => ({ method: req.method, path: req.path, body: req.body }),
+    headers: (jws) => ({ authorization: jws }),
+  });
+
+  it('produz um JWS de tres segmentos verificavel pela chave publica', async () => {
+    const req = request();
+    await strategy.apply(req);
+
+    const jws = req.headers.authorization!;
+    expect(jws.split('.')).toHaveLength(3);
+
+    const payload = await AsymmetricJwtStrategy.verifyResponse(jws, publicKey, 'ES512');
+    expect(payload).toMatchObject({ method: 'POST', path: '/baas/v2/pix/payment' });
+  });
+
+  it('o header carrega alg e kid, para o provedor achar a chave publica', async () => {
+    const req = request();
+    await strategy.apply(req);
+
+    const [header] = req.headers.authorization!.split('.');
+    const decoded = JSON.parse(
+      Buffer.from(header!.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'),
+    ) as Record<string, unknown>;
+
+    expect(decoded).toMatchObject({ alg: 'ES512', typ: 'JWT', kid: 'chave-de-teste' });
+  });
+
+  it('corpo adulterado nao verifica', async () => {
+    const req = request();
+    await strategy.apply(req);
+
+    const [header, , signature] = req.headers.authorization!.split('.');
+    const forjado = Buffer.from(JSON.stringify({ method: 'POST', amount: 999_999 }), 'utf8')
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    // Trocar o payload e manter a assinatura e exatamente o ataque que a
+    // assinatura existe para impedir: reescrever o valor de um pagamento.
+    await expect(
+      AsymmetricJwtStrategy.verifyResponse(`${header}.${forjado}.${signature}`, publicKey, 'ES512'),
+    ).rejects.toThrow(/nao confere/);
+  });
+
+  it('chave publica de outro par nao verifica', async () => {
+    const outro = generateKeyPairSync('ec', {
+      namedCurve: 'P-521',
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+    });
+
+    const req = request();
+    await strategy.apply(req);
+
+    await expect(
+      AsymmetricJwtStrategy.verifyResponse(req.headers.authorization!, outro.publicKey, 'ES512'),
+    ).rejects.toThrow(/nao confere/);
+  });
+
+  it('resposta malformada e recusada em vez de decodificada', async () => {
+    // Sem os tres segmentos nao ha o que verificar. Tentar decodificar assim
+    // mesmo aceitaria um corpo nao assinado como se fosse assinado.
+    await expect(
+      AsymmetricJwtStrategy.verifyResponse('nao.e-jws', publicKey, 'ES512'),
+    ).rejects.toThrow(/malformada/);
+  });
+
+  it('substitui o corpo pelo JWS quando o provedor exige', async () => {
+    const comCorpo = new AsymmetricJwtStrategy({
+      algorithm: 'ES512',
+      privateKey,
+      claims: (req) => ({ body: req.body }),
+      headers: () => ({ 'content-type': 'application/jwt' }),
+      replaceBody: true,
+    });
+
+    const req = request();
+    await comCorpo.apply(req);
+
+    expect(req.headers['content-type']).toBe('application/jwt');
+    expect(req.body!.split('.')).toHaveLength(3);
   });
 });
