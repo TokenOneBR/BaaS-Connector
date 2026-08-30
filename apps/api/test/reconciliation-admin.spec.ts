@@ -281,6 +281,67 @@ describe('rotas admin de conciliacao', () => {
     expect(response.status).toBe(422);
   });
 
+  it('a evidencia dos dois lados sai em rota separada', async () => {
+    // Blob JSON gordo, e a listagem e o caminho quente: carrega-lo em toda
+    // linha da tabela seria pagar a evidencia de cinquenta quebras para
+    // mostrar uma.
+    const id = await abrirQuebra();
+    const response = await get(
+      `/admin/v1/reconciliation/breaks/${id}/evidence?environment=HOMOLOGACAO`,
+      await token('compliance@tokenone.com.br'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ break_id: id, evidence: {} });
+  });
+
+  it('as execucoes listam com contadores e o delta de saldo', async () => {
+    // Os seis numeros eram gravados por `complete()` e ILEGIVEIS: o record nao
+    // os carregava e nao havia listagem. O contrato descreve `balance_delta`
+    // como "numero de manchete do dashboard", e ele nao saia do banco.
+    const runs = app.get<{
+      startRun: (input: Record<string, unknown>) => Promise<{ run: { id: string } }>;
+      complete: (input: Record<string, unknown>) => Promise<void>;
+    }>(
+      (await import('../src/reconciliation/reconciliation.types.js')).RECONCILIATION_RUN_REPOSITORY,
+    );
+
+    const { run } = await runs.startRun({
+      id: newId('reconciliationRun'),
+      environment: Environment.HOMOLOGACAO,
+      connectionId: CONEXAO,
+      accountId,
+      scope: 'DAILY',
+      windowStart: new Date('2026-08-29T03:00:00.000Z'),
+      windowEnd: new Date('2026-08-30T03:00:00.000Z'),
+      triggeredBy: 'teste',
+    });
+    await runs.complete({
+      id: run.id,
+      status: 'COMPLETED_WITH_BREAKS',
+      counters: {
+        providerItemCount: 10,
+        localItemCount: 9,
+        ledgerItemCount: 9,
+        matchedCount: 9,
+        breakCount: 1,
+      },
+      balances: { balanceDeltaCents: -25_000n },
+      finishedAt: new Date('2026-08-30T03:05:00.000Z'),
+    });
+
+    const body = (await get(
+      '/admin/v1/reconciliation/runs?environment=HOMOLOGACAO',
+      await token('compliance@tokenone.com.br'),
+    ).then((r) => r.json())) as { data: Array<Record<string, unknown>> };
+
+    expect(body.data[0]).toMatchObject({
+      provider_item_count: 10,
+      break_count: 1,
+      balance_delta: { amount: '-25000', currency: 'BRL', scale: 2 },
+    });
+  });
+
   it('quebra de outro ambiente devolve 404', async () => {
     const id = await abrirQuebra();
     const response = await get(

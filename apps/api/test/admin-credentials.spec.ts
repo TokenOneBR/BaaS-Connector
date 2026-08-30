@@ -340,6 +340,25 @@ describe('credenciais e segredos nunca saem do /admin/v1', () => {
     expect((await api('/admin/v1/audit?environment=HOMOLOGACAO', compliance)).status).toBe(200);
   });
 
+  it('o painel responde numa rota so, com todos os numeros que ele mostra', async () => {
+    // Nove rotas custariam nove idas ao BFF, cada uma com round-trip de
+    // sessao. `respond` garante que o corpo tem exatamente o que o contrato
+    // descreve — nem a mais, nem a menos.
+    const jwt = await token('viewer@tokenone.com.br');
+    const response = await api('/admin/v1/overview?environment=HOMOLOGACAO', jwt);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      environment: 'HOMOLOGACAO',
+      window_hours: 24,
+      accounts: { total: 0, active: 0 },
+      pix: { in_count: 0, out_count: 0, unknown: 0 },
+      // Nulo, e nao zero: zero mentiria "conciliado ha pouco" num deploy que
+      // nunca conciliou, e o alerta de obsolescencia le exatamente isto.
+      reconciliation: { open_breaks: 0, last_success_at: null },
+    });
+  });
+
   it('sem `environment` na consulta, recusa', async () => {
     const jwt = await token('admin@tokenone.com.br');
     expect((await api('/admin/v1/connections', jwt)).status).toBe(422);

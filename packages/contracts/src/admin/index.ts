@@ -352,3 +352,44 @@ export const zLoginResult = z.object({
     role: zEnum(ConsoleRole),
   }),
 });
+
+// --------------------------------------------------------------------------
+// Painel
+// --------------------------------------------------------------------------
+
+/**
+ * Agregado do dashboard: UMA rota, e nao nove.
+ *
+ * Duas razoes. O painel nao pode custar nove idas ao BFF, cada uma com o
+ * round-trip de sessao; e um agregado proprio sao alguns `count`/`groupBy`, em
+ * vez de paginar quatro listas para descartar quase tudo.
+ */
+export const zOverview = z.object({
+  environment: zEnum(Environment),
+  window_hours: z.number().int(),
+  accounts: z.object({
+    total: z.number().int(),
+    active: z.number().int(),
+    pending_onboarding: z.number().int(),
+    blocked: z.number().int(),
+  }),
+  pix: z.object({
+    in_count: z.number().int(),
+    out_count: z.number().int(),
+    in_amount: zMoney,
+    out_amount: zMoney,
+    settled: z.number().int(),
+    failed: z.number().int(),
+    unknown: z.number().int(),
+  }),
+  reconciliation: z.object({
+    open_breaks: z.number().int(),
+    critical_breaks: z.number().int(),
+    /** Nulo enquanto nao houver execucao: zero mentiria "conciliado ha pouco". */
+    last_success_at: zTimestamp.nullish(),
+  }),
+  outbox: z.object({
+    pending: z.number().int(),
+    oldest_age_seconds: z.number().int().nullish(),
+  }),
+});

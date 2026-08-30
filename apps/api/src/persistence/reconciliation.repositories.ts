@@ -70,6 +70,27 @@ export class PrismaReconciliationRunRepository implements ReconciliationRunRepos
     return row ? toRun(row) : undefined;
   }
 
+  async list(
+    input: Parameters<ReconciliationRunRepository['list']>[0],
+  ): Promise<{ data: ReconciliationRunRecord[]; nextCursor?: string }> {
+    const rows = await this.prisma.client.reconciliationRun.findMany({
+      where: {
+        environment: input.environment,
+        connectionId: input.connectionId,
+        accountId: input.accountId,
+        status: input.status,
+        id: input.cursor ? { lt: input.cursor } : undefined,
+      },
+      // Keyset por id: ULID, ordenado no tempo. Offset sobre tabela que recebe
+      // insert constante produz duplicata e buraco.
+      orderBy: { id: 'desc' },
+      take: input.limit + 1,
+    });
+
+    const data = rows.slice(0, input.limit).map((row) => toRun(row));
+    return { data, nextCursor: rows.length > input.limit ? data.at(-1)?.id : undefined };
+  }
+
   async findItemById(id: string): Promise<ReconciliationItemRow | undefined> {
     const row = await this.prisma.client.reconciliationItem.findUnique({ where: { id } });
     if (!row) return undefined;
@@ -375,12 +396,41 @@ function toRun(row: {
   status: string;
   triggeredBy: string;
   createdAt?: Date;
+  providerItemCount?: number;
+  localItemCount?: number;
+  ledgerItemCount?: number;
+  matchedCount?: number;
+  breakCount?: number;
+  providerOpeningBalanceCents?: bigint | null;
+  providerClosingBalanceCents?: bigint | null;
+  ledgerClosingBalanceCents?: bigint | null;
+  balanceDeltaCents?: bigint | null;
+  startedAt?: Date | null;
+  finishedAt?: Date | null;
 }): ReconciliationRunRecord {
   return {
     id: row.id,
     environment: row.environment as Environment,
     connectionId: row.connectionId,
     accountId: row.accountId ?? '',
+    counters:
+      row.providerItemCount === undefined
+        ? undefined
+        : {
+            providerItemCount: row.providerItemCount,
+            localItemCount: row.localItemCount ?? 0,
+            ledgerItemCount: row.ledgerItemCount ?? 0,
+            matchedCount: row.matchedCount ?? 0,
+            breakCount: row.breakCount ?? 0,
+          },
+    balances: {
+      providerOpeningBalanceCents: row.providerOpeningBalanceCents ?? undefined,
+      providerClosingBalanceCents: row.providerClosingBalanceCents ?? undefined,
+      ledgerClosingBalanceCents: row.ledgerClosingBalanceCents ?? undefined,
+      balanceDeltaCents: row.balanceDeltaCents ?? undefined,
+    },
+    startedAt: row.startedAt ?? undefined,
+    finishedAt: row.finishedAt ?? undefined,
     scope: row.scope as ReconciliationScope,
     windowStart: row.windowStart,
     windowEnd: row.windowEnd,

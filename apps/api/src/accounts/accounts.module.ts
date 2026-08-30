@@ -6,6 +6,7 @@ import { ProvidersModule } from '../providers/providers.module.js';
 
 import { AccountsController } from './accounts.controller.js';
 import { AccountsService } from './accounts.service.js';
+import { AdminAccountsController } from './admin-accounts.controller.js';
 
 /**
  * Contas e onboarding.
@@ -16,7 +17,7 @@ import { AccountsService } from './accounts.service.js';
  */
 @Module({
   imports: [ProvidersModule],
-  controllers: [AccountsController, OnboardingController],
+  controllers: [AccountsController, OnboardingController, AdminAccountsController],
   providers: [AccountsService, OnboardingService],
   exports: [AccountsService, OnboardingService],
 })

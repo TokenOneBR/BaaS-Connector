@@ -24,6 +24,17 @@ export interface ReconciliationRunRecord {
   status: ReconciliationRunStatus;
   triggeredBy: string;
   createdAt: Date;
+  /**
+   * Contadores e saldos, hoje SOMENTE-ESCRITA.
+   *
+   * `complete()` grava os seis; o record nao carregava nenhum e nao havia
+   * `list()`. O `balanceDeltaCents` esta descrito no contrato como "numero de
+   * manchete do dashboard" e era ilegivel.
+   */
+  counters?: RunCounters;
+  balances?: RunBalances;
+  startedAt?: Date;
+  finishedAt?: Date;
 }
 
 export interface ReconciliationItemRow {
@@ -93,6 +104,14 @@ export interface ReconciliationRunRepository {
     triggeredBy: string;
   }): Promise<{ run: ReconciliationRunRecord; created: boolean }>;
   findById(environment: Environment, id: string): Promise<ReconciliationRunRecord | undefined>;
+  list(input: {
+    environment: Environment;
+    connectionId?: string;
+    accountId?: string;
+    status?: ReconciliationRunStatus;
+    limit: number;
+    cursor?: string;
+  }): Promise<{ data: ReconciliationRunRecord[]; nextCursor?: string }>;
   /**
    * Le um item pelo id de `reconciliation_item`.
    *

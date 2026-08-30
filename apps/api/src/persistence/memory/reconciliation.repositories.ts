@@ -78,6 +78,21 @@ export class MemoryReconciliationRunRepository implements ReconciliationRunRepos
     return run?.environment === environment ? run : undefined;
   }
 
+  async list(
+    input: Parameters<ReconciliationRunRepository['list']>[0],
+  ): Promise<{ data: ReconciliationRunRecord[]; nextCursor?: string }> {
+    const filtradas = [...this.runs.values()]
+      .filter((run) => run.environment === input.environment)
+      .filter((run) => !input.connectionId || run.connectionId === input.connectionId)
+      .filter((run) => !input.accountId || run.accountId === input.accountId)
+      .filter((run) => !input.status || run.status === input.status)
+      .sort((a, b) => b.id.localeCompare(a.id))
+      .filter((run) => !input.cursor || run.id < input.cursor);
+
+    const data = filtradas.slice(0, input.limit);
+    return { data, nextCursor: filtradas.length > input.limit ? data.at(-1)?.id : undefined };
+  }
+
   async findItemById(id: string): Promise<ReconciliationItemRow | undefined> {
     return this.items.get(id);
   }
@@ -105,6 +120,7 @@ export class MemoryReconciliationRunRepository implements ReconciliationRunRepos
     if (!run) return;
     run.status = input.status;
     run.counters = input.counters;
+    run.balances = input.balances;
   }
 
   async fail(id: string, error: Record<string, unknown>): Promise<void> {

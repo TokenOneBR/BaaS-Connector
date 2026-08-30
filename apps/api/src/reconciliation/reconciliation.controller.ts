@@ -1,4 +1,9 @@
-import { zListBreaksQuery, zReconciliationBreak, zResolveBreak } from '@baasconn/contracts';
+import {
+  zListBreaksQuery,
+  zReconciliationBreak,
+  zReconciliationRun,
+  zResolveBreak,
+} from '@baasconn/contracts';
 import {
   BaasError,
   BaasErrorCode,
@@ -18,8 +23,11 @@ import { ApiConfig } from '../config/config.service.js';
 import { BreakResolutionService } from './break-resolution.service.js';
 import {
   RECONCILIATION_BREAK_REPOSITORY,
+  RECONCILIATION_RUN_REPOSITORY,
   type ReconciliationBreakRecord,
   type ReconciliationBreakRepository,
+  type ReconciliationRunRecord,
+  type ReconciliationRunRepository,
 } from './reconciliation.types.js';
 
 /**
@@ -30,6 +38,13 @@ import {
  * sessao de homologacao de resolver, sem perceber, uma quebra de producao.
  */
 const zEnvironmentQuery = z.object({ environment: z.nativeEnum(Environment) });
+
+const zListRunsQuery = z.object({
+  connection_id: z.string().optional(),
+  account_id: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  cursor: z.string().optional(),
+});
 
 const zResolveBreakBody = zResolveBreak.extend({
   /** Só usado por `ESCALATE_TO_PROVIDER`. */
@@ -43,6 +58,7 @@ export class ReconciliationController {
     private readonly resolution: BreakResolutionService,
     private readonly config: ApiConfig,
     @Inject(RECONCILIATION_BREAK_REPOSITORY) private readonly breaks: ReconciliationBreakRepository,
+    @Inject(RECONCILIATION_RUN_REPOSITORY) private readonly runs: ReconciliationRunRepository,
   ) {}
 
   /**
@@ -81,6 +97,81 @@ export class ReconciliationController {
         prev_cursor: null,
         limit: query.limit,
       },
+    };
+  }
+
+  /**
+   * Execucoes de conciliacao.
+   *
+   * Os contadores e o `balance_delta` sao gravados desde o M7 e ate agora eram
+   * ILEGIVEIS: `complete()` os escrevia, o record nao os carregava e nao havia
+   * listagem. O contrato descreve `balance_delta` como "numero de manchete do
+   * dashboard" — e ele nao saia do banco.
+   */
+  @Get('runs')
+  @MinRole('COMPLIANCE')
+  async listRuns(
+    @Query(new ZodValidationPipe(zListRunsQuery.merge(zEnvironmentQuery)))
+    query: z.infer<typeof zListRunsQuery> & z.infer<typeof zEnvironmentQuery>,
+  ) {
+    this.assertEnvironment(query.environment);
+
+    const page = await this.runs.list({
+      environment: query.environment,
+      connectionId: query.connection_id,
+      accountId: query.account_id,
+      limit: query.limit,
+      cursor: query.cursor,
+    });
+
+    return {
+      object: 'list' as const,
+      data: page.data.map(toRunDto),
+      page: {
+        has_more: page.nextCursor !== undefined,
+        next_cursor: page.nextCursor ?? null,
+        prev_cursor: null,
+        limit: query.limit,
+      },
+    };
+  }
+
+  /**
+   * A evidencia dos dois lados, em rota SEPARADA.
+   *
+   * E um blob JSON gordo e a listagem e o caminho quente: carrega-lo em toda
+   * linha da tabela para descartar quase tudo seria pagar a evidencia de
+   * cinquenta quebras para mostrar uma.
+   */
+  @Get('breaks/:id/evidence')
+  @MinRole('COMPLIANCE')
+  async evidence(
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(zEnvironmentQuery))
+    query: z.infer<typeof zEnvironmentQuery>,
+  ) {
+    this.assertEnvironment(query.environment);
+    const quebra = await this.breaks.findById(query.environment, id);
+    if (!quebra) {
+      throw new BaasError(BaasErrorCode.RESOURCE_NOT_FOUND, {
+        message: `Quebra ${id} nao encontrada.`,
+      });
+    }
+
+    // Os tres ids sao de `reconciliation_item` (`rci_`), nunca de transacao.
+    // A tela lado a lado precisa das LINHAS, e nao dos ids.
+    const [provedor, local, razao] = await Promise.all([
+      quebra.providerItemId ? this.runs.findItemById(quebra.providerItemId) : undefined,
+      quebra.localItemId ? this.runs.findItemById(quebra.localItemId) : undefined,
+      quebra.ledgerItemId ? this.runs.findItemById(quebra.ledgerItemId) : undefined,
+    ]);
+
+    return {
+      break_id: quebra.id,
+      evidence: quebra.evidence,
+      provider: provedor ? toItemDto(provedor) : null,
+      local: local ? toItemDto(local) : null,
+      ledger: razao ? toItemDto(razao) : null,
     };
   }
 
@@ -173,4 +264,54 @@ function toBreakDto(quebra: ReconciliationBreakRecord) {
     evidence: quebra.evidence,
     created_at: quebra.createdAt.toISOString(),
   });
+}
+
+function toRunDto(run: ReconciliationRunRecord) {
+  return respond(zReconciliationRun, {
+    id: run.id,
+    connection_id: run.connectionId,
+    environment: run.environment,
+    account_id: run.accountId,
+    scope: run.scope,
+    window_start: run.windowStart.toISOString(),
+    window_end: run.windowEnd.toISOString(),
+    status: run.status,
+    provider_item_count: run.counters?.providerItemCount ?? 0,
+    local_item_count: run.counters?.localItemCount ?? 0,
+    ledger_item_count: run.counters?.ledgerItemCount ?? 0,
+    matched_count: run.counters?.matchedCount ?? 0,
+    break_count: run.counters?.breakCount ?? 0,
+    balance_delta:
+      run.balances?.balanceDeltaCents === undefined
+        ? null
+        : Money.of(run.balances.balanceDeltaCents).toJSON(),
+    started_at: run.startedAt?.toISOString() ?? null,
+    finished_at: run.finishedAt?.toISOString() ?? null,
+    triggered_by: run.triggeredBy,
+  });
+}
+
+/** Item normalizado de um dos tres lados, para a tela lado a lado. */
+function toItemDto(item: {
+  id: string;
+  side: string;
+  externalId?: string;
+  endToEndId?: string;
+  postedAt: Date;
+  effectiveDate: string;
+  direction: string;
+  amountCents: bigint;
+  type: string;
+}) {
+  return {
+    id: item.id,
+    side: item.side,
+    external_id: item.externalId ?? null,
+    end_to_end_id: item.endToEndId ?? null,
+    posted_at: item.postedAt.toISOString(),
+    effective_date: item.effectiveDate,
+    direction: item.direction,
+    amount: Money.of(item.amountCents).toJSON(),
+    type: item.type,
+  };
 }

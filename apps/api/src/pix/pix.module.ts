@@ -4,6 +4,7 @@ import { AccountsModule } from '../accounts/accounts.module.js';
 import { LedgerModule } from '../ledger/ledger.module.js';
 import { ProvidersModule } from '../providers/providers.module.js';
 
+import { AdminTransactionsController } from './admin-transactions.controller.js';
 import { OperationReconcilerModule } from './operation-reconciler.module.js';
 import { PixChargesService } from './pix-charges.service.js';
 import { PixKeysService } from './pix-keys.service.js';
@@ -22,7 +23,7 @@ import { TransactionsController } from './transactions.controller.js';
  */
 @Module({
   imports: [ProvidersModule, AccountsModule, LedgerModule, OperationReconcilerModule],
-  controllers: [PixController, TransactionsController],
+  controllers: [PixController, TransactionsController, AdminTransactionsController],
   providers: [PixKeysService, PixChargesService, PixTransfersService, StatementService],
   exports: [PixTransfersService, OperationReconcilerModule],
 })
