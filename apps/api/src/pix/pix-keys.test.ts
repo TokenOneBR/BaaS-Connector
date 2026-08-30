@@ -122,9 +122,9 @@ describe('chaves Pix', () => {
     expect(key.valueBlindIndex).not.toContain(EMAIL);
     // E o indice PRECISA achar a chave: um blind index que nao busca nao serve
     // para nada.
-    await expect(
-      keys.findActiveByBlindIndex(ENV, key.valueBlindIndex),
-    ).resolves.toMatchObject({ id: key.id });
+    await expect(keys.findActiveByBlindIndex(ENV, key.valueBlindIndex)).resolves.toMatchObject({
+      id: key.id,
+    });
   });
 
   it('registrar a mesma chave na mesma conta e no-op, nao erro', async () => {

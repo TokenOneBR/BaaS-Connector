@@ -10,10 +10,7 @@ import {
 } from '@baasconn/taxonomy';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-import {
-  ACCOUNT_REPOSITORY,
-  type AccountRepository,
-} from '../accounts/accounts.types.js';
+import { ACCOUNT_REPOSITORY, type AccountRepository } from '../accounts/accounts.types.js';
 import { CACHE_STORE, accountTag, type CacheStore } from '../cache/cache.types.js';
 import { CLOCK } from '../common/clock.js';
 import { OUTBOX_REPOSITORY, type OutboxRepository } from '../events/outbox.types.js';
@@ -120,15 +117,17 @@ export class OperationReconciler {
   }
 
   private async byIdempotencyKey(
-    transfers: NonNullable<
-      Awaited<ReturnType<ProviderResolver['resolve']>>['adapter']['pixTransfers']
-    > | undefined,
+    transfers:
+      | NonNullable<Awaited<ReturnType<ProviderResolver['resolve']>>['adapter']['pixTransfers']>
+      | undefined,
     ref: { providerAccountId: string },
     operation: OperationRecord,
   ) {
     if (!transfers?.findByIdempotencyKey) return undefined;
     try {
-      return (await transfers.findByIdempotencyKey(ref, operation.providerIdempotencyKey)) ?? undefined;
+      return (
+        (await transfers.findByIdempotencyKey(ref, operation.providerIdempotencyKey)) ?? undefined
+      );
     } catch (error) {
       this.logger.warn(`Consulta por chave falhou em ${operation.id}: ${String(error)}`);
       return undefined;
@@ -136,9 +135,9 @@ export class OperationReconciler {
   }
 
   private async byEndToEndId(
-    transfers: NonNullable<
-      Awaited<ReturnType<ProviderResolver['resolve']>>['adapter']['pixTransfers']
-    > | undefined,
+    transfers:
+      | NonNullable<Awaited<ReturnType<ProviderResolver['resolve']>>['adapter']['pixTransfers']>
+      | undefined,
     ref: { providerAccountId: string },
     transaction: TransactionRecord,
   ) {

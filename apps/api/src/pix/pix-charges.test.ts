@@ -164,9 +164,9 @@ describe('cobrancas Pix', () => {
 
   it('recusa chave de outra conta', async () => {
     const outra: AccountRecord = { ...account, id: newId('account') };
-    await expect(
-      service.create(actor(), outra.id, dto()),
-    ).rejects.toMatchObject({ code: BaasErrorCode.ACCOUNT_NOT_FOUND });
+    await expect(service.create(actor(), outra.id, dto())).rejects.toMatchObject({
+      code: BaasErrorCode.ACCOUNT_NOT_FOUND,
+    });
   });
 
   it('cobranca paga nao volta para ACTIVE', async () => {

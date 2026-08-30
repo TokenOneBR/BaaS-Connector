@@ -23,12 +23,7 @@ import { TransactionsController } from './transactions.controller.js';
 @Module({
   imports: [ProvidersModule, AccountsModule, LedgerModule, OperationReconcilerModule],
   controllers: [PixController, TransactionsController],
-  providers: [
-    PixKeysService,
-    PixChargesService,
-    PixTransfersService,
-    StatementService,
-  ],
+  providers: [PixKeysService, PixChargesService, PixTransfersService, StatementService],
   exports: [PixTransfersService, OperationReconcilerModule],
 })
 export class PixModule {}

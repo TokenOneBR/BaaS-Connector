@@ -84,15 +84,13 @@ describe('PIX out', () => {
       idempotencyKey: 'saldo-inicial',
     });
 
-    send = vi.fn(
-      async (): Promise<PixTransaction> => ({
-        providerTransactionId: 'mb-txn-1',
-        status: TransactionStatus.PENDING,
-        direction: 'out',
-        amount: Money.of(50_000n).toJSON(),
-        createdAt: clock.now().toISOString(),
-      }),
-    );
+    send = vi.fn(async (): Promise<PixTransaction> => ({
+      providerTransactionId: 'mb-txn-1',
+      status: TransactionStatus.PENDING,
+      direction: 'out',
+      amount: Money.of(50_000n).toJSON(),
+      createdAt: clock.now().toISOString(),
+    }));
     findByIdempotencyKey = vi.fn(async () => null);
 
     const providers = {

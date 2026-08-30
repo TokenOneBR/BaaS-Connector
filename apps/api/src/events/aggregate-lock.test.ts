@@ -28,9 +28,7 @@ describe('lock por agregado', () => {
   it('a chave carrega o ambiente', () => {
     // Sem o ambiente, um evento de homologacao bloquearia o de producao que
     // carrega o mesmo id do provedor.
-    expect(aggregateKey('HOMOLOGACAO', 'transaction', 'mb-1')).toBe(
-      'HOMOLOGACAO:transaction:mb-1',
-    );
+    expect(aggregateKey('HOMOLOGACAO', 'transaction', 'mb-1')).toBe('HOMOLOGACAO:transaction:mb-1');
     expect(aggregateKey('PRODUCAO', 'transaction', 'mb-1')).not.toBe(
       aggregateKey('HOMOLOGACAO', 'transaction', 'mb-1'),
     );

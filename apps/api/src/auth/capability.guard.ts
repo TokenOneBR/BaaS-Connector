@@ -11,8 +11,7 @@ export const CAPABILITY_KEY = 'baas:capability';
 
 /** Capacidade fixa, ou derivada do corpo da requisicao. */
 export type CapabilitySelector =
-  | CapabilityKey
-  | ((request: { body?: unknown; query?: unknown }) => CapabilityKey);
+  CapabilityKey | ((request: { body?: unknown; query?: unknown }) => CapabilityKey);
 
 /**
  * Exige uma capacidade do provedor.

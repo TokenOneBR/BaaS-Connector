@@ -117,8 +117,18 @@ describe('escada de retry', () => {
   });
 
   it('valores diferentes de random produzem instantes diferentes', () => {
-    const a = nextAttemptAt({ attempt: 5, schedule: WEBHOOK_RETRY_SCHEDULE_SECONDS, now, random: () => 0 })!;
-    const b = nextAttemptAt({ attempt: 5, schedule: WEBHOOK_RETRY_SCHEDULE_SECONDS, now, random: () => 1 })!;
+    const a = nextAttemptAt({
+      attempt: 5,
+      schedule: WEBHOOK_RETRY_SCHEDULE_SECONDS,
+      now,
+      random: () => 0,
+    })!;
+    const b = nextAttemptAt({
+      attempt: 5,
+      schedule: WEBHOOK_RETRY_SCHEDULE_SECONDS,
+      now,
+      random: () => 1,
+    })!;
     expect(a.getTime()).not.toBe(b.getTime());
   });
 });

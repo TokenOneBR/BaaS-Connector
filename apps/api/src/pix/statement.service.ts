@@ -12,10 +12,7 @@ import {
 } from '@baasconn/taxonomy';
 import { Inject, Injectable } from '@nestjs/common';
 
-import {
-  ACCOUNT_REPOSITORY,
-  type AccountRepository,
-} from '../accounts/accounts.types.js';
+import { ACCOUNT_REPOSITORY, type AccountRepository } from '../accounts/accounts.types.js';
 import { ApiConfig } from '../config/config.service.js';
 
 import { decodeCursor, encodeCursor } from './cursor.js';
@@ -61,9 +58,7 @@ export class StatementService {
     }
 
     const filters = filterDigest(request);
-    const position = request.cursor
-      ? this.decode(request.cursor, filters)
-      : undefined;
+    const position = request.cursor ? this.decode(request.cursor, filters) : undefined;
 
     const page = await this.transactions.statement({
       environment: request.environment,

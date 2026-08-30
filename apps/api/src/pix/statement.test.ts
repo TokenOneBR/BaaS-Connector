@@ -37,10 +37,9 @@ describe('cursor de keyset assinado', () => {
     // cliente pule para um id arbitrario ou forje o digest do filtro.
     const encoded = encodeCursor(cursor, SECRET);
     const signature = encoded.split('.')[1];
-    const forged = Buffer.from(
-      JSON.stringify({ ...cursor, id: 'txn_9' }),
-      'utf8',
-    ).toString('base64url');
+    const forged = Buffer.from(JSON.stringify({ ...cursor, id: 'txn_9' }), 'utf8').toString(
+      'base64url',
+    );
 
     expect(decodeCursor(`${forged}.${signature}`, SECRET, 'abc')).toEqual({
       ok: false,
@@ -86,11 +85,7 @@ describe('extrato', () => {
   let service: StatementService;
   let account: AccountRecord;
 
-  const line = (
-    index: number,
-    date: string,
-    status = TransactionStatus.SETTLED,
-  ) => ({
+  const line = (index: number, date: string, status = TransactionStatus.SETTLED) => ({
     id: `txn_${String(index).padStart(3, '0')}`,
     environment: ENV,
     accountId: account.id,

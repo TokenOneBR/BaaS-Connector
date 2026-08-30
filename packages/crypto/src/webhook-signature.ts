@@ -40,10 +40,7 @@ export function buildWebhookSignature(input: WebhookSignatureInput): string {
   return [`t=${input.timestampSeconds}`, ...elements].join(',');
 }
 
-export type SignatureFailure =
-  | 'malformed'
-  | 'timestamp_out_of_window'
-  | 'no_matching_signature';
+export type SignatureFailure = 'malformed' | 'timestamp_out_of_window' | 'no_matching_signature';
 
 export interface VerifyWebhookSignatureInput {
   header: string;

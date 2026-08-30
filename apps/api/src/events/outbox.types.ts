@@ -102,11 +102,7 @@ export interface PollJob {
  * `kind`, entao os outros ramos viram no-op dentro do processo dela.
  */
 export type QueuedJob =
-  | InboundWebhookJob
-  | OutboxDispatchJob
-  | OperationResolveJob
-  | ReconciliationJob
-  | PollJob;
+  InboundWebhookJob | OutboxDispatchJob | OperationResolveJob | ReconciliationJob | PollJob;
 
 /**
  * Fila de trabalho.

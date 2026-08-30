@@ -243,9 +243,7 @@ export class PixTransfersService {
       });
     }
 
-    const amount = input.amountCents
-      ? Money.of(input.amountCents)
-      : Money.of(original.amountCents);
+    const amount = input.amountCents ? Money.of(input.amountCents) : Money.of(original.amountCents);
 
     // Devolucoes sao ACUMULATIVAS: a soma nunca pode passar do original. A
     // regra e canonica, e nao de cada adapter, porque um adapter que a

@@ -87,7 +87,10 @@ export class PixChargesService {
             ...dynamicFields(dto),
             amountIsChangeable: dto.amount_is_changeable,
             payer: dto.payer
-              ? { taxId: { type: dto.payer.tax_id.type, value: dto.payer.tax_id.value }, name: dto.payer.name }
+              ? {
+                  taxId: { type: dto.payer.tax_id.type, value: dto.payer.tax_id.value },
+                  name: dto.payer.name,
+                }
               : undefined,
             additionalInfo: dto.additional_info,
           });
