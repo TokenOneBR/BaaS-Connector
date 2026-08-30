@@ -56,7 +56,20 @@ Campos úteis:
 
 ## Gravando contra sandbox
 
-Operação **local, de mantenedor**. O CI não tem credencial e nunca grava.
+> **Ainda não implementado.** Nenhum adapter tem script `test:record`, e o
+> gravador do `CassetteServer` não existe. Esta seção descreve o desenho
+> pretendido, não o que o repositório faz hoje — está aqui porque a política
+> de scrub precisa ser decidida **antes** de a primeira fixture real ser
+> gravada, não depois.
+>
+> Enquanto isso, **toda** fixture do repositório é
+> `source: 'handcrafted-from-docs'` com `docsRef`, e o relatório de
+> conformidade publica essa distinção. Confundir fixture escrita à mão com
+> comportamento verificado é exatamente o erro que o campo `source` existe
+> para impedir.
+
+Quando existir, será operação **local, de mantenedor**. O CI não tem
+credencial e nunca grava.
 
 ```bash
 RECORD=1 \
@@ -65,7 +78,7 @@ RECORD=1 \
   pnpm --filter @baasconn/adapter-celcoin test:record
 ```
 
-O gravador escreve **através de um scrubber**:
+O gravador deverá escrever **através de um scrubber**:
 
 | Categoria | Tratamento |
 |---|---|

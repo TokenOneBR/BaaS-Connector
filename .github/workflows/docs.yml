@@ -1,0 +1,42 @@
+name: Documentacao
+
+on:
+  pull_request:
+    paths: ['docs/**', 'apps/docs/**', 'scripts/gen-*.ts', '.github/workflows/docs.yml']
+  push:
+    branches: [main]
+    paths: ['docs/**', 'apps/docs/**']
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build do site
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup
+
+      # A matriz e a spec sao DERIVADAS. O site as publica, entao precisam
+      # existir e estar em dia antes do build.
+      - run: pnpm build --filter='!@baasconn/docs'
+      - run: pnpm gen:capability-matrix
+      - run: pnpm gen:openapi
+      - name: Os artefatos derivados estao em dia
+        run: git diff --exit-code docs/providers/capability-matrix.md docs/openapi.json
+
+      # `onBrokenLinks: 'throw'` de proposito: um link quebrado numa
+      # documentacao de integracao financeira manda alguem implementar pela
+      # memoria em vez de pela spec. Constroi os DOIS idiomas.
+      - run: pnpm --filter @baasconn/docs build
+
+      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: docs-site
+          path: apps/docs/build/
+          retention-days: 7

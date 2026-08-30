@@ -69,6 +69,7 @@ pnpm up          # postgres, redis, mock-bank, api, worker, console
 - Console: http://localhost:3000
 - Mock Bank: http://localhost:3002
 - OpenAPI: http://localhost:3001/docs/v1
+- Documentacao: `pnpm docs`
 
 O ambiente sobe já configurado com o **Mock Bank**, então você consegue criar
 uma conta, receber um PIX e enviar outro sem credencial de nenhum provedor

@@ -5,7 +5,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "build/**"],
       "env": ["API_INTERNAL_URL", "CONSOLE_ORIGIN", "REFRESH_TOKEN_TTL"]
     },
     "typecheck": {

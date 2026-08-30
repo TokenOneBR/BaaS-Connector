@@ -152,15 +152,24 @@ packages/adapters/<slug>/
 Mappers são funções puras e testadas sem HTTP. É onde vive a maior parte da
 lógica e é o que quebra quando o provedor muda um campo.
 
-## 7. Gravando fixtures
+## 7. Escrevendo fixtures
+
+Hoje, **à mão, a partir da documentação do provedor**, com
+`source: 'handcrafted-from-docs'` e `docsRef` apontando para a seção que você
+leu. O relatório de conformidade publica essa distinção, e ela é o que impede
+alguém de confundir uma fixture inventada com comportamento verificado.
+
+> **Gravação contra sandbox ainda não existe.** O `test:record` abaixo é o
+> desenho pretendido, e nenhum adapter o tem. Ver
+> [`recording-fixtures.md`](./recording-fixtures.md).
 
 ```bash
 RECORD=1 EXEMPLO_SANDBOX_CLIENT_ID=... EXEMPLO_SANDBOX_CLIENT_SECRET=... \
   pnpm --filter @baasconn/adapter-exemplo test:record
 ```
 
-Isso faz o `CassetteServer` virar proxy gravador contra o sandbox real e
-escreve as fixtures **através de um scrubber**:
+Quando existir, fará o `CassetteServer` virar proxy gravador contra o sandbox
+real e escreverá as fixtures **através de um scrubber**:
 
 - Headers passam por allowlist; `Authorization` e afins viram `REDACTED_TOKEN`.
 - CPF, CNPJ, telefone e e-mail viram falsos **determinísticos** — determinísticos

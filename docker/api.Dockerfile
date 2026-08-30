@@ -66,6 +66,10 @@ COPY --from=builder --chown=10001:10001 /repo/packages ./packages
 COPY --from=builder --chown=10001:10001 /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder --chown=10001:10001 /repo/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=10001:10001 /repo/apps/api/package.json ./apps/api/package.json
+# A spec OpenAPI viaja na imagem: `GET /docs/v1` a serve a partir do arquivo
+# COMMITADO, e nao a gera em runtime — o que o cliente baixa e o que passou
+# por revisao no diff. `turbo prune` nao leva `docs/`, entao o COPY e daqui.
+COPY --chown=10001:10001 docs/openapi.json ./docs/openapi.json
 
 USER 10001:10001
 EXPOSE 3001 9464

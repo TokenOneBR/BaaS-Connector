@@ -14,6 +14,7 @@ import { RawBodyMiddleware } from './common/raw-body.middleware.js';
 import { RequestContextMiddleware } from './common/request-context.middleware.js';
 import { ConfigModule } from './config/config.module.js';
 import { CryptoModule } from './crypto/crypto.module.js';
+import { DocsController } from './docs/docs.controller.js';
 import { InProcessQueueModule } from './events/in-process-queue.module.js';
 import {
   HealthController,
@@ -48,7 +49,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     InProcessQueueModule,
     WebhooksModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, DocsController],
   providers: [
     ApiKeyService,
     {

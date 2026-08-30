@@ -1,0 +1,29 @@
+/*
+ * Paleta TokenOne.
+ *
+ * Os mesmos valores de `tooling/tailwind-config/tokens.css`, e a duplicacao e
+ * consciente: o Docusaurus tem seu proprio sistema de variaveis e importar o
+ * arquivo do console traria o Tailwind inteiro junto. Quando a marca mudar,
+ * os dois arquivos mudam — sao dois, e nao vinte.
+ */
+:root {
+  --ifm-color-primary: #b07c00;
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-base: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/*
+ * No claro, o amarelo da marca sobre branco reprova em contraste; a variante
+ * escurecida acima e usada para texto e link. No escuro ele funciona, e volta
+ * a ser o amarelo de verdade.
+ */
+[data-theme='dark'] {
+  --ifm-color-primary: #ffc012;
+  --ifm-background-color: #252b34;
+  --ifm-background-surface-color: #3b4048;
+}
+
+.markdown table {
+  display: table;
+  width: 100%;
+}

@@ -78,3 +78,12 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup
       - run: pnpm build
+
+      # A spec e DERIVADA das rotas do Nest e dos schemas Zod, e fica
+      # commitada para ser revisavel no diff — "este PR mudou a forma de
+      # `SendPix`" e exatamente a linha que um revisor precisa ver. O gerador
+      # tambem FALHA quando uma rota `/v1` nova nao tem contrato declarado,
+      # entao a spec nao fica em dia por acidente.
+      - run: pnpm gen:openapi
+      - name: A spec commitada esta em dia
+        run: git diff --exit-code docs/openapi.json

@@ -33,7 +33,9 @@
     "dev:env": "tsx scripts/dev-env.ts",
     "up:observability": "pnpm dev:env && docker compose -f compose.yaml -f compose.observability.yaml up -d --wait",
     "check:helm": "tsx scripts/check-helm-templates.ts",
-    "e2e:console": "turbo run test:console"
+    "e2e:console": "turbo run test:console",
+    "gen:openapi": "tsx scripts/gen-openapi.ts",
+    "docs": "pnpm --filter @baasconn/docs dev"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",

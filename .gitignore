@@ -23,3 +23,10 @@ generated/
 prisma/generated/
 e2e/console/.harness.json
 test-results/
+apps/docs/docs/guides/
+apps/docs/docs/providers/
+apps/docs/docs/adr/
+apps/docs/docs/taxonomy/
+apps/docs/static/openapi.json
+apps/docs/build/
+apps/docs/.docusaurus/
