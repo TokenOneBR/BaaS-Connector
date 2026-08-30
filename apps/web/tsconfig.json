@@ -1,0 +1,12 @@
+{
+  "extends": "@baasconn/tsconfig/next.json",
+  "compilerOptions": {
+    // `paths` do preset e resolvido em relacao ao arquivo que o DECLARA, que
+    // e o do pacote de tooling. Redeclarar aqui, com `baseUrl` local, e o que
+    // faz `@/*` apontar para `apps/web/src`.
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["next-env.d.ts", "src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
+}

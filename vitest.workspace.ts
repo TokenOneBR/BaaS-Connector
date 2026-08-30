@@ -13,5 +13,6 @@ export default [
   'apps/api',
   'apps/worker',
   'apps/mock-bank',
+  'apps/web',
   'e2e',
 ];

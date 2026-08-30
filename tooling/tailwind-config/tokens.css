@@ -1,0 +1,42 @@
+/*
+ * Tokens visuais do console.
+ *
+ * Tailwind v4 e CSS-first: o tema vive em `@theme`, nao num arquivo de
+ * configuracao JavaScript. E por isso que `@tailwindcss/oxide` ja estava no
+ * `onlyBuiltDependencies` da raiz.
+ *
+ * Este arquivo e o UNICO lugar do repositorio autorizado a conter um valor
+ * hexadecimal da paleta. Ha teste que varre `src/**` e falha se `#FFC012`
+ * aparecer fora daqui — sem isso, a primeira pressa espalha a cor por vinte
+ * componentes e trocar a marca vira caca ao tesouro.
+ */
+@theme {
+  --color-canvas: #252b34;
+  --color-surface: #3b4048;
+  --color-surface-raised: #464c56;
+  --color-border: #565d69;
+  --color-primary: #ffc012;
+
+  /*
+   * Texto SOBRE a primaria.
+   *
+   * Branco sobre #FFC012 da ~1,7:1 de contraste e reprova como `serious` em
+   * toda pagina que tenha um botao primario. O fundo escuro sobre o amarelo
+   * da ~8,7:1. Decidido uma vez, aqui, em vez de descoberto pelo axe depois
+   * de a interface inteira estar pronta.
+   */
+  --color-on-primary: #252b34;
+
+  --color-text: #f2f4f7;
+  --color-text-muted: #a8b0bd;
+
+  --color-success: #3ecf8e;
+  --color-warning: #f5a524;
+  --color-danger: #f45b5b;
+  --color-info: #62a8ff;
+
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --radius-card: 0.625rem;
+}

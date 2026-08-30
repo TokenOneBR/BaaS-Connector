@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+@import '@baasconn/tailwind-config/tokens.css';
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+  }
+}
