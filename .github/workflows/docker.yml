@@ -121,12 +121,39 @@ jobs:
           fi
           echo "Analisando $imagem"
 
-          docker run --rm \
-            -e TRIVY_USERNAME -e TRIVY_PASSWORD \
-            -v /var/run/docker.sock:/var/run/docker.sock \
+          # DUAS passagens sobre a MESMA imagem, com o cache do banco de
+          # vulnerabilidades compartilhado (a segunda nao volta a baixar os
+          # 110 MB).
+          #
+          # O trivy emite um formato por execucao: com `--format sarif` o
+          # relatorio vai para o arquivo e o LOG nao diz uma palavra sobre o
+          # que foi encontrado. O gate ficava vermelho sem nomear um CVE, e a
+          # unica forma de descobrir era abrir o Code Scanning. A passagem
+          # `table` existe para que a causa esteja no proprio log do job.
+          mkdir -p .trivy-cache
+          comum='--rm -e TRIVY_USERNAME -e TRIVY_PASSWORD
+                 -v /var/run/docker.sock:/var/run/docker.sock'
+
+          # 1. SARIF para o Code Scanning. `--exit-code 0`: quem reprova e a
+          #    passagem seguinte, e este arquivo precisa existir mesmo quando
+          #    ha achado.
+          # shellcheck disable=SC2086
+          docker run $comum \
             -v "$PWD:/w" -w /w \
+            -v "$PWD/.trivy-cache:/root/.cache/trivy" \
             aquasec/trivy:0.58.1 image \
               --format sarif --output "trivy-${COMPONENTE}.sarif" \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 0 \
+              "$imagem"
+
+          # 2. Tabela no log E o gate.
+          # shellcheck disable=SC2086
+          docker run $comum \
+            -v "$PWD/.trivy-cache:/root/.cache/trivy" \
+            aquasec/trivy:0.58.1 image \
+              --format table \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
               --exit-code 1 \
