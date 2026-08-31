@@ -1,3 +1,11 @@
+// Base de TODO tsconfig do repositorio.
+//
+// Vive DENTRO de `@baasconn/tsconfig`, e nao na raiz, porque `turbo prune`
+// so leva os pacotes do workspace: um `extends` que aponta para fora do
+// pacote simplesmente nao existe dentro da imagem Docker. O sintoma nao era
+// um erro de arquivo ausente e sim `TS2737: BigInt literals are not
+// available when targeting lower than ES2020` — o tsc caiu no target padrao
+// e o build da imagem morreu com a suite local inteira verde.
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
