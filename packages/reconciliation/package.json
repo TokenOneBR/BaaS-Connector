@@ -31,6 +31,7 @@
     "@baasconn/eslint-config": "workspace:*",
     "@baasconn/tsconfig": "workspace:*",
     "@baasconn/vitest-config": "workspace:*",
+    "eslint": "^9.17.0",
     "fast-check": "^3.23.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

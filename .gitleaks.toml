@@ -28,13 +28,39 @@ regex = '''-----BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----'''
 tags = ["secret"]
 
 [allowlist]
-description = "Fixtures com documentos falsos deterministicos e docs"
+description = "Documentos sinteticos declarados e segredos de teste"
 paths = [
   '''docs/.*\.md$''',
   '''.*\.test\.ts$''',
   '''packages/taxonomy/src/br/.*fixtures.*''',
 ]
+
+# Isento por VALOR, nunca por caminho de teste.
+#
+# Isentar `**/test/**` inteiro seria desligar a regra exatamente onde ela
+# precisa valer: e em fixture que um CPF de verdade entra sem ninguem
+# perceber. O que entra aqui e a lista fechada de documentos que o proprio
+# repositorio publica como sinteticos:
+#
+#  - `529.982.247-25` / `11.222.333/0001-81` sao os LEAK_CANARIES de
+#    `packages/conformance/src/harness.ts` — existem para que o grupo 9 da
+#    conformidade FALHE se aparecerem num log, e por isso precisam estar
+#    escritos no codigo;
+#  - `123.456.789-00` e `99.999.999/0001-99` tem digito verificador
+#    invalido de proposito, e e o que `scripts/check-cassette-pii.ts` exige
+#    das fixtures;
+#  - o segredo mestre do e2e e uma string fixa de teste, nao credencial.
+#
+# `check-cassette-pii.ts` continua sendo o gate que recusa CPF com digito
+# verificador VALIDO nas cassetes; esta allowlist nao o afrouxa.
 regexes = [
   '''00000000000''',
   '''11111111111111''',
+  '''529\.982\.247-25''',
+  '''52998224725''',
+  '''11\.222\.333/0001-81''',
+  '''11222333000181''',
+  '''123\.456\.789-00''',
+  '''99\.999\.999/0001-99''',
+  '''segredo-mestre-do-e2e-com-tamanho-suficiente''',
 ]

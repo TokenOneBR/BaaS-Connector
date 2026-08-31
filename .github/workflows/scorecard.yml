@@ -1,11 +1,21 @@
 name: OpenSSF Scorecard
 
+# O Scorecard SO analisa o branch PADRAO do repositorio, e recusa qualquer
+# outro com "validating options: only default branch is supported".
+#
+# O padrao deste repositorio ainda e `claude/baas-connector-rzwrze`, entao o
+# gatilho por push em `main` falhava em toda entrega — um check vermelho por
+# configuracao, nao por qualidade, que e a pior especie porque ensina a
+# ignorar o vermelho.
+#
+# O push fica de fora ate o padrao virar `main`. Os dois gatilhos que
+# sobram sao os que a propria OpenSSF recomenda, e o agendado cobre o
+# repositorio inteiro toda semana.
 on:
   branch_protection_rule:
   schedule:
     - cron: '0 7 * * 1'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 

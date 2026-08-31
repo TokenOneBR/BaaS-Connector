@@ -72,6 +72,12 @@ model AccountHolder {
   @@unique([environment, externalId])
   @@index([environment, createdAt(sort: Desc)])
   @@index([environment, legalName])
+  /// Busca textual por nome, criada em `20260828120000_hardening`.
+  ///
+  /// Declarada aqui porque `prisma migrate diff` compara as migrations com
+  /// ESTE datamodel: um indice que so existe no SQL aparece como drift
+  /// eterno, e o gate do CI fica vermelho sem que nada esteja errado.
+  @@index([legalName(ops: raw("gin_trgm_ops"))], map: "account_holder_legal_name_trgm", type: Gin)
   @@map("account_holder")
 }
 

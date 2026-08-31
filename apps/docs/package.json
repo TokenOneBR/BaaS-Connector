@@ -24,8 +24,9 @@
     "@docusaurus/module-type-aliases": "3.7.0",
     "@docusaurus/tsconfig": "3.7.0",
     "@docusaurus/types": "3.7.0",
-    "typescript": "^5.7.2",
-    "tsx": "^4.19.2"
+    "eslint": "^9.17.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
   },
   "browserslist": {
     "production": [
