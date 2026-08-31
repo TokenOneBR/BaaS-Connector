@@ -144,10 +144,12 @@ segredos na instância e imprime as credenciais.
 
 Ver [`deploy/aws/README.md`](deploy/aws/README.md).
 
-> **Ainda não construímos essas imagens num ambiente com rede aberta.** O
-> caminho `pnpm demo` acima é o que está verificado ponta a ponta. Se o
-> `pnpm up` falhar para você, [abra uma issue][issues] com o log — é a
-> informação que falta para fechá-lo.
+> **O que está e o que não está verificado.** As cinco imagens constroem e
+> publicam no CI, e as migrations e o seed foram exercitados contra um
+> Postgres 16 real. O que ninguém rodou ainda é o `docker compose up`
+> inteiro, com os sete contêineres conversando entre si — o `pnpm demo`
+> acima continua sendo o caminho verificado ponta a ponta. Se o `pnpm up`
+> falhar para você, [abra uma issue][issues] com o log.
 
 ---
 
