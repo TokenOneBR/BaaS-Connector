@@ -148,12 +148,18 @@ jobs:
               --exit-code 0 \
               "$imagem"
 
-          # 2. Tabela no log E o gate.
+          # 2. Listagem compacta no log E o gate.
+          #
+          # `template` em vez de `table`: a tabela do trivy gasta dezenas de
+          # linhas por CVE em moldura ASCII, e o que interessa — QUAL binario,
+          # em que versao, e para qual versao subir — fica espremido numa
+          # coluna que a janela de log corta. Uma linha por achado cabe.
+          modelo='{{ range .Results }}{{ if .Vulnerabilities }}== {{ .Target }} ({{ .Type }}){{ "\n" }}{{ range .Vulnerabilities }}{{ .Severity }} {{ .VulnerabilityID }} {{ .PkgName }} {{ .InstalledVersion }} -> {{ .FixedVersion }}{{ "\n" }}{{ end }}{{ end }}{{ end }}'
           # shellcheck disable=SC2086
           docker run $comum \
             -v "$PWD/.trivy-cache:/root/.cache/trivy" \
             aquasec/trivy:0.58.1 image \
-              --format table \
+              --format template --template "$modelo" \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
               --exit-code 1 \
