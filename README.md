@@ -136,6 +136,14 @@ key — imprimindo as credenciais no fim.
 pnpm down    # derruba e apaga os volumes
 ```
 
+### Numa EC2, para testar de qualquer lugar
+
+Uma instância roda o stack inteiro por ~US$ 12/mês — ou ~US$ 0,02/h se você
+ligar só para testar. O `deploy/aws/user-data.sh` sobe tudo no boot, gera os
+segredos na instância e imprime as credenciais.
+
+Ver [`deploy/aws/README.md`](deploy/aws/README.md).
+
 > **Ainda não construímos essas imagens num ambiente com rede aberta.** O
 > caminho `pnpm demo` acima é o que está verificado ponta a ponta. Se o
 > `pnpm up` falhar para você, [abra uma issue][issues] com o log — é a

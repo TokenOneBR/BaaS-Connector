@@ -1,0 +1,36 @@
+# Roteamento espelhando o Ingress do chart Helm.
+#
+# `/admin/v1` NAO aparece aqui de proposito: o console fala com a API pela
+# rede interna do Compose, e expor a superficie administrativa — que grava
+# credencial de provedor e cunha API key — aumentaria o raio sem ganho.
+{$SITE_ADDRESS} {
+	encode gzip
+
+	# A API canonica e o que o cliente integra.
+	handle /v1/* {
+		reverse_proxy api:3001
+	}
+
+	# Callback de provedor. Fora do `/v1` de proposito: a URL e registrada uma
+	# vez no provedor e precisa sobreviver ao versionamento da nossa API.
+	handle /webhooks/* {
+		reverse_proxy api:3001
+	}
+
+	handle /docs/* {
+		reverse_proxy api:3001
+	}
+
+	# Tudo o mais e o console.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

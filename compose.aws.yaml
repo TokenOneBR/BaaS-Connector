@@ -1,0 +1,73 @@
+# Sobreposicao para rodar numa EC2 exposta a internet.
+#
+#   docker compose -f compose.yaml -f compose.aws.yaml up -d --wait
+#
+# O `compose.yaml` sozinho e para a SUA MAQUINA: ele publica Postgres, Redis,
+# o `_control` do Mock Bank e as portas de metricas em todas as interfaces,
+# porque `localhost` e um lugar seguro. Num host publico isso e outra coisa —
+# `/_control` injeta credito em conta SEM autenticacao nenhuma, e um Postgres
+# na porta 5432 aberta e um incidente esperando a primeira varredura.
+#
+# Esta sobreposicao:
+#   - tira Postgres e Redis de QUALQUER porta do host (so a rede interna);
+#   - prende Mock Bank e metricas em 127.0.0.1 (alcancaveis por tunel SSH);
+#   - poe um Caddy na frente, com HTTPS automatico quando ha dominio.
+#
+# O roteamento do Caddy espelha o Ingress do chart Helm de proposito: `/v1`,
+# `/webhooks` e `/docs` vao para a API, o resto vai para o console, e
+# `/admin/v1` NAO e roteado — o console fala com a API pela rede interna, e
+# expor a superficie administrativa aumentaria o raio sem nenhum ganho.
+
+services:
+  postgres:
+    # Sem `ports`. O `!reset` e necessario porque o Compose FUNDE listas: sem
+    # ele, o `5432:5432` do arquivo base continuaria valendo e a sobreposicao
+    # daria uma falsa sensacao de seguranca.
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  mock-bank:
+    # `!override` e nao `!reset`: `!reset` APAGA a chave, e o valor que voce
+    # escrevesse do lado dele seria ignorado em silencio. Foi o que aconteceu
+    # na primeira versao deste arquivo — as portas sumiam por inteiro e o
+    # tunel SSH deixava de alcancar qualquer coisa.
+    #
+    # So loopback: `docker compose exec` e tunel SSH alcancam; a internet nao.
+    ports: !override ['127.0.0.1:3002:3002']
+
+  api:
+    ports: !override ['127.0.0.1:3001:3001', '127.0.0.1:9464:9464']
+    environment:
+      # Precisam bater com a URL PUBLICA, senao o link de webhook que o
+      # produto entrega ao provedor aponta para dentro do container.
+      PUBLIC_BASE_URL: '${PUBLIC_URL:?defina PUBLIC_URL no .env, ex. https://baas.exemplo.com.br}'
+      CONSOLE_ORIGIN: '${PUBLIC_URL}'
+
+  worker:
+    ports: !override ['127.0.0.1:9465:9465']
+
+  web:
+    ports: !override ['127.0.0.1:3000:3000']
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./deploy/aws/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      # Com dominio, o Caddy emite certificado Let's Encrypt sozinho. Sem
+      # dominio ele serve HTTP puro — e ai a credencial do provedor que voce
+      # digitar no console viaja em claro. Use um dominio antes de cadastrar
+      # qualquer coisa real.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  caddy-data:
+  caddy-config:
