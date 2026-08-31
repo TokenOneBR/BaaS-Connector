@@ -40,6 +40,17 @@ import { randomBytes } from 'node:crypto';
 
 import { newId } from '@baasconn/taxonomy';
 
+/**
+ * `Buffer` -> `Uint8Array<ArrayBuffer>`.
+ *
+ * Os campos `Bytes` do Prisma pedem `Uint8Array<ArrayBuffer>`, e o `Buffer`
+ * do Node e `Uint8Array<ArrayBufferLike>` — que pode ser um
+ * `SharedArrayBuffer` e por isso nao satisfaz o tipo. Os repositorios da API
+ * ja fazem a mesma conversao; este arquivo escreve no Prisma direto.
+ */
+const bytes = (b: Buffer | Uint8Array): Uint8Array<ArrayBuffer> =>
+  new Uint8Array(b) as Uint8Array<ArrayBuffer>;
+
 const EMAIL = process.env.SEED_EMAIL ?? 'admin@local.test';
 const SENHA = process.env.SEED_PASSWORD ?? 'baas-connector-demo';
 const MOCK_BANK_URL = process.env.SEED_MOCK_BANK_URL ?? 'http://mock-bank:3002';
@@ -99,10 +110,10 @@ async function main(): Promise<void> {
         // MFA — e por isso que o segredo acima e cifrado aqui, e nao deixado
         // para um enrolamento que nao existe.
         role: 'OWNER',
-        totpSecretCiphertext: envelope.ciphertext,
-        totpSecretIv: envelope.iv,
-        totpSecretTag: envelope.authTag,
-        totpSecretWrappedKey: envelope.wrappedKey,
+        totpSecretCiphertext: bytes(envelope.ciphertext),
+        totpSecretIv: bytes(envelope.iv),
+        totpSecretTag: bytes(envelope.authTag),
+        totpSecretWrappedKey: bytes(envelope.wrappedKey),
         totpSecretKeyId: envelope.keyId,
         mfaEnabled: true,
         status: 'ACTIVE',
@@ -134,7 +145,7 @@ async function main(): Promise<void> {
     const envelope = await crypto.encryptJson(credenciais);
     const webhook = await crypto.encrypt('dev-mock-secret');
 
-    conexaoId = newId('con');
+    conexaoId = newId('connection');
     await prisma.providerConnection.create({
       data: {
         id: conexaoId,
@@ -143,19 +154,19 @@ async function main(): Promise<void> {
         label: 'default',
         status: 'ACTIVE',
         baseUrl: MOCK_BANK_URL,
-        credentialsCiphertext: envelope.ciphertext,
-        credentialsIv: envelope.iv,
-        credentialsTag: envelope.authTag,
-        credentialsWrappedKey: envelope.wrappedKey,
+        credentialsCiphertext: bytes(envelope.ciphertext),
+        credentialsIv: bytes(envelope.iv),
+        credentialsTag: bytes(envelope.authTag),
+        credentialsWrappedKey: bytes(envelope.wrappedKey),
         credentialsKeyId: envelope.keyId,
         credentialsFingerprint: 'sha256:seed',
         credentialsLast4: 'ient',
         credentialsUpdatedAt: new Date(),
         credentialsUpdatedBy: usuario.id,
-        webhookSecretCiphertext: webhook.ciphertext,
-        webhookSecretIv: webhook.iv,
-        webhookSecretTag: webhook.authTag,
-        webhookSecretWrappedKey: webhook.wrappedKey,
+        webhookSecretCiphertext: bytes(webhook.ciphertext),
+        webhookSecretIv: bytes(webhook.iv),
+        webhookSecretTag: bytes(webhook.authTag),
+        webhookSecretWrappedKey: bytes(webhook.wrappedKey),
         webhookSecretKeyId: webhook.keyId,
         config: {},
       },
@@ -172,7 +183,7 @@ async function main(): Promise<void> {
   if (chaveExistente) {
     linhas.push('API key `demo` ja existe — o segredo NAO pode ser recuperado.');
   } else {
-    const id = newId('key');
+    const id = newId('apiKey');
     const gerada = generateApiKey({ environment: 'HOMOLOGACAO', keyId: id });
     segredoChave = gerada.secret;
 
@@ -184,7 +195,7 @@ async function main(): Promise<void> {
         prefix: gerada.prefix,
         last4: gerada.last4,
         secretHash: await hashSecret(gerada.secret),
-        secretLookup: secretLookup(gerada.secret),
+        secretLookup: bytes(secretLookup(gerada.secret)),
         scopes: [...ESCOPOS],
         // Sem assinatura HMAC: e uma chave de HOMOLOGACAO, e exigir
         // assinatura no primeiro `curl` faria o primeiro teste falhar por

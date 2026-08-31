@@ -62,4 +62,17 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 # `migrate deploy`, NUNCA `migrate dev`: `dev` pode decidir resetar o banco.
 # O advisory lock do Prisma serializa duas execucoes simultaneas, mas o
 # desenho nao depende disso — o hook do Helm roda o job exatamente uma vez.
-CMD ["node_modules/.bin/prisma", "migrate", "deploy", "--schema", "packages/db/prisma/schema"]
+#
+# Duas correcoes de caminho, ambas fatais e ambas so visiveis em runtime:
+#
+#   `packages/db/node_modules/.bin/prisma`, e nao `node_modules/.bin/prisma`.
+#   O CLI e devDependency de `@baasconn/db`; o pnpm nao expoe binario de
+#   dependencia de pacote no `.bin` da RAIZ. O container morria com
+#   "no such file or directory" antes de tocar o banco.
+#
+#   `--config`, e nao `--schema`. O `prisma.config.ts` e quem declara
+#   `migrations.path`, e o Prisma so o descobre a partir do diretorio
+#   corrente — que aqui e `/app`. Sem ele, o Prisma procurava as migrations
+#   em `prisma/schema/migrations`, nao achava nenhuma, e saia com codigo
+#   ZERO: o job "de migracao" terminava com sucesso sem aplicar nada.
+CMD ["packages/db/node_modules/.bin/prisma", "migrate", "deploy", "--config", "packages/db/prisma.config.ts"]
