@@ -91,17 +91,46 @@ jobs:
       # que `helm.yml` ja usa para o kubeconform.
       - name: Scan de vulnerabilidades
         env:
-          IMAGEM: ${{ github.event_name == 'pull_request' && format('{0}/{1}-{2}:pr-{3}', env.REGISTRY, github.repository, matrix.componente, github.event.number) || format('{0}/{1}-{2}@{3}', env.REGISTRY, github.repository, matrix.componente, steps.build.outputs.digest) }}
+          REPOSITORIO: ${{ github.repository }}
+          COMPONENTE: ${{ matrix.componente }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          NUMERO_PR: ${{ github.event.number }}
+          EVENTO: ${{ github.event_name }}
+          # O trivy puxa a imagem do GHCR quando ela foi publicada (push);
+          # o `docker login` do passo anterior vive no host e nao dentro do
+          # container, entao a credencial vai por variavel.
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Referencia OCI e MINUSCULA, sempre.
+          #
+          # `github.repository` e `TokenOneBR/BaaS-Connector`, com maiusculas.
+          # A `metadata-action` normaliza sozinha e as tags publicadas saem
+          # certas; esta linha, montada a mao, nao normalizava — e o trivy
+          # recusava com "could not parse reference". O gate falhava DEPOIS de
+          # a imagem ter sido construida e publicada com sucesso, que e a
+          # forma mais confusa possivel de falhar.
+          repo_minusculo=$(printf '%s' "$REPOSITORIO" | tr '[:upper:]' '[:lower:]')
+
+          if [ "$EVENTO" = 'pull_request' ]; then
+            # Em PR nao ha push: a imagem foi carregada no daemon local
+            # (`load: true`), e e de la que o trivy le.
+            imagem="${REGISTRY}/${repo_minusculo}-${COMPONENTE}:pr-${NUMERO_PR}"
+          else
+            imagem="${REGISTRY}/${repo_minusculo}-${COMPONENTE}@${DIGEST}"
+          fi
+          echo "Analisando $imagem"
+
           docker run --rm \
+            -e TRIVY_USERNAME -e TRIVY_PASSWORD \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD:/w" -w /w \
             aquasec/trivy:0.58.1 image \
-              --format sarif --output "trivy-${{ matrix.componente }}.sarif" \
+              --format sarif --output "trivy-${COMPONENTE}.sarif" \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
               --exit-code 1 \
-              "$IMAGEM"
+              "$imagem"
 
       # `always()` estava errado: quando o BUILD falha, o trivy nunca roda, o
       # arquivo nao existe, e este passo falhava por cima com "Path does not
@@ -109,7 +138,7 @@ jobs:
       # O SARIF so existe se o build passou; se o trivy achou vulnerabilidade
       # (exit 1) o arquivo esta la e queremos publica-lo, dai `!cancelled()`.
       - name: Publicar SARIF
-        if: ${{ !cancelled() && steps.build.outcome == 'success' && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && github.event_name != 'pull_request' && hashFiles(format('trivy-{0}.sarif', matrix.componente)) != '' }}
         uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: trivy-${{ matrix.componente }}.sarif
@@ -127,4 +156,8 @@ jobs:
           # Assina o DIGEST, nunca a tag: uma tag pode ser reapontada, e
           # assinar `:latest` produz uma assinatura que nao prova nada sobre o
           # conteudo que alguem realmente baixou.
-          cosign sign --yes "${REGISTRY}/${{ github.repository }}-${{ matrix.componente }}@${DIGEST}"
+          #
+          # Minusculo pelo mesmo motivo do passo do trivy: o cosign tambem
+          # recusa referencia OCI com maiuscula.
+          repo_minusculo=$(printf '%s' "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          cosign sign --yes "${REGISTRY}/${repo_minusculo}-${{ matrix.componente }}@${DIGEST}"
