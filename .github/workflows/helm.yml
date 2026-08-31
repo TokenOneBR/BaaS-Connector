@@ -1,6 +1,7 @@
 name: Chart Helm
 
 on:
+  workflow_dispatch:
   pull_request:
     paths: ['deploy/**', '.github/workflows/helm.yml']
   push:

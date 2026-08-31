@@ -1,6 +1,7 @@
 name: Imagens
 
 on:
+  workflow_dispatch:
   pull_request:
     paths: ['docker/**', 'apps/**', 'packages/**', 'pnpm-lock.yaml', '.github/workflows/docker.yml']
   push:
@@ -75,18 +76,29 @@ jobs:
           provenance: true
           sbom: true
 
+      # Trivy pela IMAGEM, e nao pela action.
+      #
+      # `aquasecurity/trivy-action`, mesmo fixada por SHA, depende
+      # internamente de `aquasecurity/setup-trivy@v0.2.2` — uma tag FLUTUANTE
+      # que o autor moveu. Quando ela sumiu, os cinco jobs falharam ANTES de
+      # construir qualquer imagem: o pin por SHA nao protege contra o que a
+      # action resolve em tempo de execucao.
+      #
+      # `docker run` numa tag imutavel nao tem essa camada. E o mesmo padrao
+      # que `helm.yml` ja usa para o kubeconform.
       - name: Scan de vulnerabilidades
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
-        with:
-          image-ref: ${{ github.event_name == 'pull_request' && format('{0}/{1}-{2}:pr-{3}', env.REGISTRY, github.repository, matrix.componente, github.event.number) || format('{0}/{1}-{2}@{3}', env.REGISTRY, github.repository, matrix.componente, steps.build.outputs.digest) }}
-          format: sarif
-          output: trivy-${{ matrix.componente }}.sarif
-          severity: HIGH,CRITICAL
-          # `ignore-unfixed`: uma CVE sem correcao disponivel nao e acionavel.
-          # Barrar o release por ela ensina a equipe a passar por cima do
-          # gate, e ai as que TEM correcao passam junto.
-          ignore-unfixed: true
-          exit-code: '1'
+        env:
+          IMAGEM: ${{ github.event_name == 'pull_request' && format('{0}/{1}-{2}:pr-{3}', env.REGISTRY, github.repository, matrix.componente, github.event.number) || format('{0}/{1}-{2}@{3}', env.REGISTRY, github.repository, matrix.componente, steps.build.outputs.digest) }}
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/w" -w /w \
+            aquasec/trivy:0.58.1 image \
+              --format sarif --output "trivy-${{ matrix.componente }}.sarif" \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              "$IMAGEM"
 
       - name: Publicar SARIF
         if: always() && github.event_name != 'pull_request'

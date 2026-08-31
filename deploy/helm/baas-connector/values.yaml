@@ -111,9 +111,14 @@ secrets:
   blindIndexPepper: ''
 
 kms:
-  # aws | gcp | azure | local. `local` guarda a chave mestra numa variavel de
-  # ambiente e a API SE RECUSA a subir com ele em producao.
-  driver: aws
+  # Os valores que a API ACEITA, e nao os apelidos: `local`, `aws-kms`,
+  # `gcp-kms`, `azure-kv`. `aws` (sem o sufixo) fazia TODO pod recusar a
+  # subir com "Configuracao incompleta: falta KMS_KEY_ID", porque qualquer
+  # driver diferente de `local` passa a exigir o id da chave.
+  #
+  # `local` guarda a chave mestra numa variavel de ambiente e a API SE RECUSA
+  # a subir com ele quando `NODE_ENV=production`.
+  driver: aws-kms
   keyId: ''
 
 serviceAccount:
