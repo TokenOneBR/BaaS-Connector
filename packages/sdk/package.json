@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Cliente TypeScript da API canonica do BaaS Connector",
   "license": "Apache-2.0",
   "type": "module",

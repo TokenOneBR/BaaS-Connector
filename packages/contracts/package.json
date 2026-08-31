@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DTOs canonicos do BaaS Connector como schemas Zod, fonte unica para validacao, tipos e OpenAPI",
   "license": "Apache-2.0",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/adapter-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ferramentaria para autores de adapter: HTTP com retry e circuit breaker, estrategias de autenticacao, redacao, mapeamento de erro e CassetteServer",
   "license": "Apache-2.0",
   "type": "module",

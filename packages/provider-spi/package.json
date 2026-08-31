@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/provider-spi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "O contrato que todo adapter de BaaS implementa: facetas por capacidade, manifesto e contexto",
   "license": "Apache-2.0",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/adapter-asaas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Adapter do Asaas para o BaaS Connector",
   "license": "Apache-2.0",
   "type": "module",

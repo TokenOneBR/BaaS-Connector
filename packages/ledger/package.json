@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/ledger",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Motor de partidas dobradas em duas fases, compartilhado pelo Mock Bank (autoritativo) e pelo conector (sombra)",
   "license": "Apache-2.0",
   "type": "module",
