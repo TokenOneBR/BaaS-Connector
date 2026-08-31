@@ -56,11 +56,24 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 COPY --from=pruner /repo/out/full/ .
 RUN pnpm turbo run build --filter=@baasconn/api...
 
-# Reinstala so producao. `--ignore-scripts` NAO cabe aqui: o `postinstall` do
-# `@baasconn/db` e quem gera o cliente do Prisma, e sem ele a imagem sobe e
-# morre na primeira query.
+# Reinstala so producao — remove as devDependencies da arvore final.
+#
+# Duas flags, cada uma fechando um erro que so aparece DENTRO da imagem:
+#
+# `--config.confirmModulesPurge=false`: o pnpm quer confirmar a remocao do
+# `node_modules` existente e, sem TTY, ABORTA com
+# `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`. No runner do CI a variavel
+# `CI` mascara isso; dentro do `docker build` ela nao existe.
+#
+# `--ignore-scripts`: com as devDependencies indo embora, o CLI do `prisma`
+# vai junto — e o `postinstall` do `@baasconn/db` e `prisma generate`, que
+# entao falha com `prisma: not found`. O cliente JA foi gerado no install
+# completo acima e sobrevive: ele e escrito dentro do pacote `@prisma/client`
+# no virtual store, que este install so relinca. Verificado instanciando o
+# `PrismaClient` na arvore resultante.
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod
+    pnpm install --frozen-lockfile --prod --ignore-scripts \
+      --config.confirmModulesPurge=false
 
 # ---------------------------------------------------------------------------
 # 3. Runtime

@@ -42,8 +42,13 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 COPY --from=pruner /repo/out/full/ .
 RUN pnpm turbo run build --filter=@baasconn/worker...
 
+# Reinstala so producao. As duas flags estao explicadas em
+# `docker/api.Dockerfile`: sem TTY o pnpm aborta a limpeza do node_modules, e
+# sem o CLI do prisma (devDependency) o postinstall do `@baasconn/db` falha.
+# O cliente do Prisma ja foi gerado no install completo acima.
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod
+    pnpm install --frozen-lockfile --prod --ignore-scripts \
+      --config.confirmModulesPurge=false
 
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
