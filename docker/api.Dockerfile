@@ -23,6 +23,20 @@ RUN corepack enable
 COPY . .
 RUN pnpm dlx turbo@2.3.3 prune --scope=@baasconn/api --docker
 
+# `turbo prune` leva apenas os package.json para `out/json/` — e o postinstall
+# de `@baasconn/db` e `prisma generate`, que precisa do schema e do
+# `prisma.config.ts`. Sem estes dois, o `pnpm install` da camada de
+# dependencias morre com "Could not find Prisma Schema".
+#
+# So o `prisma/schema` entra, nunca `prisma/migrations`: a camada de install e
+# cara e uma migration nova nao tem por que invalida-la.
+RUN if [ -d out/json/packages/db ]; then \
+      mkdir -p out/json/packages/db/prisma \
+   && cp -R packages/db/prisma/schema out/json/packages/db/prisma/schema \
+   && cp packages/db/prisma.config.ts out/json/packages/db/prisma.config.ts; \
+    fi
+
+
 # ---------------------------------------------------------------------------
 # 2. Dependencias e build
 # ---------------------------------------------------------------------------

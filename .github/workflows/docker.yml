@@ -24,6 +24,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # O upload do SARIF do trivy escreve no Code Scanning. Sem isto o passo
+      # avisa "missing security-events permission" e o relatorio some.
+      security-events: write
       # OIDC para o cosign keyless: e o que permite assinar sem chave privada
       # de longa duracao guardada em secret — que seria a coisa mais valiosa
       # do repositorio para roubar.
@@ -100,8 +103,13 @@ jobs:
               --exit-code 1 \
               "$IMAGEM"
 
+      # `always()` estava errado: quando o BUILD falha, o trivy nunca roda, o
+      # arquivo nao existe, e este passo falhava por cima com "Path does not
+      # exist" — escondendo o erro de verdade atras de um segundo erro.
+      # O SARIF so existe se o build passou; se o trivy achou vulnerabilidade
+      # (exit 1) o arquivo esta la e queremos publica-lo, dai `!cancelled()`.
       - name: Publicar SARIF
-        if: always() && github.event_name != 'pull_request'
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && github.event_name != 'pull_request' }}
         uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           sarif_file: trivy-${{ matrix.componente }}.sarif
