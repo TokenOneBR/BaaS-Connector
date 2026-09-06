@@ -44,6 +44,12 @@ spec:
             # `/admin/v1` fora do ingress.
             - name: API_INTERNAL_URL
               value: http://{{ include "baas.fullname" . }}-api:{{ .Values.api.port }}
+            # A flag `Secure` dos cookies de sessao vem do ESQUEMA desta URL,
+            # e nao de `NODE_ENV`. Com `http://`, um navegador RECUSA cookie
+            # `Secure` e o console volta para o login a cada navegacao — sem
+            # nada no log dizendo por que.
+            - name: PUBLIC_URL
+              value: {{ .Values.config.consoleOrigin | quote }}
             {{- if .Values.mockBank.enabled }}
             - name: MOCK_BANK_URL
               value: http://{{ include "baas.fullname" . }}-mock-bank:{{ .Values.mockBank.port }}

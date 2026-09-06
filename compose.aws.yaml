@@ -50,6 +50,12 @@ services:
 
   web:
     ports: !override ['127.0.0.1:3000:3000']
+    environment:
+      # O console decide a flag `Secure` dos cookies de sessao a partir DESTE
+      # esquema. Sem ela, um deploy HTTP grava cookie `Secure` que o navegador
+      # recusa: o login parece funcionar, o painel aparece uma vez, e a
+      # navegacao seguinte volta para a tela de login sem explicar por que.
+      PUBLIC_URL: '${PUBLIC_URL}'
 
   caddy:
     image: caddy:2.8-alpine

@@ -74,6 +74,25 @@ describe('fronteira do BFF', () => {
     expect(cookies).toContain("sameSite: 'lax' as const");
   });
 
+  it('a flag `Secure` vem do esquema da URL publica, nao de NODE_ENV', () => {
+    const cookies = readFileSync(join(SERVER_DIR, 'cookies.ts'), 'utf8');
+
+    // `secure: process.env.NODE_ENV === 'production'` torna o console
+    // INUTILIZAVEL num deploy HTTP: a imagem roda com NODE_ENV=production, o
+    // cookie sai `Secure`, e o navegador o RECUSA em conexao HTTP. O sintoma
+    // engana — o painel aparece uma vez e toda navegacao seguinte volta para
+    // o login, sem nada no log. Verificado em producao, nao inferido.
+    expect(cookies).not.toMatch(/secure:\s*process\.env\.NODE_ENV/);
+
+    // As duas opcoes de cookie leem a MESMA decisao.
+    expect(cookies.match(/secure: COOKIES_SEGUROS/g) ?? []).toHaveLength(2);
+    expect(cookies).toContain("startsWith('https://')");
+
+    // Falha FECHADO: sem PUBLIC_URL, o padrao continua sendo `Secure` em
+    // producao. Quem nao configurou nao perde a flag por omissao.
+    expect(cookies).toContain("process.env.NODE_ENV === 'production'");
+  });
+
   it('toda Server Action passa por `defineAction`, com uma excecao nomeada', () => {
     // `defineAction` e o unico lugar que chama `assertCsrf`. Uma acao escrita
     // a mao com `export async function` num arquivo `'use server'` seria

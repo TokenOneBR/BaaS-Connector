@@ -37,10 +37,43 @@ export const COOKIES = {
  * funcionar. Um POST vindo de outro site nao carrega o cookie, entao o
  * atacante nao consegue nem LER o valor para eco-lo.
  */
+/**
+ * `Secure` vem do ESQUEMA da URL publica, e nao de `NODE_ENV`.
+ *
+ * A versao anterior usava `NODE_ENV === 'production'`, e isso torna o console
+ * INUTILIZAVEL num deploy HTTP: a imagem roda com `NODE_ENV=production`, o
+ * cookie sai com `Secure`, e o navegador RECUSA cookie `Secure` em conexao
+ * HTTP. O sintoma engana — o login parece funcionar e o painel aparece uma
+ * vez, porque o Server Action grava no store da requisicao e o redirect
+ * renderiza server-side com esse valor em memoria; a navegacao seguinte
+ * chega sem cookie e volta para o login. Nada no log diz por que.
+ *
+ * `PUBLIC_URL` e a unica fonte que sabe como o site e ALCANCADO — e a mesma
+ * que a API ja usa para montar o link de webhook. Um deploy atras de proxy
+ * HTTPS a declara `https://` e ganha `Secure`; um teste em HTTP a declara
+ * `http://` e o console funciona.
+ *
+ * Ausente, o padrao e o comportamento antigo: `Secure` em producao. Falha
+ * FECHADO — quem nao configurou nao perde a flag por omissao.
+ */
+const PUBLIC_URL = process.env.PUBLIC_URL ?? process.env.CONSOLE_ORIGIN;
+
+const COOKIES_SEGUROS = PUBLIC_URL
+  ? PUBLIC_URL.startsWith('https://')
+  : process.env.NODE_ENV === 'production';
+
+if (PUBLIC_URL && !COOKIES_SEGUROS && process.env.NODE_ENV === 'production') {
+  console.warn(
+    `[console] PUBLIC_URL=${PUBLIC_URL} nao e HTTPS: os cookies de sessao vao SEM ` +
+      `a flag Secure, e a sessao viaja em claro. Aceitavel para teste; ` +
+      `aponte um dominio com TLS antes de cadastrar credencial real.`,
+  );
+}
+
 export function tokenCookieOptions(maxAgeSeconds: number) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: COOKIES_SEGUROS,
     sameSite: 'lax' as const,
     path: '/',
     maxAge: maxAgeSeconds,
@@ -50,7 +83,7 @@ export function tokenCookieOptions(maxAgeSeconds: number) {
 export function csrfCookieOptions() {
   return {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: COOKIES_SEGUROS,
     sameSite: 'strict' as const,
     path: '/',
   };
