@@ -154,7 +154,15 @@ jobs:
           # linhas por CVE em moldura ASCII, e o que interessa — QUAL binario,
           # em que versao, e para qual versao subir — fica espremido numa
           # coluna que a janela de log corta. Uma linha por achado cabe.
-          modelo='{{ range .Results }}{{ if .Vulnerabilities }}== {{ .Target }} ({{ .Type }}){{ "\n" }}{{ range .Vulnerabilities }}{{ .Severity }} {{ .VulnerabilityID }} {{ .PkgName }} {{ .InstalledVersion }} -> {{ .FixedVersion }}{{ "\n" }}{{ end }}{{ end }}{{ end }}'
+          #
+          # `range .` e NAO `range .Results`: o contexto de topo que o trivy
+          # entrega ao template ja E o slice `types.Results`. Com `.Results`
+          # o template falha ao AVALIAR — "can't evaluate field Results in
+          # type types.Results" — e o passo sai com 1 sem ter olhado uma
+          # vulnerabilidade sequer. Como este passo e o gate, o resultado era
+          # cinco jobs vermelhos que pareciam achado de seguranca e eram um
+          # erro de template.
+          modelo='{{ range . }}{{ if .Vulnerabilities }}== {{ .Target }} ({{ .Type }}){{ "\n" }}{{ range .Vulnerabilities }}{{ .Severity }} {{ .VulnerabilityID }} {{ .PkgName }} {{ .InstalledVersion }} -> {{ .FixedVersion }}{{ "\n" }}{{ end }}{{ end }}{{ end }}'
           # shellcheck disable=SC2086
           docker run $comum \
             -v "$PWD/.trivy-cache:/root/.cache/trivy" \
