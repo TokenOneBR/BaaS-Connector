@@ -40,6 +40,27 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 usermod -aG docker ec2-user || true
 
+# --- swap -----------------------------------------------------------------
+#
+# O compose CONSTROI as cinco imagens nesta maquina. O build do Next.js e o
+# pico de memoria, e numa t4g.medium (4 GB) ele passa perto do limite: sem
+# swap, o kernel mata o processo e o boot falha com um erro que nao diz que
+# faltou memoria. 4 GB de swap custam disco, que e barato, e removem a classe
+# inteira de falha.
+#
+# Com imagens ja prontas num registry, isto seria desnecessario.
+
+if [ ! -f /swapfile ]; then
+  fallocate -l 4G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=4096
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  # O padrao 60 troca cedo demais para um servidor; 10 usa o swap como rede de
+  # seguranca do build sem penalizar o runtime depois.
+  sysctl -w vm.swappiness=10
+fi
+
 install -d -o ec2-user -g ec2-user /opt/baas
 sudo -u ec2-user git clone --depth 1 --branch "$BRANCH" "$REPO" /opt/baas/app
 cd /opt/baas/app
