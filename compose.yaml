@@ -69,6 +69,13 @@ services:
       DATABASE_URL: postgresql://baas:baas@postgres:5432/baas?schema=public
       KMS_MASTER_SECRET: ${KMS_MASTER_SECRET:-troque-este-segredo-mestre-de-desenvolvimento}
       SEED_MOCK_BANK_URL: http://mock-bank:3002
+      # Usuario OPERATOR sem segundo fator, para testar sem autenticador.
+      # `false` por padrao: o par padrao e `admin@admin.com` / `admin`, e
+      # liga-lo num host alcancavel da internet entrega o console a um bot.
+      # Ligue com SEED_DEV_OPERATOR=true no `.env` — nunca em producao.
+      SEED_DEV_OPERATOR: ${SEED_DEV_OPERATOR:-false}
+      SEED_DEV_OPERATOR_EMAIL: ${SEED_DEV_OPERATOR_EMAIL:-admin@admin.com}
+      SEED_DEV_OPERATOR_PASSWORD: ${SEED_DEV_OPERATOR_PASSWORD:-admin}
     depends_on:
       migrate: { condition: service_completed_successfully }
     restart: 'no'

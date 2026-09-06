@@ -55,6 +55,25 @@ const EMAIL = process.env.SEED_EMAIL ?? 'admin@local.test';
 const SENHA = process.env.SEED_PASSWORD ?? 'baas-connector-demo';
 const MOCK_BANK_URL = process.env.SEED_MOCK_BANK_URL ?? 'http://mock-bank:3002';
 
+/**
+ * Segundo usuario, SEM segundo fator, para testar sem autenticador.
+ *
+ * DESLIGADO por padrao, e a razao nao e cerimonia: o padrao aqui e
+ * `admin@admin.com` / `admin`, que e o par de credenciais mais varrido por
+ * bot que existe. Num ambiente alcancavel da internet, liga-lo por descuido
+ * entrega o console.
+ *
+ * Ele nasce OPERATOR, e nao ADMIN, porque `MFA_REQUIRED_ROLES` exige segundo
+ * fator de OWNER e ADMIN por regra de PAPEL — a flag `mfaEnabled` nao
+ * desliga isso. Um login sem 2FA so existe abaixo desse nivel, e essa e
+ * exatamente a protecao de quem pode gravar credencial de provedor e cunhar
+ * API key. OPERATOR alcanca todo o fluxo de teste: contas, transacoes,
+ * extrato, razao, conciliacao em leitura e a tela do Mock Bank.
+ */
+const OPERADOR_ATIVO = process.env.SEED_DEV_OPERATOR === 'true';
+const OPERADOR_EMAIL = process.env.SEED_DEV_OPERATOR_EMAIL ?? 'admin@admin.com';
+const OPERADOR_SENHA = process.env.SEED_DEV_OPERATOR_PASSWORD ?? 'admin';
+
 /** Os escopos que o fluxo dourado exercita. Nada alem. */
 const ESCOPOS = [
   'accounts:read',
@@ -120,6 +139,33 @@ async function main(): Promise<void> {
       },
     });
     linhas.push(`Usuario ${EMAIL} criado (OWNER).`);
+  }
+
+  // ------------------------------------------------------- operador sem 2FA
+  if (OPERADOR_ATIVO) {
+    const hash = await hashSecret(OPERADOR_SENHA);
+    const dados = {
+      passwordHash: hash,
+      role: 'OPERATOR' as const,
+      mfaEnabled: false,
+      status: 'ACTIVE',
+    };
+
+    // `upsert` e nao o ramo "preserva se existe" do usuario OWNER acima: la a
+    // senha e do operador e sobrescreve-la seria perder acesso; aqui a senha
+    // vem de variavel de ambiente, entao reexecutar o seed depois de trocar
+    // SEED_DEV_OPERATOR_PASSWORD tem que aplicar a troca.
+    await prisma.consoleUser.upsert({
+      where: { email: OPERADOR_EMAIL },
+      update: dados,
+      create: {
+        id: newId('user'),
+        email: OPERADOR_EMAIL,
+        name: 'Operador de teste',
+        ...dados,
+      },
+    });
+    linhas.push(`Usuario ${OPERADOR_EMAIL} criado/atualizado (OPERATOR, sem 2FA).`);
   }
 
   // ---------------------------------------------------------------- conexao
@@ -218,6 +264,19 @@ async function main(): Promise<void> {
   console.warn(`\n  CONSOLE   http://localhost:3000`);
   console.warn(`  e-mail    ${EMAIL}`);
   console.warn(`  senha     ${SENHA}`);
+
+  if (OPERADOR_ATIVO) {
+    console.warn(`\n  Ou, SEM segundo fator (OPERATOR):`);
+    console.warn(`  e-mail    ${OPERADOR_EMAIL}`);
+    console.warn(`  senha     ${OPERADOR_SENHA}`);
+    console.warn(
+      `\n  Este usuario NAO cria conexao de provedor nem cunha API key —\n` +
+        `  para isso entre com ${EMAIL}.`,
+    );
+    console.warn(
+      `  Se este ambiente for alcancavel da internet, desligue-o:\n` + `  SEED_DEV_OPERATOR=false`,
+    );
+  }
 
   if (segredoTotp) {
     const base32 = encodeBase32(segredoTotp);
