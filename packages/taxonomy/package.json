@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/taxonomy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vocabulario canonico do BaaS Connector: enums, dinheiro, identificadores, maquinas de estado, erros e utilitarios brasileiros",
   "license": "Apache-2.0",
   "type": "module",

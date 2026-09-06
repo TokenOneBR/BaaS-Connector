@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/crypto",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Envelope encryption com drivers KMS plugaveis, blind index e hash de segredo",
   "license": "Apache-2.0",
   "type": "module",

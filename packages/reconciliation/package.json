@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/reconciliation",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Motor de conciliacao em tres vias: provedor, registros canonicos e razao sombra",
   "license": "Apache-2.0",
   "type": "module",

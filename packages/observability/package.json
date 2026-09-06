@@ -1,6 +1,6 @@
 {
   "name": "@baasconn/observability",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bootstrap compartilhado de log com redacao, tracing OpenTelemetry e metricas Prometheus",
   "license": "Apache-2.0",
   "type": "module",
