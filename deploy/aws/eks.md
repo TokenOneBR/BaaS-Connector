@@ -11,6 +11,23 @@ Guia de ponta a ponta para pôr o BaaS Connector num cluster EKS. Escrito para
 > [abra uma issue](https://github.com/TokenOneBR/BaaS-Connector/issues) com o
 > log; é a informação que falta.
 
+## O caminho curto
+
+Os nove passos abaixo estão num script. Se você só quer o produto no ar:
+
+```bash
+./deploy/aws/eks-up.sh      # cria tudo e imprime as credenciais
+./deploy/aws/eks-down.sh    # apaga tudo (não é opcional — ver Custo)
+```
+
+Ele pede confirmação antes de criar qualquer coisa cobrada, é idempotente
+(rodar de novo reaproveita cluster e segredos, e faz `helm upgrade`), e falha
+com uma mensagem útil se as imagens do GHCR estiverem privadas. Variáveis:
+`REGIAO`, `CLUSTER`, `TAG`, `TIPO_NO`, `NOS`, `GHCR_USER`, `GHCR_TOKEN`.
+
+O resto desta página é o mesmo caminho passo a passo, para quando você quiser
+entender ou ajustar algum pedaço.
+
 ## Antes de começar
 
 Na sua máquina: `aws` (autenticado), `eksctl`, `kubectl` e `helm`.
@@ -144,6 +161,7 @@ kubectl create namespace baas
 
 helm install baas deploy/helm/baas-connector \
   --namespace baas \
+  --set fullnameOverride=baas \
   --set image.tag=main \
   --set postgresql.enabled=true \
   --set postgresql.auth.username=baas \
@@ -165,7 +183,12 @@ helm install baas deploy/helm/baas-connector \
   --wait --timeout 15m
 ```
 
-Três escolhas aí merecem explicação:
+Quatro escolhas aí merecem explicação:
+
+- **`fullnameOverride=baas`** não é cosmético. O helper monta o nome como
+  `<release>-<nome do chart>`, então sem ele os recursos nascem
+  `baas-baas-connector-api` e todo comando `kubectl` desta página falharia com
+  `NotFound`. Com ele, os nomes são os que aparecem aqui.
 
 - **`seed.enabled=true`** é o que torna o cluster utilizável. Sem ele as
   migrations criam as tabelas, `console_user` fica vazia, e como não existe

@@ -148,3 +148,18 @@ promovê-lo:
 - **Uma instância só.** Sem alta disponibilidade, sem rollout sem downtime.
 - **Sem observabilidade.** Adicione com
   `-f compose.observability.yaml` se quiser Prometheus, Grafana e Jaeger.
+
+---
+
+## Prefere Kubernetes?
+
+Há um caminho de EKS, com script de um comando:
+
+```bash
+./deploy/aws/eks-up.sh      # cria o cluster e sobe tudo
+./deploy/aws/eks-down.sh    # apaga (~US$ 4,60/dia enquanto existir)
+```
+
+Detalhes e o passo a passo manual em [`eks.md`](eks.md). Custa ~13× mais que
+esta EC2 (~US$ 138/mês contra ~US$ 12) e vale quando o objetivo é exercitar o
+Kubernetes em si, não ver o produto funcionando.
