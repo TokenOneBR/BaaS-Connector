@@ -75,7 +75,9 @@ services:
       # Ligue com SEED_DEV_OPERATOR=true no `.env` — nunca em producao.
       SEED_DEV_OPERATOR: ${SEED_DEV_OPERATOR:-false}
       SEED_DEV_OPERATOR_EMAIL: ${SEED_DEV_OPERATOR_EMAIL:-admin@admin.com}
-      SEED_DEV_OPERATOR_PASSWORD: ${SEED_DEV_OPERATOR_PASSWORD:-admin}
+      # Minimo 8 caracteres: `zLogin` exige `password.min(8)` e uma senha
+      # menor e recusada na validacao, antes de tocar o banco.
+      SEED_DEV_OPERATOR_PASSWORD: ${SEED_DEV_OPERATOR_PASSWORD:-admin123}
     depends_on:
       migrate: { condition: service_completed_successfully }
     restart: 'no'

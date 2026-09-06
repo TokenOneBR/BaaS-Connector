@@ -72,7 +72,14 @@ const MOCK_BANK_URL = process.env.SEED_MOCK_BANK_URL ?? 'http://mock-bank:3002';
  */
 const OPERADOR_ATIVO = process.env.SEED_DEV_OPERATOR === 'true';
 const OPERADOR_EMAIL = process.env.SEED_DEV_OPERATOR_EMAIL ?? 'admin@admin.com';
-const OPERADOR_SENHA = process.env.SEED_DEV_OPERATOR_PASSWORD ?? 'admin';
+/**
+ * `admin123`, e nao `admin`: `zLogin` exige `password.min(8)`, entao uma
+ * senha de 5 caracteres e recusada como ERRO DE VALIDACAO antes de qualquer
+ * consulta ao banco — o usuario existiria e nunca conseguiria entrar. O
+ * console ainda traduz esse 422 para "E-mail ou senha invalidos", que aponta
+ * para o lugar errado.
+ */
+const OPERADOR_SENHA = process.env.SEED_DEV_OPERATOR_PASSWORD ?? 'admin123';
 
 /** Os escopos que o fluxo dourado exercita. Nada alem. */
 const ESCOPOS = [
