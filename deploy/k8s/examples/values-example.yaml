@@ -21,6 +21,12 @@ web:
 mockBank:
   enabled: true
 
+# Habilitado no exemplo pelo mesmo motivo do Mock Bank: para o Job aparecer
+# renderizado e passar pelo kubeconform. Num cluster de verdade, ligar isto e
+# uma decisao — ver o comentario em `values.yaml`.
+seed:
+  enabled: true
+
 config:
   publicBaseUrl: https://api.example.com
   consoleOrigin: https://console.example.com
@@ -34,6 +40,7 @@ secrets:
   jwtPublicKey: SUBSTITUA-POR-A-CHAVE-PUBLICA-SPKI
   kmsMasterSecret: substitua-este-segredo-mestre-de-exemplo
   blindIndexPepper: substitua-este-pepper-com-ao-menos-32-caracteres
+  seedPassword: substitua-esta-senha-do-primeiro-usuario
 
 # `local` so no exemplo. A API SE RECUSA a subir com ele em producao.
 kms:

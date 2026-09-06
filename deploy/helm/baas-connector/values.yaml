@@ -65,6 +65,30 @@ mockBank:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { memory: 512Mi }
 
+# --- Seed de bootstrap -----------------------------------------------------
+
+seed:
+  # DESABILITADO por padrao, e a razao nao e conveniencia.
+  #
+  # Sem seed, uma instalacao limpa e INUTILIZAVEL: as migrations criam as
+  # tabelas, `console_user` fica vazia, e nao existe rota de cadastro nem
+  # enrolamento de TOTP — ninguem consegue entrar no console. Com seed, nasce
+  # um usuario OWNER com senha que VOCE define.
+  #
+  # Fica desligado porque habilitar sem pensar num cluster alcancavel da
+  # internet publica um console com usuario conhecido. Ligue de proposito.
+  enabled: false
+  email: admin@local.test
+  # A URL do Mock Bank para a conexao semeada. Vazio resolve para o Service
+  # do proprio release; so preencha para apontar para outro lugar.
+  mockBankUrl: ''
+  # Uma tentativa extra, ao contrario da migracao: o modo de falha comum aqui
+  # e o banco ainda nao aceitar conexao, e nao um estado meio-aplicado.
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
 # --- Migracao --------------------------------------------------------------
 
 migrations:
@@ -109,6 +133,10 @@ secrets:
   jwtPublicKey: ''
   kmsMasterSecret: ''
   blindIndexPepper: ''
+  # Senha do primeiro usuario do console. Obrigatoria quando `seed.enabled`.
+  # Nao ha valor padrao de proposito: um padrao conhecido num console
+  # alcancavel da internet e uma porta aberta com o nome escrito nela.
+  seedPassword: ''
 
 kms:
   # Os valores que a API ACEITA, e nao os apelidos: `local`, `aws-kms`,

@@ -1,5 +1,8 @@
 # Subir na AWS para testar
 
+> Procurando Kubernetes? O passo a passo de EKS esta em [`eks.md`](eks.md).
+> Custa ~US$ 160/mes contra ~US$ 12 deste guia.
+
 Uma instância EC2 rodando o Compose inteiro — Postgres, Redis, API, worker,
 console e Mock Bank. Custa **~US$ 12/mês** ligada full-time, ou **~US$ 0,02/h**
 se você ligar só para testar e desligar depois.

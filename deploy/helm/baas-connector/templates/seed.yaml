@@ -1,0 +1,75 @@
+{{- if .Values.seed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "baas.fullname" . }}-seed
+  labels:
+    {{- include "baas.labels" . | nindent 4 }}
+    app.kubernetes.io/component: seed
+  annotations:
+    # `post-install,post-upgrade`, e nao `pre-*`: o seed ESCREVE em tabelas que
+    # a migracao acabou de criar. O hook de migracao tem peso -5; este roda
+    # depois de os pods novos estarem de pe, entao a ordem fica garantida sem
+    # depender de peso relativo entre dois hooks de fases diferentes.
+    #
+    # Roda tambem no upgrade de proposito: o seed e IDEMPOTENTE (nao duplica
+    # usuario, nao troca senha de quem ja existe), e um seed que so roda no
+    # install deixa um cluster sem console para sempre se a primeira execucao
+    # falhar.
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: '5'
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  # Uma tentativa extra, ao contrario da migracao: aqui o modo de falha comum e
+  # o banco ainda nao aceitar conexao, e nao um estado meio-aplicado.
+  backoffLimit: {{ .Values.seed.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.seed.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "baas.labels" . | nindent 8 }}
+        app.kubernetes.io/component: seed
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "baas.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        {{- include "baas.tmpVolume" . | nindent 8 }}
+      containers:
+        - name: seed
+          # A MESMA imagem da migracao: ela ja carrega `packages/` inteiro e o
+          # `tsx` na raiz, que e o que o seed precisa. Uma imagem propria so
+          # para isto seria mais um artefato para construir, assinar e escanear.
+          image: {{ include "baas.image" (dict "Values" .Values "Chart" .Chart "component" "migrate") }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['node_modules/.bin/tsx', 'packages/db/prisma/seed.ts']
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: {{ include "baas.secretName" . }}, key: DATABASE_URL }
+            # O segredo TOTP do primeiro usuario e cifrado com a MESMA
+            # EnvelopeCrypto que a API usa para decifra-lo. Sem esta variavel o
+            # seed grava um segredo que a API nao consegue ler, e o login falha
+            # no segundo fator sem dizer por que.
+            - name: KMS_MASTER_SECRET
+              valueFrom:
+                secretKeyRef: { name: {{ include "baas.secretName" . }}, key: KMS_MASTER_SECRET }
+            - name: SEED_EMAIL
+              value: {{ .Values.seed.email | quote }}
+            - name: SEED_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: {{ include "baas.secretName" . }}, key: SEED_PASSWORD }
+            - name: SEED_MOCK_BANK_URL
+              value: {{ .Values.seed.mockBankUrl | default (printf "http://%s-mock-bank:%d" (include "baas.fullname" .) (int .Values.mockBank.port)) | quote }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            {{- toYaml .Values.seed.resources | nindent 12 }}
+{{- end }}
