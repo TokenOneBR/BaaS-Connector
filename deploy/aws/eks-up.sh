@@ -80,16 +80,23 @@ if ! eksctl get cluster --name "$CLUSTER" --region "$REGIAO" >/dev/null 2>&1; th
   passo "1/8  Confirmacao de custo"
   cat <<AVISO
 
-  Vou criar um cluster EKS em $REGIAO. Isso e cobrado:
+  Vou criar um cluster EKS em $REGIAO. Isso e cobrado.
 
-    control plane EKS ....... ~US\$ 73/mes
-    $NOS nos $TIPO_NO ............ ~US\$ 60/mes
-    volumes EBS ............. ~US\$  5/mes
-                              --------------
-    total ................... ~US\$ 138/mes  (~US\$ 4,60/dia)
+  Precos REAIS de sa-east-1 (Sao Paulo), da API de pricing da AWS:
 
-  Uma EC2 com docker compose faz o mesmo por ~US\$ 12/mes:
-  veja deploy/aws/README.md
+    control plane EKS ....... US\$  73,00/mes   (US\$ 0,10/h, fixo)
+    $NOS nos $TIPO_NO ............ US\$  98,12/mes
+    volumes EBS ............. US\$  11,55/mes
+                              -----------------
+    total ................... US\$ 182,67/mes   (~US\$ 6/dia)
+
+  Se voce mudou REGIAO ou TIPO_NO, os numeros mudam.
+
+  Uma EC2 com docker compose faz o mesmo por ~US\$ 44/mes — 4x mais barato,
+  e o produto e IDENTICO. Veja deploy/aws/README.md
+  Dos US\$ 139 a mais, US\$ 73 sao o control plane: uma taxa que nao roda
+  nenhum pod seu. Voce paga por orquestracao — replicas, self-healing,
+  deploy sem downtime. Para uma copia de cada servico, e caro.
 
   Para desligar depois:  ./deploy/aws/eks-down.sh
 
@@ -293,7 +300,7 @@ $(verde "== Pronto ==")
   injeta credito em conta de cliente. Este cluster nao tem ingress — so o
   port-forward acima — entao por ora ele nao esta exposto.
 
-  $(vermelho "CUSTO") ~US\$ 4,60/dia enquanto existir. Para desligar:
+  $(vermelho "CUSTO") ~US\$ 6/dia enquanto existir. Para desligar:
 
     ./deploy/aws/eks-down.sh
 

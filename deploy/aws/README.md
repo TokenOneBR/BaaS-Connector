@@ -1,11 +1,11 @@
 # Subir na AWS para testar
 
 > Procurando Kubernetes? O passo a passo de EKS esta em [`eks.md`](eks.md).
-> Custa ~US$ 160/mes contra ~US$ 12 deste guia.
+> Custa ~4x mais que este guia — US$ 182,67/mes contra US$ 43,69 em sa-east-1.
 
 Uma instância EC2 rodando o Compose inteiro — Postgres, Redis, API, worker,
-console e Mock Bank. Custa **~US$ 12/mês** ligada full-time, ou **~US$ 0,02/h**
-se você ligar só para testar e desligar depois.
+console e Mock Bank. Custa **~US$ 44/mês** ligada full-time em `sa-east-1`, ou
+**~US$ 0,06/h** se você ligar só para testar e desligar depois.
 
 Para a postura de produção — RDS, ElastiCache, alta disponibilidade — o
 caminho é o chart Helm em `deploy/helm/`. Este aqui é para **testar**.
@@ -60,7 +60,7 @@ qualquer credencial real, aponte um registro `A` para o IP da instância.
 ```bash
 aws ec2 run-instances \
   --image-id resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64 \
-  --instance-type t4g.small \
+  --instance-type t4g.medium \
   --key-name SUA_CHAVE \
   --security-group-ids sg-SEUGRUPO \
   --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=30,VolumeType=gp3}' \
@@ -70,8 +70,13 @@ aws ec2 run-instances \
 
 Com domínio, edite `DOMINIO="..."` no topo do `user-data.sh` antes.
 
-`t4g.small` (2 vCPU ARM, 2 GB) roda o stack confortavelmente com as imagens
-prontas. Se for construir na instância, use `t4g.medium`.
+`t4g.medium` (2 vCPU ARM, 4 GB, US$ 39,13/mês em `sa-east-1`) — e não
+`t4g.small`. O `compose.yaml` **constrói** as cinco imagens na instância a
+partir da fonte, em vez de puxar do GHCR; com 2 GB de RAM o build do Next.js
+morre de OOM. Isso também é o que faz este caminho não depender de os pacotes
+do GHCR serem públicos.
+
+Com as imagens já prontas num registry, `t4g.small` (US$ 19,56/mês) bastaria.
 
 ## 4. Pegar as credenciais
 
@@ -115,7 +120,7 @@ aws ec2 stop-instances --instance-ids i-SEUID     # para de cobrar computação
 aws ec2 start-instances --instance-ids i-SEUID    # o Compose sobe sozinho
 ```
 
-O disco continua sendo cobrado (~US$ 2,40/mês por 30 GB gp3) e os dados
+O disco continua sendo cobrado (US$ 4,56/mês por 30 GB gp3 em sa-east-1) e os dados
 persistem. Para apagar tudo: `terminate-instances`.
 
 ---
@@ -157,9 +162,13 @@ Há um caminho de EKS, com script de um comando:
 
 ```bash
 ./deploy/aws/eks-up.sh      # cria o cluster e sobe tudo
-./deploy/aws/eks-down.sh    # apaga (~US$ 4,60/dia enquanto existir)
+./deploy/aws/eks-down.sh    # apaga (~US$ 6/dia enquanto existir)
 ```
 
-Detalhes e o passo a passo manual em [`eks.md`](eks.md). Custa ~13× mais que
-esta EC2 (~US$ 138/mês contra ~US$ 12) e vale quando o objetivo é exercitar o
-Kubernetes em si, não ver o produto funcionando.
+Detalhes e o passo a passo manual em [`eks.md`](eks.md).
+
+Custa **≈ 4× mais** que esta EC2 — ≈ US$ 182,67/mês contra ≈ US$ 43,69, com
+preços reais de `sa-east-1`. Dos US$ 139 a mais, **US$ 73 são o control plane
+do Kubernetes**, uma taxa fixa que não roda nenhum pod seu; o resto é o
+segundo nó. Vale quando o objetivo é exercitar o Kubernetes em si, ou quando
+outros serviços vão dividir o cluster. O produto é idêntico nos dois.

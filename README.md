@@ -138,14 +138,15 @@ pnpm down    # derruba e apaga os volumes
 
 ### Numa EC2, para testar de qualquer lugar
 
-Uma instância roda o stack inteiro por ~US$ 12/mês — ou ~US$ 0,02/h se você
-ligar só para testar. O `deploy/aws/user-data.sh` sobe tudo no boot, gera os
-segredos na instância e imprime as credenciais.
+Uma instância roda o stack inteiro por ~US$ 44/mês em São Paulo — ou ~US$ 0,06/h
+se você ligar só para testar. O `deploy/aws/user-data.sh` sobe tudo no boot,
+gera os segredos na instância e imprime as credenciais.
 
 Ver [`deploy/aws/README.md`](deploy/aws/README.md). Para Kubernetes, o chart
 Helm e o passo a passo de EKS estao em [`deploy/aws/eks.md`](deploy/aws/eks.md)
-— ~US$ 160/mes contra ~US$ 12 da EC2, entao so vale se voce quer exercitar o
-proprio Kubernetes.
+— US$ 182,67/mes contra US$ 43,69 da EC2 em `sa-east-1`. Dos US$ 139 a mais,
+US$ 73 sao o control plane, que nao roda nenhum pod seu; entao o EKS so vale
+se voce quer exercitar o proprio Kubernetes.
 
 > **O que está e o que não está verificado.** As cinco imagens constroem e
 > publicam no CI, e as migrations e o seed foram exercitados contra um

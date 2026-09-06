@@ -34,18 +34,31 @@ Na sua máquina: `aws` (autenticado), `eksctl`, `kubectl` e `helm`.
 
 **Custo, de frente.** EKS não é barato para teste:
 
-| Item | Por mês |
-|---|---|
-| Control plane EKS (US$ 0,10/h) | ~US$ 73 |
-| 2 nós `t3.medium` | ~US$ 60 |
-| Load balancer, se você expuser publicamente | ~US$ 20 |
-| EBS dos volumes | ~US$ 5 |
-| **Total** | **~US$ 160** |
+Valores de **`sa-east-1` (São Paulo)**, consultados na API de pricing da AWS.
+São Paulo é uma das regiões mais caras — em `us-east-1` isto sai por bem menos.
 
-Uma EC2 com `docker compose` faz o mesmo por ~US$ 12/mês — ver
-[`README.md`](README.md) nesta mesma pasta. Se o objetivo é ver o produto
-funcionando, aquele caminho é 13× mais barato. Este aqui vale quando você
-quer exercitar o Kubernetes em si.
+| Item | US$/mês |
+|---|---|
+| Control plane EKS (US$ 0,10/h) | 73,00 |
+| 2 nós `t3.medium` (US$ 0,0672/h cada) | 98,12 |
+| EBS dos nós (2 × 30 GB gp3, US$ 0,152/GB) | 9,12 |
+| EBS do Postgres + Redis (16 GB) | 2,43 |
+| **Total** | **≈ 182,67** |
+| Load balancer, se expuser publicamente | +24,82 |
+
+Uma EC2 com `docker compose` faz o mesmo por **≈ US$ 43,69/mês** — ver
+[`README.md`](README.md) nesta mesma pasta. **Cerca de 4× mais barato.**
+
+A diferença não é desperdício: dos US$ 139 a mais, **US$ 73 são o control
+plane**, uma taxa fixa que não roda nenhum pod seu — você paga pelos
+servidores de API do Kubernetes e o etcd replicados em três AZs. O resto é o
+segundo nó. Isso compra réplicas, self-healing, deploy sem downtime e
+autoscaling. Para uma cópia de cada serviço, é um gerente de frota
+administrando uma frota de um.
+
+**O produto é idêntico nos dois caminhos.** Mesmas imagens, mesmo Postgres,
+mesmo console. Este aqui vale quando você quer exercitar o Kubernetes em si,
+ou quando outros serviços vão dividir o cluster.
 
 **A seção [Desligar](#desligar) não é opcional.** Um cluster esquecido de pé
 custa ~US$ 5/dia.

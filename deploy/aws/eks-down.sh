@@ -4,7 +4,7 @@
 #
 #   ./deploy/aws/eks-down.sh
 #
-# Enquanto o cluster existe, ele cobra — ~US$ 4,60/dia. Este script nao e
+# Enquanto o cluster existe, ele cobra — ~US$ 6/dia em sa-east-1. Este script nao e
 # opcional no fim de um teste.
 #
 # Ele NAO apaga os segredos em ~/.baas-connector: sao arquivos locais que nao
