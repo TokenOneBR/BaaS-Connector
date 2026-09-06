@@ -31,11 +31,23 @@ jobs:
           --health-timeout 3s --health-retries 10
     env:
       DATABASE_URL: postgresql://baas:baas@127.0.0.1:5432/baas?schema=public
+      # Banco de sombra SEPARADO, e a separacao nao e higiene: o
+      # `migrate diff --from-migrations` REPLICA todas as migrations DENTRO
+      # do banco de sombra para poder comparar. Com a sombra apontando para
+      # `DATABASE_URL`, o passo seguinte — "aplicam num banco limpo" —
+      # encontra as 36 tabelas ja criadas e morre com P3005 em dois
+      # segundos. Reproduzido com Postgres real, nao inferido.
+      SHADOW_DATABASE_URL: postgresql://baas:baas@127.0.0.1:5432/baas_shadow?schema=public
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         # Historico completo: a checagem de imutabilidade compara com a base.
         with: { fetch-depth: 0 }
       - uses: ./.github/actions/setup
+
+      # O servico do Postgres cria apenas `POSTGRES_DB`. O Prisma escreve
+      # DENTRO do banco de sombra mas nao o cria.
+      - name: Criar o banco de sombra
+        run: psql "$DATABASE_URL" -c 'CREATE DATABASE baas_shadow'
 
       - name: Schema valido
         run: pnpm --filter @baasconn/db exec prisma validate --schema prisma/schema
@@ -51,7 +63,7 @@ jobs:
           pnpm --filter @baasconn/db exec prisma migrate diff \
             --from-migrations prisma/migrations \
             --to-schema-datamodel prisma/schema \
-            --shadow-database-url "$DATABASE_URL" \
+            --shadow-database-url "$SHADOW_DATABASE_URL" \
             --exit-code
 
       - name: Migrations aplicam num banco limpo
