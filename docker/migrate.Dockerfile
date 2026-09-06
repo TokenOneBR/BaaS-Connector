@@ -39,6 +39,16 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
 
+# O `migrate deploy` nao precisa de nada compilado — o CLI do Prisma le o
+# schema direto. O SEED precisa: ele roda por `tsx` e importa `@baasconn/crypto`
+# e `@baasconn/taxonomy`, cujos `package.json` apontam para `dist/`.
+#
+# Sem esta linha a imagem migra o banco e depois morre no seed com
+# `ERR_MODULE_NOT_FOUND: .../@baasconn/crypto/dist/index.js` — em runtime, e
+# so no primeiro deploy de verdade, porque o e2e roda o seed em processo e o
+# CI constroi esta imagem sem nunca a executar.
+RUN pnpm turbo run build --filter=@baasconn/db...
+
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 RUN apt-get update \

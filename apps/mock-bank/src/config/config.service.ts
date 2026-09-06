@@ -13,7 +13,10 @@ export type MockBankStore = 'memory' | 'postgres';
 @Injectable()
 export class MockBankConfig {
   readonly store: MockBankStore = (process.env.MOCK_BANK_STORE as MockBankStore) ?? 'memory';
-  readonly port = Number(process.env.PORT ?? 3002);
+  // `MOCK_BANK_PORT` primeiro: e a variavel que o Dockerfile, o compose e o
+  // chart definem. Ler so `PORT` funcionava por coincidencia — os dois valem
+  // 3002 — e teria ignorado em silencio quem mudasse a documentada.
+  readonly port = Number(process.env.MOCK_BANK_PORT ?? process.env.PORT ?? 3002);
   readonly ispb = process.env.MOCK_BANK_ISPB ?? '99999001';
   readonly bankCode = process.env.MOCK_BANK_CODE ?? '999';
   readonly branch = process.env.MOCK_BANK_BRANCH ?? '0001';
