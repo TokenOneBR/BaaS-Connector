@@ -36,7 +36,7 @@
     "@baasconn/contracts": "workspace:*",
     "@baasconn/crypto": "workspace:*",
     "@baasconn/taxonomy": "workspace:*",
-    "zod": "^3.24.1"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@baasconn/eslint-config": "workspace:*",
