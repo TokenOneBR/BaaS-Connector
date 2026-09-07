@@ -132,8 +132,8 @@ importers:
         specifier: ^7.8.1
         version: 7.8.2
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/eslint-config':
         specifier: workspace:*
@@ -251,8 +251,8 @@ importers:
         specifier: ^7.2.0
         version: 7.29.0
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/eslint-config':
         specifier: workspace:*
@@ -561,8 +561,8 @@ importers:
         specifier: workspace:*
         version: link:../../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/conformance':
         specifier: workspace:*
@@ -598,8 +598,8 @@ importers:
         specifier: workspace:*
         version: link:../../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/conformance':
         specifier: workspace:*
@@ -635,8 +635,8 @@ importers:
         specifier: workspace:*
         version: link:../../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/conformance':
         specifier: workspace:*
@@ -672,8 +672,8 @@ importers:
         specifier: workspace:*
         version: link:../../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/conformance':
         specifier: workspace:*
@@ -709,8 +709,8 @@ importers:
         specifier: workspace:*
         version: link:../../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/conformance':
         specifier: workspace:*
@@ -746,8 +746,8 @@ importers:
         specifier: workspace:*
         version: link:../../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/conformance':
         specifier: workspace:*
@@ -786,8 +786,8 @@ importers:
         specifier: workspace:*
         version: link:../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/tsconfig':
         specifier: workspace:*
@@ -811,11 +811,11 @@ importers:
         specifier: workspace:*
         version: link:../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
       zod-to-json-schema:
         specifier: ^3.25.2
-        version: 3.25.2(zod@3.25.76)
+        version: 3.25.2(zod@4.5.4)
     devDependencies:
       '@baasconn/tsconfig':
         specifier: workspace:*
@@ -963,8 +963,8 @@ importers:
         specifier: workspace:*
         version: link:../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/tsconfig':
         specifier: workspace:*
@@ -1022,8 +1022,8 @@ importers:
         specifier: workspace:*
         version: link:../taxonomy
       zod:
-        specifier: ^3.24.1
-        version: 3.25.76
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@baasconn/eslint-config':
         specifier: workspace:*
@@ -9318,8 +9318,8 @@ packages:
     peerDependencies:
       zod: ^3.25.28 || ^4
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.5.4:
+    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -19037,10 +19037,10 @@ snapshots:
 
   yocto-queue@1.2.2: {}
 
-  zod-to-json-schema@3.25.2(zod@3.25.76):
+  zod-to-json-schema@3.25.2(zod@4.5.4):
     dependencies:
-      zod: 3.25.76
+      zod: 4.5.4
 
-  zod@3.25.76: {}
+  zod@4.5.4: {}
 
   zwitch@2.0.4: {}
