@@ -24,7 +24,7 @@ jobs:
     outputs:
       adapters: ${{ steps.listar.outputs.adapters }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: listar
         run: |
           adapters=$(ls -1 packages/adapters | jq -R . | jq -s -c .)
@@ -44,7 +44,7 @@ jobs:
       matrix:
         adapter: ${{ fromJson(needs.descobrir.outputs.adapters) }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: pnpm build --filter=@baasconn/adapter-${{ matrix.adapter }}...
       - run: pnpm --filter @baasconn/adapter-${{ matrix.adapter }} test:conformance
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read }
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       # Recusa CPF/CNPJ com digito verificador VALIDO, string em formato JWT,
       # bloco PEM e prefixo de chave conhecido. Uma fixture gravada contra
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read }
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: pnpm build
       - run: pnpm gen:capability-matrix

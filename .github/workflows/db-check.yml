@@ -32,7 +32,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://baas:baas@127.0.0.1:5432/baas?schema=public
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # Historico completo: a checagem de imutabilidade compara com a base.
         with: { fetch-depth: 0 }
       - uses: ./.github/actions/setup
@@ -106,7 +106,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://baas:baas@127.0.0.1:5432/baas?schema=public
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - uses: ./.github/actions/setup
 
