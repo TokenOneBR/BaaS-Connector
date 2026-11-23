@@ -9,7 +9,7 @@
     "./react": "./react.ts"
   },
   "devDependencies": {
-    "unplugin-swc": "^1.5.1",
+    "unplugin-swc": "^2.0.0",
     "vitest": "^2.1.8"
   }
 }
